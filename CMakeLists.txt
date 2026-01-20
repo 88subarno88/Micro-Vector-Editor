@@ -20,13 +20,15 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 set(SOURCES
     src/main.cpp
     src/core/GraphicsObject.cpp
-    src/core/Circle.cpp             
+    src/core/Circle.cpp   
+    src/core/Rectangle.cpp           
 )
 
 # List all header files 
 set(HEADERS
     include/core/GraphicsObject.h
-    include/core/Circle.h           
+    include/core/Circle.h  
+    include/core/Rectangle.h          
 )
 
 # Create the executable
