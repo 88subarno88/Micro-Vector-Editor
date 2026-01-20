@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find Qt6 packages
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 
-# Enable automatic MOC (Meta-Object Compiler) for Qt
+# Enabling automatic Meta-Object Compiler for Qt
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
@@ -20,11 +20,13 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 set(SOURCES
     src/main.cpp
     src/core/GraphicsObject.cpp
+    src/core/Circle.cpp             
 )
 
 # List all header files 
 set(HEADERS
     include/core/GraphicsObject.h
+    include/core/Circle.h           
 )
 
 # Create the executable
