@@ -66,9 +66,6 @@ public:
     std::string getStrokeColor() const { return strokecolor_; }
     std::string getFillColor() const { return fillcolor_; }
     double getStrokeWidth() const { return strokewidth_; }
-    
-
-    //SELECTORS
     bool isSelected() const { return isselected_; }
 
     //Check if point(x,y) inside the shape

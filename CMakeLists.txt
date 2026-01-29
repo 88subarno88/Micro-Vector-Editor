@@ -21,14 +21,25 @@ set(SOURCES
     src/main.cpp
     src/core/GraphicsObject.cpp
     src/core/Circle.cpp   
-    src/core/Rectangle.cpp           
+    src/core/Rectangle.cpp    
+    src/core/Line.cpp
+    src/core/RoundedRectangle.cpp  
+    src/core/Hexagon.cpp  
+    src/core/Text.cpp   
+    src/core/FreehandSketch.cpp
 )
 
 # List all header files 
 set(HEADERS
     include/core/GraphicsObject.h
     include/core/Circle.h  
-    include/core/Rectangle.h          
+    include/core/Rectangle.h  
+    include/core/Line.h
+    include/core/RoundedRectangle.h
+    include/core/Hexagon.h
+    include/core/Text.h
+    include/core/FreehandSketch.h
+            
 )
 
 # Create the executable
