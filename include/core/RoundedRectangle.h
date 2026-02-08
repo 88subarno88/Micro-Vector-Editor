@@ -47,6 +47,7 @@ public:
     
     // Set corner radius
     void setCornerRadius(double radius);
+    void move(double dx, double dy) override;
 };
 
 #endif  // ROUNDED_RECTANGLE_H

@@ -22,6 +22,7 @@ class Rectangle : public GraphicsObject{
     
     // Implement pure virtual functions from GraphicsObject
     void draw(QPainter* painter) override;
+    void move(double dx, double dy) override;
     std::string toSVG() const override;
     std::unique_ptr<GraphicsObject> clone() const override;
     std::string getType() const override;

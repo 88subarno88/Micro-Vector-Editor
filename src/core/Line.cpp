@@ -1,7 +1,16 @@
 #include "core/Line.h"
 #include <sstream>
 #include <cmath>
+#include <iostream>
 #include <algorithm>
+
+//Qt includes
+#include <QPainter>
+#include <QPen>
+#include <QBrush>
+#include <QColor>
+#include <QPointF>
+
 /**
  * Line class 
  * ------- represents a line segment
@@ -14,7 +23,19 @@ Line::Line(double x1, double y1, double x2, double y2):
 // Destructor
 Line::~Line() {}
 // Drawing the line using QPainter
-void Line::draw(QPainter* painter) {(void)painter; }
+void Line::draw(QPainter* painter) {
+    if (!painter) return;
+
+    QColor sColor(QString::fromStdString(getStrokeColor()));
+    QPen pen(sColor);
+
+    pen.setWidthF(getStrokeWidth());
+    painter->setPen(pen);
+    
+    // Lines don't usually have a "fill", so we ignore brush
+    painter->drawLine(QPointF(x1_, y1_), QPointF(x2_, y2_));
+}
+
 /**
  * Convert line to SVG format. It returns <line x1="..." y1="..." x2="..." y2="..." stroke="..." />
  */
@@ -64,7 +85,7 @@ void Line::setEndPoint(double x, double y) {
  */
 bool Line::contains(double x, double y) const {
     // Tolerance for hit detection in px , let assume our fault tolerance is 4px
-    const double tolerance =4.0;
+    const double tolerance =25.0;
     // squared Length of line segment 
     double lengthSquared = (x2_- x1_)*(x2_- x1_) + (y2_-y1_)*(y2_-y1_);
     // If line length ==0, check distance to point
@@ -95,3 +116,27 @@ void Line::updateBoundingBox() {
     // Set bounding box
     setX(minX); setY(minY); setWidth(maxX -minX); setHeight(maxY -minY);
 }
+
+// In src/core/Line.cpp
+
+void Line::move(double dx, double dy) {
+    // DEBUG PRINT
+    std::cout << "Line is Moving! dx=" << dx << " dy=" << dy << std::endl; 
+
+    x1_ += dx;
+    y1_ += dy;
+    x2_ += dx;
+    y2_ += dy;
+    GraphicsObject::move(dx, dy);
+}
+
+// bool Line::contains(double x, double y) const {
+//     // ... existing math ...
+    
+//     // Check if we found it
+//     if (distance <= tolerance) {
+//         std::cout << "Clicked the Line!" << std::endl; // DEBUG PRINT
+//         return true;
+//     }
+//     return false;
+// }

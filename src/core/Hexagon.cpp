@@ -2,6 +2,14 @@
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+
+//Qt includes
+#include <QPainter>
+#include <QPen>
+#include <QBrush>
+#include <QColor>
+#include <QPointF>
+
 /**
  * Hexagon class 
  * ------- represents a Hexagonal shape
@@ -24,7 +32,25 @@ Hexagon::Hexagon(double centerX, double centerY, double radius)
 Hexagon::~Hexagon() {}
 // Drawing the hexagon using QPainter.
 void Hexagon::draw(QPainter* painter) {
-    (void)painter;  // Suppress unused parameter warning
+    if (!painter) return;
+
+    QPen pen{QColor(QString::fromStdString(getStrokeColor()))};
+    pen.setWidthF(getStrokeWidth());
+    painter->setPen(pen);
+
+    painter->setBrush(QBrush(QColor(QString::fromStdString(getFillColor()))));
+
+    // 6 points calculation
+    QPolygonF points;
+    for (int i = 0; i < 6; ++i) {
+        double angle = (M_PI / 3.0) * i;
+        
+        double px = center_x_ + radius_ * std::cos(angle);
+        double py = center_y_ + radius_ * std::sin(angle);
+        
+        points << QPointF(px, py);
+    }
+    painter->drawPolygon(points);
 }
 /**
  * Convert hexagon to SVG format.
@@ -105,4 +131,13 @@ bool Hexagon::contains(double x, double y) const {
     double radius_squared = radius_ * radius_;
     
     return distance_squared <= radius_squared;
+}
+
+void Hexagon::move(double dx, double dy) {
+    // 1. Move the center
+    center_x_+=dx;
+    center_y_+=dy;
+
+    // 2. Update the bounding box
+    GraphicsObject::move(dx, dy);
 }

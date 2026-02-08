@@ -34,6 +34,7 @@ public:
     void setCenterY(double y);
     void setRadius(double r);
     void setCenter(double x, double y);
+    void move(double dx, double dy) override;
 
      // Circle-specific getters
     double getCenterX() const { return center_x_; }

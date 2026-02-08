@@ -1,6 +1,14 @@
 #include "core/Rectangle.h"
 #include <sstream>
 
+
+//Qt includes
+#include <QPainter>
+#include <QPen>
+#include <QBrush>
+#include <QColor>
+#include <QPointF>
+
 /**
  * Rectangle class 
  * ------- represents a rectangular shape
@@ -15,7 +23,25 @@ Rectangle::~Rectangle(){}
 
 // Drawing the rectangle using QPainter
 void Rectangle::draw(QPainter* painter) {
-    (void)painter; 
+    if (!painter) return;
+
+    // setup for  Stroke -->Pen
+    // convert std::string (example "red") to Qt's QColor
+    QColor sColor(QString::fromStdString(getStrokeColor()));
+    QPen pen(sColor);
+    
+    // using Qt's setWidthF  precise double-precision width
+    pen.setWidthF(getStrokeWidth());
+    painter->setPen(pen);
+
+    // setup for Fill -->Brush
+    QString fillColorStr = QString::fromStdString(getFillColor());
+    painter->setBrush(QBrush(QColor(fillColorStr)));
+
+    // drawingthe Rectangle
+    // using Qt's setWidthF  precise double-precision width
+    // drawRect(x, y, width, height) of Qt Framework
+    painter->drawRect(QRectF(getX(), getY(), getWidth(), getHeight()));
 }
 
 /**
@@ -54,4 +80,8 @@ std::unique_ptr<GraphicsObject> Rectangle::clone() const {
 // Get type, here "Rectangle"
 std::string Rectangle::getType() const {
     return "Rectangle";
+}
+
+void Rectangle::move(double dx, double dy) {
+    GraphicsObject::move(dx, dy); 
 }

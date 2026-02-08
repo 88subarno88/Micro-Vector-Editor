@@ -27,6 +27,11 @@ set(SOURCES
     src/core/Hexagon.cpp  
     src/core/Text.cpp   
     src/core/FreehandSketch.cpp
+    src/core/Diagram.cpp
+    src/ui/MainWindow.cpp
+    src/ui/Toolbar.cpp
+    src/ui/Canvas.cpp
+    src/ui/MenuBar.cpp
 )
 
 # List all header files 
@@ -39,6 +44,12 @@ set(HEADERS
     include/core/Hexagon.h
     include/core/Text.h
     include/core/FreehandSketch.h
+    include/core/Diagram.h
+    include/ui/MainWindow.h
+    include/ui/Toolbar.h
+    include/ui/Canvas.h
+    include/ui/MenuBar.h    
+    include/ui/EditorTypes.h
             
 )
 

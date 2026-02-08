@@ -4,12 +4,7 @@
 #include "core/GraphicsObject.h"
 #include <cmath>
 
-/**
- * Hexagon class 
- * ------- represents a hexagonal shape
- * ------- a hexagonal is defined by--->a)Center point (centerX, centerY)
- *                              --->b)Radius
- */
+//A hexagonal shape has been defined by its centre point (centerX, centerY) and radius(distance of centre from any vertex)
 class Hexagon : public GraphicsObject {
 private:
     double center_x_;    // X coordinate of hexagonal center
@@ -18,7 +13,7 @@ private:
 
 public:
     // Constructor
-    Hexagon(double centerX = 0.0, double centerY = 0.0, double radius = 10.0);
+    Hexagon(double centerX=0.0, double centerY=0.0, double radius=10.0);
     
     // Destructor
     virtual ~Hexagon();
@@ -29,19 +24,20 @@ public:
     std::unique_ptr<GraphicsObject> clone() const override;
     std::string getType() const override;
     
-    // Hexagon-specific setters
+    // setters
     void setCenterX(double x);
     void setCenterY(double y);
     void setRadius(double r);
     void setCenter(double x, double y);
+    void move(double dx, double dy) override;
 
-     // Hexagon-specific getters
-    double getCenterX() const { return center_x_; }
-    double getCenterY() const { return center_y_; }
-    double getRadius() const { return radius_; }
+     // getters
+    double getCenterX() const{return center_x_;}
+    double getCenterY() const{return center_y_;}
+    double getRadius() const{return radius_;}
     
     
-    //  Precise circular hit detection
+    //  hit detection (assuming a circle)
     bool contains(double x, double y) const override;
 };
 

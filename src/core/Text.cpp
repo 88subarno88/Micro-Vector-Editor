@@ -22,15 +22,35 @@ Text::Text(double x, double y, std::string content)
     text_ = content;          // Set the text content
     font_size_= 16;           // Default size is 16
     font_family_= "Arial";
-    double width_guess = text_.length()*10;  // Rough guess
+    double width_guess = text_.length()*20;  // Rough guess
     setWidth(width_guess);
-    setHeight(20);
+    setHeight(40);
 }    
 // Destructor
 Text::~Text() {}
+
 // Drawing the text using QPainter.
 void Text::draw(QPainter* painter) {
-    (void)painter;  // Suppress unused parameter warning
+    if (!painter) return;
+
+    // setting up pen 
+    QPen pen{QColor(QString::fromStdString(getStrokeColor()))};
+    painter->setPen(pen);
+
+    //  setup fontsize and style
+    QString family = QString::fromStdString(font_family_);
+    // handling empty font family
+    if (family.isEmpty()) family = "Arial"; 
+    
+    QFont font(family);
+    font.setPointSizeF(font_size_);
+    painter->setFont(font);
+
+    // drawing text ; using bounding box (x,y,w,h) to align text
+    QRectF rect(getX(), getY(), getWidth(), getHeight());
+    
+    // Qt::AlignLeft  and  Qt::AlignTop ensures  that text  starts exactly at x,y
+    painter->drawText(rect, Qt::AlignLeft | Qt::AlignTop, QString::fromStdString(text_));
 }
 /**
  * Convert text to SVG format.
@@ -94,4 +114,8 @@ void Text::setText(const std::string& content) {
     double new_width= content.length()*10;  // Rough guess
     setWidth(new_width);
 
+}
+
+void Text::move(double dx, double dy) {
+    GraphicsObject::move(dx, dy);
 }

@@ -4,14 +4,38 @@
 #include <cmath>
 #include <algorithm>
 
+//Qt includes
+#include <QPainter>
+#include <QPen>
+#include <QBrush>
+#include <QColor>
+#include <QPointF>
+
 FreehandSketch::FreehandSketch(): GraphicsObject(0,0,0,0 ){}      // x, y, width, height
       
 // Destructor
 FreehandSketch::~FreehandSketch() {}
 
-// Drawing the circle using QPainter.
+// Drawing the freehandsketch using QPainter.
 void FreehandSketch::draw(QPainter* painter) {
-    (void)painter;  // Suppress unused parameter warning
+    if (!painter || points_.empty()) return;
+
+    // adding pen for freehandsketch
+    QPen pen{QColor(QString::fromStdString(getStrokeColor()))};
+    pen.setWidthF(getStrokeWidth());
+    painter->setPen(pen);
+    
+    painter->setBrush(Qt::NoBrush); // Transparent fill
+
+    // converting points to Qt points
+    QVector<QPointF> qtPoints;
+    qtPoints.reserve(points_.size());
+    
+    for (const auto& p : points_) {
+        qtPoints.append(QPointF(p.x, p.y));
+    }
+    // drawing the lines
+    painter->drawPolyline(qtPoints);
 }
 
 std::string FreehandSketch::toSVG() const {  
@@ -101,4 +125,13 @@ void FreehandSketch::updateBoundingBox() {
     setY(minY);
     setWidth(maxX - minX);
     setHeight(maxY - minY);
+}
+
+void FreehandSketch::move(double dx, double dy) {
+    for (auto& point : points_) {
+        point.x += dx; 
+        point.y += dy; 
+    }
+    //update the box
+    GraphicsObject::move(dx, dy);
 }
