@@ -47,6 +47,7 @@ public:
     
     // Override contains for line hit detection after checking if point is near line
     bool contains(double x, double y) const override;
+    void scale_factor(double factor) override;
 
 private:
     

@@ -44,6 +44,8 @@ public:
 
     //Get the type of the shape as string ; eg--> circle ,rectangle
     virtual std::string getType() const = 0;
+    // scalefactor
+    virtual void scale_factor(double factor)=0;
 
     //SETTERS 
     void setX(double x) { x_ = x; }

@@ -5,6 +5,8 @@
 #include <QToolBar>
 #include "ui/Canvas.h"
 #include "ui/EditorTypes.h"
+#include <QMenu>      // <--- ADD THIS
+#include <QAction>    // <--- ADD THIS
 
 class MainWindow : public QMainWindow {
     Q_OBJECT    
@@ -27,11 +29,14 @@ public slots:
     void setMode_Text();      
     void setMode_Freehand(); 
     void onSave_Trigger();
+    void onLoad_Trigger();
 
 private:
     // Visual Components
     Canvas* canvas;      // The custom drawing widget
     QToolBar* toolbar;   // Pointer to the toolbar
+
+
 };
 
 #endif // MAINWINDOW_H

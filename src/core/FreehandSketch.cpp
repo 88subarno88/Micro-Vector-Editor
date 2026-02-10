@@ -135,3 +135,20 @@ void FreehandSketch::move(double dx, double dy) {
     //update the box
     GraphicsObject::move(dx, dy);
 }
+
+void FreehandSketch::scale_factor(double factor) {
+    if (points_.empty()) return;
+
+    //use first point as pivot
+    double pvt_X = points_[0].x;
+    double pvt_Y = points_[0].y;
+
+    // iter through points
+    for (auto& p : points_) {
+        double dx = p.x -pvt_X;
+        double dy = p.y -pvt_Y;
+        p.x = pvt_X + (dx * factor);
+        p.y = pvt_Y + (dy * factor);
+    }
+    updateBoundingBox();
+}

@@ -121,7 +121,7 @@ void Line::updateBoundingBox() {
 
 void Line::move(double dx, double dy) {
     // DEBUG PRINT
-    std::cout << "Line is Moving! dx=" << dx << " dy=" << dy << std::endl; 
+    // std::cout << "Line is Moving! dx=" << dx << " dy=" << dy << std::endl; 
 
     x1_ += dx;
     y1_ += dy;
@@ -129,7 +129,13 @@ void Line::move(double dx, double dy) {
     y2_ += dy;
     GraphicsObject::move(dx, dy);
 }
-
+void Line::scale_factor(double factor) {
+    double dx = x2_ - x1_;
+    double dy = y2_ - y1_;
+    
+    x2_=x1_+(dx* factor);
+    y2_=y1_ +(dy *factor);
+}
 // bool Line::contains(double x, double y) const {
 //     // ... existing math ...
     

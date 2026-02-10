@@ -141,3 +141,7 @@ void Hexagon::move(double dx, double dy) {
     // 2. Update the bounding box
     GraphicsObject::move(dx, dy);
 }
+
+void Hexagon::scale_factor(double factor) {
+    radius_*= factor;
+}

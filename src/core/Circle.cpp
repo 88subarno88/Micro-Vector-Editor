@@ -133,3 +133,7 @@ void Circle::move(double dx, double dy) {
     setX(getX() + dx);
     setY(getY() + dy);
 }
+
+void Circle::scale_factor(double factor) {
+    radius_*= factor;
+}

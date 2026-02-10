@@ -32,6 +32,7 @@ public:
     std::string toSVG() const override;
     std::unique_ptr<GraphicsObject> clone() const override;
     std::string getType() const override;
+    void scale_factor(double factor) override;
     
     //  setters
     void setFrontSize(double size);

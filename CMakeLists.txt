@@ -32,6 +32,16 @@ set(SOURCES
     src/ui/Toolbar.cpp
     src/ui/Canvas.cpp
     src/ui/MenuBar.cpp
+    src/parser/SVGParser.cpp
+    src/commands/Command.cpp
+    src/commands/CommandStack.cpp
+    src/commands/CreateCommand.cpp
+    src/commands/DeleteCommand.cpp
+    src/commands/MoveCommand.cpp
+    src/commands/ModifyCommand.cpp
+    src/commands/ResizeCommand.cpp
+    src/commands/AddCommand.cpp
+    src/commands/ChangecolorCommand.cpp
 )
 
 # List all header files 
@@ -50,6 +60,17 @@ set(HEADERS
     include/ui/Canvas.h
     include/ui/MenuBar.h    
     include/ui/EditorTypes.h
+    include/parser/SVGParser.h
+    include/commands/Command.h
+    include/commands/CommandStack.h
+    include/commands/CreateCommand.h
+    include/commands/DeleteCommand.h
+    include/commands/MoveCommand.h
+    include/commands/ModifyCommand.h
+    include/commands/ResizeCommand.h
+    include/commands/AddCommand.h
+    include/commands/ChangecolorCommand.h
+
             
 )
 

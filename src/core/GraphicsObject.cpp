@@ -33,3 +33,10 @@ void GraphicsObject::move(double dx, double dy) {
     x_ += dx;
     y_ += dy;
 }
+
+void GraphicsObject::scale_factor(double factor) {
+    // avoid negetives and negligible and play safe 
+    if (factor <= 0.0001) return;
+    width_ *= factor;
+    height_ *= factor;
+}

@@ -39,6 +39,7 @@ public:
     const std::vector<Point>& getPoints() const; // Get all points
 
     bool contains(double x, double y) const override;
+     void scale_factor(double factor) override;
 };
 
 #endif // WANT_TO_INCLUDE_FREEHANDSCETCH_H

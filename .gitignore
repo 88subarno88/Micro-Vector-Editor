@@ -1,26 +1,43 @@
-# Build directories
+# --- Build directories ---
 build/
 cmake-build-*/
+bin/         
 *.o
+*.obj        
+
+# --- Executables & Libraries (CRITICAL MISSING PART) ---
 *.exe
 *.out
-
-# Qt generated files
+*.app
+*.dll        
+*.so         
+*.dylib      
+*.a          
+*.lib        
+# --- Qt generated files ---
 *.pro.user
+*.pro.user.* 
 *.autosave
 moc_*.cpp
 qrc_*.cpp
 ui_*.h
+Makefile* 
 
-# IDE files
+# --- CMake Specific (Prevents accidental root builds) ---
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# --- IDE files ---
 .vscode/
 .idea/
 *.swp
 
-# Test files
+# --- Test files ---
 test_images/
 sample_svgs/
 
-# OS files
+# --- OS files ---
 .DS_Store
 Thumbs.db

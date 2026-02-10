@@ -79,3 +79,9 @@ void RoundedRectangle::setCornerRadius(double radius) {
 void RoundedRectangle::move(double dx, double dy) {
     GraphicsObject::move(dx, dy); 
 }
+
+void RoundedRectangle::scale_factor(double factor) {
+    setWidth(getWidth() * factor);
+    setHeight(getHeight() * factor);
+    corner_radius_*= factor;
+}

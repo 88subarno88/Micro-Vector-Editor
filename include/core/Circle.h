@@ -35,6 +35,7 @@ public:
     void setRadius(double r);
     void setCenter(double x, double y);
     void move(double dx, double dy) override;
+    void scale_factor(double factor) override;
 
      // Circle-specific getters
     double getCenterX() const { return center_x_; }

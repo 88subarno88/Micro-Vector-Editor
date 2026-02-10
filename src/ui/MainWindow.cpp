@@ -30,6 +30,8 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow() {
 }
 
+
+
 // Implementation of setters for different modes
 // They now forward the command to the Canvas
 void MainWindow::setMode_Select() { 
@@ -89,4 +91,25 @@ void MainWindow::onSave_Trigger() {
 
     // tell a success message
     QMessageBox::information(this, "Success", "File saved successfully!");
+}
+
+void MainWindow::onLoad_Trigger() {
+    // 1. Open a "Open File" dialog box
+    QString fileName = QFileDialog::getOpenFileName(
+        this, 
+        "Open Drawing", 
+        "", 
+        "SVG Files (*.svg)"
+    );
+
+    // user press cancel ;  u do nothing ;)
+    if (fileName.isEmpty()) {
+        return;
+    }
+
+    // load file
+    canvas->loadFromFile(fileName.toStdString());
+
+    // tell a success message
+    QMessageBox::information(this, "Success", "File loaded successfully!");
 }

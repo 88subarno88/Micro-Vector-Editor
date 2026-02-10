@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <cmath>
 #include <string>
+#include <QFont>
+#include <QFontMetrics>
 
 /**
  * Text class 
@@ -118,4 +120,28 @@ void Text::setText(const std::string& content) {
 
 void Text::move(double dx, double dy) {
     GraphicsObject::move(dx, dy);
+}
+
+void Text::scale_factor(double factor) {
+    font_size_ *= factor; 
+    
+    // Safety check
+    if (font_size_ < 1) font_size_ = 1;
+
+    // 2. Measure the NEW size of the text
+    // (Use the same font family you use in draw())
+    QFont font("Arial", static_cast<int>(font_size_)); 
+    QFontMetrics metrics(font);
+    
+    // Calculate new dimensions based on the text string
+    // (Assuming you have a variable 'textString' or 'content')
+    QString qText = QString::fromStdString(text_); 
+    
+    double newWidth = metrics.horizontalAdvance(qText); 
+    double newHeight = metrics.height();
+
+    // 4. Update Object Dimensions
+    // We add a small buffer (+5) to prevent the last letter from being clipped
+    setWidth(newWidth +7); 
+    setHeight(newHeight);
 }

@@ -85,3 +85,8 @@ std::string Rectangle::getType() const {
 void Rectangle::move(double dx, double dy) {
     GraphicsObject::move(dx, dy); 
 }
+
+void Rectangle::scale_factor(double factor) {
+    setWidth(getWidth() * factor);
+    setHeight(getHeight() * factor);
+}
