@@ -20,6 +20,8 @@ public:
     bool canUndo() const;
     bool canRedo() const;
 
+    void clear_();
+
 private:
     std::vector<std::unique_ptr<Command>> history;
     int currentIndex = -1; // -1 means nothing has happened till now

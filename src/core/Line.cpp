@@ -84,7 +84,7 @@ void Line::setEndPoint(double x, double y) {
  * Find it by using distance from point to line segment formula.
  */
 bool Line::contains(double x, double y) const {
-    // Tolerance for hit detection in px , let assume our fault tolerance is 4px
+    // Tolerance for hit detection in px , let assume our fault tolerance is 25px
     const double tolerance =25.0;
     // squared Length of line segment 
     double lengthSquared = (x2_- x1_)*(x2_- x1_) + (y2_-y1_)*(y2_-y1_);

@@ -19,11 +19,25 @@ void MenuBar::createMenuBar(QMainWindow* mainWindow) {
         // Connect "Open" click to the onLoad_Trigger function
         QObject::connect(openAction, &QAction::triggered, mw, &MainWindow::onLoad_Trigger);
     }
+    //New Action
+    QAction* newAction = fileMenu->addAction("New");
+    newAction->setShortcut(QKeySequence::New); // Ctrl+N
+    if (mw) {
+        // Connect to the onNew function we wrote earlier
+        QObject::connect(newAction, &QAction::triggered, mw, &MainWindow::onNew);
+    }
 
     // Save Action
     QAction* saveAction = fileMenu->addAction("Save");
+    saveAction->setShortcut(QKeySequence::Save);//ctrl+s
     if (mw) {
         QObject::connect(saveAction, &QAction::triggered, mw, &MainWindow::onSave_Trigger);
+    }
+    //Save as
+    QAction* saveAsAction = fileMenu->addAction("Save As");
+    saveAsAction->setShortcut(QKeySequence::SaveAs); // Ctrl+Shift+S
+    if (mw) {
+        QObject::connect(saveAsAction, &QAction::triggered, mw, &MainWindow::onSave_As);
     }
     
     // Exit Action

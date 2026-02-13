@@ -113,3 +113,39 @@ void MainWindow::onLoad_Trigger() {
     // tell a success message
     QMessageBox::information(this, "Success", "File loaded successfully!");
 }
+
+void MainWindow::onNew() {
+    // Now this works because 'currentFile' is in the header!
+    currentFilename= ""; 
+    
+    // Clear the canvas
+    if (canvas) {
+        canvas->clear_new(); // Make sure your Canvas.h has a 'clear()' function
+    }
+}
+
+void MainWindow::onSave_As() {
+    QString fileName = QFileDialog::getSaveFileName(
+        this, 
+        "Save Drawing As", 
+        "", 
+        "SVG Files (*.svg)"
+    );
+
+    // do nothing if file is empty
+    if (fileName.isEmpty()) {
+        return;
+    }
+
+    // ensure .svg extension
+    if (!fileName.endsWith(".svg",Qt::CaseInsensitive)) {
+        fileName += ".svg";
+    }
+
+    // change the current filename
+    currentFilename = fileName;
+
+    // save
+    canvas->saveToFile(currentFilename.toStdString());
+    QMessageBox::information(this, "Success", "File saved");
+}

@@ -33,10 +33,10 @@
 #include "commands/CreateCommand.h"
 #include "commands/AddCommand.h"
 #include "commands/ChangecolorCommand.h"
+#include "core/Diagram.h"
 
 Canvas::Canvas(QWidget *parent) 
     : QWidget(parent), currentMode(ToolType::Select), isDrawing(false) {
-    // Set background to white (Optional but good for drawing apps)
     setBackgroundRole(QPalette::Base);
     setAutoFillBackground(true);
     setFocusPolicy(Qt::StrongFocus);
@@ -106,61 +106,82 @@ void Canvas::mousePressEvent(QMouseEvent *event) {
 }
 
 void Canvas::mouseMoveEvent(QMouseEvent *event) {
-    // is in select mode 
+    // 1. Handle Selection Dragging (Keep existing logic)
     if (currentMode == ToolType::Select) {
         if (isDragging_Selection && selected_Object) {
-            
-            // calculate the far the pos moved from last time
-            double dx =event->position().x()-last_Mousepos.x();
-            double dy =event->position().y()-last_Mousepos.y();
-
-            //move shape by same  amount
+            double dx = event->position().x() - last_Mousepos.x();
+            double dy = event->position().y() - last_Mousepos.y();
             selected_Object->move(dx, dy);
-
-            //change the last pos for next movement
             last_Mousepos = event->position();
-
-            //Redraw
             update();
         }
+        return;
     } 
     
-    //keep things as it is if not selectionmode
+    // 2. Handle Drawing Preview
     else if (isDrawing) {
         curr_Point = event->position();
 
-        // If we are freehand sketching, we MUST add points now!
+        // CASE A: Freehand Sketch (Append points to existing shape)
         if (currentMode == ToolType::FreehandSketch && current_Shape) {
-            // Convert generic shape to FreehandSketch to access 'addPoint'
             auto* sketch = dynamic_cast<FreehandSketch*>(current_Shape.get());
             if (sketch) {
                 sketch->addPoint(curr_Point.x(), curr_Point.y());
             }
         }
-        
+        // CASE B: Standard Shapes (Re-create shape to show preview)
+        else if (currentMode != ToolType::Text) { 
+            // We skip Text because it uses a popup dialog
+            
+            // Calculate geometry based on start vs current point
+            double x1 = start_Point.x();
+            double y1 = start_Point.y();
+            double x2 = curr_Point.x();
+            double y2 = curr_Point.y();
+            double width = std::abs(x2 - x1);
+            double height = std::abs(y2 - y1);
+            double topLeft_X = std::min(x1, x2); 
+            double topLeft_Y = std::min(y1, y2); 
 
-        update(); // Trigger repaint
+            // Create the temporary preview shape
+            switch (currentMode) {
+                case ToolType::Line:
+                    current_Shape = std::make_unique<Line>(x1, y1, x2, y2);
+                    break;
+                case ToolType::Rectangle:
+                    current_Shape = std::make_unique<Rectangle>(topLeft_X, topLeft_Y, width, height);
+                    break;
+                case ToolType::RoundedRectangle:
+                    current_Shape = std::make_unique<RoundedRectangle>(topLeft_X, topLeft_Y, width, height, 20.0);
+                    break;
+                case ToolType::Circle: {
+                    double radius = std::max(width, height) / 2.0;
+                    current_Shape = std::make_unique<Circle>(topLeft_X + radius, topLeft_Y + radius, radius);
+                    break;
+                }
+                case ToolType::Hexagon: {
+                    double radius = std::min(width, height) / 2.0;
+                    current_Shape = std::make_unique<Hexagon>(topLeft_X + width/2.0, topLeft_Y + height/2.0, radius);
+                    break;
+                }
+                default: break;
+            }
+        }
+
+        update(); // Trigger paintEvent to draw 'current_Shape'
     }
 }
-
 void Canvas::mouseReleaseEvent(QMouseEvent *event) {
-    // 1. Handle Selection Mode (Stop dragging)
+    // 1. Handle Selection Mode (Keep existing logic)
     if (currentMode == ToolType::Select) {
         if (isDragging_Selection && selected_Object) {
-            
             double total_dx = event->position().x() - drag_StartPos.x();
             double total_dy = event->position().y() - drag_StartPos.y();
 
-            // Only register move if moved significantly
             if (std::abs(total_dx) > 0.01 || std::abs(total_dy) > 0.01) {
-                
-                // A. Reset position manually (because Command::execute will move it forward again)
                 selected_Object->move(-total_dx, -total_dy);
-
-                // B. Create and Execute Command
                 auto cmd = std::make_unique<MoveCommand>(selected_Object, total_dx, total_dy);
                 commandStack.execute(std::move(cmd));
-                
                 std::cout << "Move saved to Undo stack." << std::endl;
             }
         }
@@ -172,76 +193,33 @@ void Canvas::mouseReleaseEvent(QMouseEvent *event) {
     // 2. Stop drawing
     isDrawing = false;
     curr_Point = event->position();
-
-    // Standard calculations
-    double x1 = start_Point.x();
-    double y1 = start_Point.y();
-    double x2 = curr_Point.x();
-    double y2 = curr_Point.y();
-    double width = std::abs(x2 - x1);
-    double height = std::abs(y2 - y1);
-    double topLeft_X = std::min(x1, x2); 
-    double topLeft_Y = std::min(y1, y2); 
-
+    
     std::unique_ptr<GraphicsObject> newShape = nullptr;
 
-    // 3. Create the Shape
-    switch (currentMode) {
-        case ToolType::Select: break;
-
-        case ToolType::Line:
-            newShape = std::make_unique<Line>(x1, y1, x2, y2);
-            break;
-
-        case ToolType::Rectangle:
-            newShape = std::make_unique<Rectangle>(topLeft_X, topLeft_Y, width, height);
-            break;
-
-        case ToolType::RoundedRectangle:
-            newShape = std::make_unique<RoundedRectangle>(topLeft_X, topLeft_Y, width, height, 20.0);
-            break;
-
-        case ToolType::Circle: {
-            double radius = std::max(width, height) / 2.0;
-            // Center the circle properly
-            newShape = std::make_unique<Circle>(topLeft_X + radius, topLeft_Y + radius, radius);
-            break;
+    // 3. Finalize the Shape
+    if (currentMode == ToolType::Text) {
+        // Text is special: It needs a dialog, so we create it here
+        bool ok;
+        QString text = QInputDialog::getText(this, "Add Text", "Enter text:", QLineEdit::Normal, "My Text", &ok);
+        if (ok && !text.isEmpty()) {
+            newShape = std::make_unique<Text>(event->position().x(), event->position().y(), text.toStdString());
         }
-        
-        case ToolType::Hexagon: {
-            double radius = std::min(width, height) / 2.0;
-            newShape = std::make_unique<Hexagon>(topLeft_X + width/2.0, topLeft_Y + height/2.0, radius);
-            break;
+    } 
+    else {
+        // For everything else (Rect, Circle, Line, Freehand):
+        // We just TAKE the shape we were previewing in mouseMove
+        if (current_Shape) {
+            newShape = std::move(current_Shape);
         }
-
-        case ToolType::Text: {
-            bool ok;
-            QString text = QInputDialog::getText(this, "Add Text", "Enter text:", QLineEdit::Normal, "My Text", &ok);
-            if (ok && !text.isEmpty()) {
-                newShape = std::make_unique<Text>(event->position().x(), event->position().y(), text.toStdString());
-            }
-            break;   
-        }
-
-        case ToolType::FreehandSketch: {
-            // CRITICAL FIX: Don't create a new one! Use the one we drew in mouseMove.
-            // We assume 'currentShape' holds the sketch we were just drawing.
-            if (current_Shape) {
-                // Steal ownership of the sketch
-                newShape = std::move(current_Shape);
-            }
-            break;      
-        }  
     }
 
-    // 4. ADD TO DIAGRAM via Command (Fixes Undo Issue!)
+    // 4. Add to Diagram (History)
     if (newShape) {
-        // Use AddCommand (Matches the file we created)
         auto cmd = std::make_unique<AddCommand>(&diagram, std::move(newShape));
         commandStack.execute(std::move(cmd));
     }
     
-    // Reset temporary shape just in case
+    // Cleanup
     current_Shape = nullptr; 
     update();
 }
@@ -433,4 +411,21 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
             std::cout << "Shape Deleted via Keyboard shortcut." << std::endl;
         }
     }
+}
+
+void Canvas::clear_new() {
+    // delete all the shapes
+    diagram.clearallObjects();
+
+    //Clear the undo/redo history
+    // (You might need to add a clear() function to your CommandStack class too)
+    commandStack.clear_(); 
+
+    // 3. Reset all tools and selections
+    selected_Object = nullptr;
+    isDragging_Selection = false;
+    current_Shape = nullptr; // Just in case we were drawing something
+
+    // 4. Refresh the screen so it looks empty
+    update();
 }

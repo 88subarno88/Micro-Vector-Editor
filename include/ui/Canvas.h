@@ -21,6 +21,7 @@ public:
     void loadFromFile(const std::string& filename);
     void undo();
     void redo();
+    void clear_new();
 
 protected:
     // Override standard Qt events

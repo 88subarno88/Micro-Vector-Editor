@@ -46,3 +46,11 @@ bool CommandStack::canUndo() const {
 bool CommandStack::canRedo() const {
     return currentIndex < (int)history.size() - 1;
 }
+
+void CommandStack::clear_() {
+    // delete all stored commands
+    history.clear();
+    
+    // reset the currentIndex to -1  i.e. the starting state
+    currentIndex = -1;
+}
