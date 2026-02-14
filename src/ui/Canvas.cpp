@@ -34,6 +34,7 @@
 #include "commands/AddCommand.h"
 #include "commands/ChangecolorCommand.h"
 #include "core/Diagram.h"
+#include "commands/ChangeStrokewidthcommand.h"
 
 Canvas::Canvas(QWidget *parent) 
     : QWidget(parent), currentMode(ToolType::Select), isDrawing(false) {
@@ -288,6 +289,7 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
     QMenu menu(this);
     QAction* setFillAction = menu.addAction("Set Fill Color");
     QAction* setStrokeAction = menu.addAction("Set Stroke Color");
+    QAction* setWidthAction = menu.addAction("Set Stroke Width");
     QAction* resizeAction = menu.addAction("Resize");
     QAction* deleteAction = menu.addAction("Delete");
 
@@ -340,6 +342,29 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
         commandStack.execute(std::move(cmd));
         selected_Object = nullptr;
         update();
+    }
+    //setwidth
+    else if (selectedItem == setWidthAction) {
+        bool ok;
+        // Get the current width so the input box has a smart default
+        double currentWidth = selected_Object->getStrokeWidth();
+
+        // Pop up a dialog asking the user for a number
+        double newWidth = QInputDialog::getDouble(
+            this, "Stroke Width", 
+            "Enter thickness (e.g., 5.0):", 
+            currentWidth, 0.0, 100.0, 1, &ok
+        );
+
+        if (ok && newWidth != currentWidth) {
+            // CRITICAL FOR UNDO/REDO: Do NOT call setStrokeWidth directly.
+            // Instead, create the Command and pass it to the CommandStack.
+            auto cmd = std::make_unique<ChangeStrokeWidthCommand>(selected_Object, newWidth);
+            commandStack.execute(std::move(cmd));
+
+            // Redraw the canvas to show the thicker line
+            update(); 
+        }
     }
 }
 

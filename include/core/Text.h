@@ -1,18 +1,12 @@
-#ifndef WANT_TO_INCLUDE_TEXT_H
-#define WANT_TO_INCLUDE_TEXT_H
+#ifndef INCLUDE_TEXT_H
+#define INCLUDE_TEXT_H
 
 #include "core/GraphicsObject.h"
 #include <cmath>
 #include <string>
 
-/**
- * Text class 
- * ------- represents a string of text
- * ------- a text is defined by --->a)baseline point (x, y)
- *                              --->b) Content of the text
- *                              --->c) Font family 
- *                              --->d) Font size
- */
+//Text class
+//text is defined by baseline point (x, y),content of the text,font family and font size
 class Text : public GraphicsObject {
 private:
     std::string text_;  //the content
@@ -20,10 +14,8 @@ private:
     double font_size_;//font size
 
 public:
-    // Constructor
     Text(double x, double y, std::string content);
     
-    // Destructor
     virtual ~Text();
     
     // Implement pure virtual functions from GraphicsObject
@@ -34,14 +26,14 @@ public:
     std::string getType() const override;
     void scale_factor(double factor) override;
     
-    //  setters
+    //  setters for text
     void setFrontSize(double size);
     void setText(const std::string& content);
-     // getters
+     // getters for text
     double getFontSize() const{ return font_size_;}
     std::string getText() const{ return text_; }
     
     
 };
 
-#endif // WANT_TO_INCLUDE_TEXT_H
+#endif // INCLUDE_TEXT_H

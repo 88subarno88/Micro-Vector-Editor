@@ -5,86 +5,78 @@
 #include <string>
 #include <QFont>
 #include <QFontMetrics>
+#include <QPainterPath>
+#include <QFontMetricsF>
 
-/**
- * Text class 
- * ------- represents a string of text
- * ------- a text is defined by --->a)baseline point (x, y)
- *                              --->b) Content of the text
- *                              --->c) Font family 
- *                              --->d) Font size
- */
+//Text class
+//text is defined by baseline point (x, y),content of the text,font family and font size
 Text::Text(double x, double y, std::string content)
     : GraphicsObject(
         x,           // x (top-left of bounding box)
         y,           // y (top-left of bounding box)
-        80,          //width (diameter)
-        20           // height (diameter)
+        80,          // default width (diameter)
+        20           // default height (diameter)
 ){
-    text_ = content;          // Set the text content
-    font_size_= 16;           // Default size is 16
+    text_ = content;          // set the text content
+    font_size_= 16;           // default size is 16
     font_family_= "Arial";
     double width_guess = text_.length()*20;  // Rough guess
-    setWidth(width_guess);
-    setHeight(40);
+    setWidth(width_guess);                   //default
+    setHeight(40);                           //default
 }    
-// Destructor
+
 Text::~Text() {}
 
 // Drawing the text using QPainter.
 void Text::draw(QPainter* painter) {
     if (!painter) return;
 
-    // setting up pen 
-    QPen pen{QColor(QString::fromStdString(getStrokeColor()))};
-    painter->setPen(pen);
-
-    //  setup fontsize and style
     QString family = QString::fromStdString(font_family_);
-    // handling empty font family
-    if (family.isEmpty()) family = "Arial"; 
+    if (family.isEmpty()) family = "Arial";                  // default fontfamily
     
     QFont font(family);
     font.setPointSizeF(font_size_);
     painter->setFont(font);
 
-    // drawing text ; using bounding box (x,y,w,h) to align text
-    QRectF rect(getX(), getY(), getWidth(), getHeight());
+    // convert text to a Vector Path 
+    QPainterPath path;
+    QFontMetricsF fm(font);
     
-    // Qt::AlignLeft  and  Qt::AlignTop ensures  that text  starts exactly at x,y
-    painter->drawText(rect, Qt::AlignLeft | Qt::AlignTop, QString::fromStdString(text_));
+    // addText uses the text's "baseline" (bottom). 
+    path.addText(getX(), getY() + fm.ascent(), font, QString::fromStdString(text_));
+
+    // fill inside text
+    QBrush brush{QColor(QString::fromStdString(getFillColor()))};
+    painter->fillPath(path, brush);
+
+    // draw stroke
+    QPen pen{QColor(QString::fromStdString(getStrokeColor()))};
+    
+    // apply thickness
+    pen.setWidthF(getStrokeWidth()); 
+    
+    painter->strokePath(path, pen);
 }
 /**
  * Convert text to SVG format.
  */
 std::string Text::toSVG() const {
     std::ostringstream svg;  
-     //Start the text tag
+
     svg << "<text ";
-    
-    // Add position
     svg << "x=\"" << getX() << "\" ";
     svg << "y=\"" << getY() << "\" ";
-    
-    // Add font info
     svg << "font-size=\"" << font_size_ << "\" ";
     svg << "font-family=\"" << font_family_<< "\" ";
-    
-    // Add color
     svg << "fill=\"" << getStrokeColor() << "\"";
-    
-    // Close opening tag
     svg << ">";
-    
-    // Put the actual text
     svg <<text_;
-    
-    // Close the tag
     svg << "</text>";
     
     return svg.str();
     
 }
+
 //Create the deep copy of the object | used for copy pasting purpose 
 std::unique_ptr<GraphicsObject> Text::clone() const {
     auto copy = std::make_unique<Text>(getX(), getY(),text_ );
@@ -99,49 +91,51 @@ std::unique_ptr<GraphicsObject> Text::clone() const {
 }
 
 
-//Get type,here "Text"
+//get type,here "Text"
 std::string Text::getType() const {
     return "Text";
 }
+
 //setters
 void Text::setFrontSize(double size) {
     if (size <= 0) {
         throw std::invalid_argument("Font size must be positive.");
     }else{
-        font_size_ = size;
+        font_size_ =size;
     }
 }
 void Text::setText(const std::string& content) {
-    text_ = content;
+    text_ =content;
     double new_width= content.length()*10;  // Rough guess
     setWidth(new_width);
 
 }
 
+//move
 void Text::move(double dx, double dy) {
     GraphicsObject::move(dx, dy);
 }
-
+//resize
 void Text::scale_factor(double factor) {
-    font_size_ *= factor; 
+    font_size_ *=factor; 
     
-    // Safety check
-    if (font_size_ < 1) font_size_ = 1;
+    // Safety check to ensure font size isnot beyond visiblity
+    if (font_size_ < 1){
+         font_size_ = 1;
+    }
 
-    // 2. Measure the NEW size of the text
-    // (Use the same font family you use in draw())
+    // measure the NEW size of the text and keep the fontstyle as before
     QFont font("Arial", static_cast<int>(font_size_)); 
     QFontMetrics metrics(font);
     
     // Calculate new dimensions based on the text string
-    // (Assuming you have a variable 'textString' or 'content')
     QString qText = QString::fromStdString(text_); 
     
     double newWidth = metrics.horizontalAdvance(qText); 
     double newHeight = metrics.height();
 
-    // 4. Update Object Dimensions
-    // We add a small buffer (+5) to prevent the last letter from being clipped
+    // update object dimensions
+    // a small buffer (+7) is added to prevent the last letter from being clipped
     setWidth(newWidth +7); 
     setHeight(newHeight);
 }

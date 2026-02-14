@@ -1,24 +1,17 @@
 #include "core/GraphicsObject.h"
 #include <cmath>
 
-/**
- * Constructor
- * sets--------->
- * Default stroke --> black, 
- * fill --> white, 
- * stroke width --> 1 px.
- */
 
 GraphicsObject::GraphicsObject(double x, double y, double width, double height):
      x_(x), 
      y_(y), 
      width_(width), 
      height_(height),
-     strokecolor_("black"), 
-     fillcolor_("white"),
-     strokewidth_(1.0), 
-     isselected_(false){}
-//Destructor
+     strokecolor_("black"), //default black
+     fillcolor_("white"),//default white
+     strokewidth_(1.0), //default 1px
+     isselected_(false){} //default false
+
 GraphicsObject::~GraphicsObject() {}
 
 //Check if point(x,y) inside the shape
@@ -27,11 +20,11 @@ bool GraphicsObject::contains(double x, double y) const {
             y >= y_ && y <= y_ + height_);
 }
 
-//Move the x->x+dx (by dx pixels along x axis)
-//Move the y->y+dy (by dy pixels along y axis)
+//Move the x->x+dx 
+//Move the y->y+dy 
 void GraphicsObject::move(double dx, double dy) {
-    x_ += dx;
-    y_ += dy;
+    x_ +=dx;
+    y_ +=dy;
 }
 
 void GraphicsObject::scale_factor(double factor) {

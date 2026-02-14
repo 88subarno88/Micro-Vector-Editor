@@ -15,10 +15,10 @@ ChangeColorCommand::ChangeColorCommand(GraphicsObject* obj, std::string color, b
 void ChangeColorCommand::execute() {
     if (isFill) {
         object->setFillColor(newColor);
-        std::cout << "Changed Fill Color to" << newColor << std::endl;
+        // std::cout << "Changed Fill Color to" << newColor << std::endl;    //Debug
     } else {
         object->setStrokeColor(newColor);
-        std::cout << "Changed Stroke Color to" << newColor << std::endl;
+        std::cout << "Changed Stroke Color to" << newColor << std::endl;     //Debug
     }
 }
 

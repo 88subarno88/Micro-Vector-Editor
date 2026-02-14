@@ -1,5 +1,5 @@
-#ifndef WANT_TO_INCLUDE_LINE_H
-#define WANT_TO_INCLUDE_LINE_H
+#ifndef INCLUDE_LINE_H
+#define INCLUDE_LINE_H
 
 #include "core/GraphicsObject.h"
 /**
@@ -14,14 +14,12 @@ private:
     double y1_;    // Y coordinate of start point
     double x2_;    // X coordinate of end point
     double y2_;    // Y coordinate of end point
-    void updateBoundingBox();   //  function to calculate bounding box from endpoints
+    void updateBoundingBox();   // calculate bounding box from endpoints
 
 public:
-    // Constructor
     Line(double x1 =0.0, double y1 = 0.0, 
          double x2 =0.0, double y2 = 0.0);
 
-    // Destructor
     virtual ~Line();
     
     // Implement pure virtual functions from GraphicsObject
@@ -31,13 +29,13 @@ public:
     std::unique_ptr<GraphicsObject> clone() const override;
     std::string getType() const override;
     
-    // Line-specific getters
+    // getters for line
     double getX1() const {return x1_;}
     double getY1() const {return y1_;}
     double getX2() const {return x2_;}
     double getY2() const {return y2_;}
     
-    // Line-specific setters
+    // setters for line
     void setX1(double x);
     void setY1(double y);
     void setX2(double x);
@@ -45,12 +43,11 @@ public:
     void setStartPoint(double x, double y);
     void setEndPoint(double x, double y);
     
-    // Override contains for line hit detection after checking if point is near line
+    // do line contains point(x,y)?
     bool contains(double x, double y) const override;
+    //resize
     void scale_factor(double factor) override;
-
-private:
     
 };
 
-#endif // WANT_TO_INCLUDE_LINE_H
+#endif // INCLUDE_LINE_H

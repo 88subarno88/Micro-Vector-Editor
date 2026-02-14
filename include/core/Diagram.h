@@ -9,22 +9,26 @@
 
 class Diagram{
     private :
-        std::vector<std::unique_ptr<GraphicsObject>> objects_; // List of graphics objects in the diagram
+        std::vector<std::unique_ptr<GraphicsObject>> objects_; // list of graphics objects in the diagram
     public :
-        // Constructor
         Diagram();
-        // Destructor
         ~Diagram();
-        // Add a graphics object to the diagram
+
+        // add a graphics object to the diagram
         void addObject(std::unique_ptr<GraphicsObject> obj);
-        // Remove a graphics object from the diagram by index
+
+        // remove a graphics object from the diagram by index
         void removeObject(size_t index);
+
         // get all shapes
         const  std::vector<std::unique_ptr<GraphicsObject>>& getShapes () const ;
-        // Finds a shape by its pointer, removes it from the list, and returns ownership to the caller
+
+        // finds a shape by its pointer, removes it from the list, and returns ownership to the caller
         std::unique_ptr<GraphicsObject> removeObject(GraphicsObject* obj);
-         // get the number of graphics objects in the diagram
+
+        // get the number of graphics objects in the diagram
         int getObjectCount() const;  
+        
         //clear all objects
         void clearallObjects();     
 

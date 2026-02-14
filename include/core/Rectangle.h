@@ -1,23 +1,16 @@
-#ifndef WANT_TO_INCLUDE_RECTANGLE_H
-#define WANT_TO_INCLUDE_RECTANGLE_H
+#ifndef INCLUDE_RECTANGLE_H
+#define INCLUDE_RECTANGLE_H
 
 #include "core/GraphicsObject.h"
 #include <cmath>
 
-/**
- * Rectangle class 
- * ------- represents a rectangular shape
- * ------- a rectangle is defined by--->a) Top-left corner (x, y)
- *                                  --->b) Width and Height
- */
 
+//Rectangle class
+// a rectangle is defined by top-left corner(x, y),width and height
 class Rectangle : public GraphicsObject{
  public:
-    //Constructor
     Rectangle(double x = 0.0, double y = 0.0, 
               double width = 0.0, double height = 0.0);
-    
-    // Destructor
     virtual ~Rectangle();
     
     // Implement pure virtual functions from GraphicsObject
@@ -30,4 +23,4 @@ class Rectangle : public GraphicsObject{
 };
 
 
-#endif // WANT_TO_INCLUDE_RECTANGLE_H
+#endif // INCLUDE_RECTANGLE_H

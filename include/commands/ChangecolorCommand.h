@@ -10,7 +10,7 @@ private:
     GraphicsObject* object;
     std::string newColor;
     std::string oldColor;
-    bool isFill; // true =Change Fill, false = Change Stroke
+    bool isFill; // true =change Fill, false =change Stroke
 
 public:
     // Constructor

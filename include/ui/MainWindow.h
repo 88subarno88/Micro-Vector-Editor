@@ -15,7 +15,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     
-    // Getter for the canvas (if Toolbar needs to talk to it directly later)
+    // getter for the canvas
     Canvas* getCanvas() const { return canvas; }
 
     // Slots that the Toolbar buttons will call
@@ -35,8 +35,8 @@ public slots:
 
 private:
     // Visual Components
-    Canvas* canvas;      // The custom drawing widget
-    QToolBar* toolbar;   // Pointer to the toolbar
+    Canvas* canvas;      // the custom drawing widget
+    QToolBar* toolbar;   // pointer to the toolbar
     QString currentFilename;
 
 };

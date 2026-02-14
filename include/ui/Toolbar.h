@@ -7,7 +7,7 @@
 class Toolbar {
 public:
     // Static helper to create the toolbar
-    // We pass 'MainWindow*' so we can connect buttons to its slots
+    // 'MainWindow*' is passed to connect buttons to its slots
     static void createToolbar(QMainWindow* mainWindow);
 };
 

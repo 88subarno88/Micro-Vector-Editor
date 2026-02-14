@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.16)
 project(MicroVectorEditor VERSION 1.0 LANGUAGES CXX)
 
-# Use C++17 
+# I am using C++17 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find Qt6 packages
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 
-# Enabling automatic Meta-Object Compiler for Qt
+# Enable automatic Meta-Object Compiler for Qt
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
@@ -42,6 +42,7 @@ set(SOURCES
     src/commands/ResizeCommand.cpp
     src/commands/AddCommand.cpp
     src/commands/ChangecolorCommand.cpp
+    src/commands/ChangeStrokewidthcommand.cpp
 )
 
 # List all header files 
@@ -70,6 +71,7 @@ set(HEADERS
     include/commands/ResizeCommand.h
     include/commands/AddCommand.h
     include/commands/ChangecolorCommand.h
+    include/commands/ChangeStrokewidthcommand.h
 
             
 )

@@ -8,28 +8,27 @@ CreateCommand::CreateCommand(Diagram* d, std::unique_ptr<GraphicsObject> s)
 void CreateCommand::execute() {
     if (!undone_shape) return;
 
-    // 1. SAVE POINTER
+    // save pointer
     shapeaddress_ptr = undone_shape.get(); 
 
-    // 2. MOVE TO DIAGRAM
+    // move to diagram
     diagram->addObject(std::move(undone_shape));
     
-    std::cout << "[Command] Shape Added. Address: " << shapeaddress_ptr << std::endl;
+    // std::cout << "[Command] Shape Added. Address: " << shapeaddress_ptr << std::endl;            //Debug
 }
 
 void CreateCommand::undo() {
-    // Debug: Tell us if the pointer is null!
     if (!shapeaddress_ptr) {
-        std::cout << "[Command] ERROR: shapeaddress_ptr is NULL! Cannot Undo." << std::endl;
+        // std::cout << "[Command] ERROR: shapeaddress_ptr is NULL! Cannot Undo." << std::endl;     //Debug
         return;
     }
 
-    // 3. RETRIEVE FROM DIAGRAM
+    // retrive from diagram
     undone_shape = diagram->removeObject(shapeaddress_ptr);
 
     if (undone_shape) {
-        std::cout << "[Command] Undo Successful. Shape retrieved." << std::endl;
+        // std::cout << "[Command] Undo Successful. Shape retrieved." << std::endl;                  //Debug
     } else {
-        std::cout << "[Command] CRITICAL FAILURE: Diagram returned nullptr!" << std::endl;
+        // std::cout << "[Command] CRITICAL FAILURE: Diagram returned nullptr!" << std::endl;        //Debug
     }
 }

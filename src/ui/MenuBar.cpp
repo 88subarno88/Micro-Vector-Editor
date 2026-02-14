@@ -5,25 +5,30 @@
 #include <QMessageBox> 
 
 void MenuBar::createMenuBar(QMainWindow* mainWindow) {
-    QMenuBar* menuBar = mainWindow->menuBar();
+    QMenuBar* menuBar = mainWindow->menuBar(); 
+    
+                                   
+    //File has ---> new,open,save,save as, exit buttons
+    //edit has ---> undo, redo buttons
 
-    // File Menu
+                                                                                         
+    // File Menu                                                                               
     QMenu* fileMenu = menuBar->addMenu("File");
 
-    // We cast the generic 'mainWindow' to your specific 'MainWindow' to see the custom slot
+    // cast the generic 'mainWindow' to  specific 'MainWindow' to see the custom slot
     MainWindow* mw = dynamic_cast<MainWindow*>(mainWindow);
 
     // Open Action
     QAction* openAction = fileMenu->addAction("Open");
+
     if (mw) {
-        // Connect "Open" click to the onLoad_Trigger function
         QObject::connect(openAction, &QAction::triggered, mw, &MainWindow::onLoad_Trigger);
     }
+
     //New Action
     QAction* newAction = fileMenu->addAction("New");
     newAction->setShortcut(QKeySequence::New); // Ctrl+N
     if (mw) {
-        // Connect to the onNew function we wrote earlier
         QObject::connect(newAction, &QAction::triggered, mw, &MainWindow::onNew);
     }
 
@@ -33,7 +38,8 @@ void MenuBar::createMenuBar(QMainWindow* mainWindow) {
     if (mw) {
         QObject::connect(saveAction, &QAction::triggered, mw, &MainWindow::onSave_Trigger);
     }
-    //Save as
+
+    //Save as Action 
     QAction* saveAsAction = fileMenu->addAction("Save As");
     saveAsAction->setShortcut(QKeySequence::SaveAs); // Ctrl+Shift+S
     if (mw) {
@@ -44,8 +50,12 @@ void MenuBar::createMenuBar(QMainWindow* mainWindow) {
     QAction* exitAction = fileMenu->addAction("Exit");
     QObject::connect(exitAction, &QAction::triggered, mainWindow, &QMainWindow::close);
 
-    // Edit Menu (Placeholder)
+
+
+    
+    // Edit Menu
     QMenu* editMenu = menuBar->addMenu("Edit");
+
     // Undo action
     QAction* undoAction = editMenu->addAction("Undo");
     undoAction->setShortcut(QKeySequence::Undo); // ctrl+z

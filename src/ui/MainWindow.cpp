@@ -10,23 +10,23 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent) {
     
-    // Set window title and size 
-    resize(900, 600);
-    setWindowTitle("Micro-SVG Editor");
+    // set window title and size 
+    resize(900, 600);                      //Default
+    setWindowTitle("Micro-SVG Editor");    //Default 
      
-    // 1. Create the Canvas (The drawing area)
+    //create the Canvas i.e. the drawing area
     canvas = new Canvas(this);
     setCentralWidget(canvas);
 
-    // 2. Create the Toolbar and Menu using helpers
+    //create toolbar and menu using the helpers
     Toolbar::createToolbar(this);
     MenuBar::createMenuBar(this);
 
-    // Set default mode
+    // set default mode
     setMode_Select();
 }
     
-// Destructor
+
 MainWindow::~MainWindow() {
 }
 

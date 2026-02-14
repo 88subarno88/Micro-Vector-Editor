@@ -1,5 +1,5 @@
-#ifndef WANT_TO_INCLUDE_HEXAGON_H
-#define WANT_TO_INCLUDE_HEXAGON_H
+#ifndef INCLUDE_HEXAGON_H
+#define INCLUDE_HEXAGON_H
 
 #include "core/GraphicsObject.h"
 #include <cmath>
@@ -9,16 +9,13 @@ class Hexagon : public GraphicsObject {
 private:
     double center_x_;    // X coordinate of hexagonal center
     double center_y_;    // Y coordinate of hexagonal center
-    double radius_;      // Radius of the hexagon 
+    double radius_;      // radius of the hexagon 
 
 public:
-    // Constructor
     Hexagon(double centerX=0.0, double centerY=0.0, double radius=10.0);
-    
-    // Destructor
     virtual ~Hexagon();
     
-    // Implement pure virtual functions from GraphicsObject
+    // implement pure virtual functions from GraphicsObject
     void draw(QPainter* painter) override;
     std::string toSVG() const override;
     std::unique_ptr<GraphicsObject> clone() const override;
@@ -37,9 +34,10 @@ public:
     double getRadius() const{return radius_;}
     
     
-    //  hit detection (assuming a circle)
+    // do (x,y) inside or on the hexagon?(roughly assuming hexagon as a circle)
     bool contains(double x, double y) const override;
+    //resize
     void scale_factor(double factor) override;
 };
 
-#endif // WANT_TO_INCLUDE_HEXAGON_H
+#endif // HEXAGON_H

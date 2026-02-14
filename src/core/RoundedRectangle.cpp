@@ -3,26 +3,25 @@
 #include <sstream>
 #include <algorithm>
 
-/**
- *RoundedRectangle class 
- * ------- represents a roundedrectangular shape
- * ------- a rectangle is defined by--->a) Top-left corner (x, y)
- *                                  --->b) Width and Height and Corner Radius
- */
 
- // constructor
+//Rounded Rectangle
+//a rounded rectangle is defined by top-left corner(x, y) , width and height
 RoundedRectangle::RoundedRectangle(double x, double y, double width, double height, double radius)
     : GraphicsObject(x, y, width, height), corner_radius_(radius) {
      double max_radius = std::min(width, height) / 2.0;
+
     if (corner_radius_> max_radius) {
         corner_radius_= max_radius;
     }
 }
-// destructor
+
 RoundedRectangle::~RoundedRectangle() {}
 
+// Drawing the rounded rectangle using QPainter.
 void RoundedRectangle::draw(QPainter* painter) {
-    if (!painter) return;
+    if (!painter) {
+        return;
+    }
 
     QColor sColor(QString::fromStdString(getStrokeColor()));
     QPen pen(sColor);
@@ -32,10 +31,13 @@ void RoundedRectangle::draw(QPainter* painter) {
 
     painter->setBrush(QBrush(QColor(QString::fromStdString(getFillColor()))));
 
-    // x, y, width, height, xRadius, yRadius
+    // (x, y, width, height, xRadius, yRadius)
     painter->drawRoundedRect(QRectF(getX(), getY(), getWidth(), getHeight()), corner_radius_, corner_radius_);
 }
-
+/**
+ * Convert rounded rectangle to SVG format.
+ * Returns: <rect x="..." y="..." width="..." height="..." rx="..." ry="..." stroke="..." fill="..." />
+ */
 std::string RoundedRectangle::toSVG() const {
     std::ostringstream svg;
     svg << "<rect ";
@@ -52,6 +54,7 @@ std::string RoundedRectangle::toSVG() const {
     return svg.str();
 }
 
+// Create the deep copy of the rounded rectangle | used for copy pasting purpose
 std::unique_ptr<GraphicsObject> RoundedRectangle::clone() const {
     auto copy = std::make_unique<RoundedRectangle>(getX(), getY(), getWidth(), getHeight(), corner_radius_);
     copy->setStrokeColor(getStrokeColor());
@@ -60,10 +63,12 @@ std::unique_ptr<GraphicsObject> RoundedRectangle::clone() const {
     copy->setSelected(isSelected());
     return copy;
 }
-// Get type, here "RoundedRectangle"
+
+// get type, here "RoundedRectangle"
 std::string RoundedRectangle::getType() const {
     return "RoundedRectangle";
 }
+
 //handling impossible corner radius
 void RoundedRectangle::setCornerRadius(double radius) {
     double max_radius = std::min(getWidth(), getHeight()) / 2.0;
@@ -75,11 +80,11 @@ void RoundedRectangle::setCornerRadius(double radius) {
         corner_radius_ = radius;
     }
 }
-
+//move
 void RoundedRectangle::move(double dx, double dy) {
     GraphicsObject::move(dx, dy); 
 }
-
+//resize
 void RoundedRectangle::scale_factor(double factor) {
     setWidth(getWidth() * factor);
     setHeight(getHeight() * factor);

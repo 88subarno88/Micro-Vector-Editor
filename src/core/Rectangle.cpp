@@ -9,16 +9,11 @@
 #include <QColor>
 #include <QPointF>
 
-/**
- * Rectangle class 
- * ------- represents a rectangular shape
- * ------- a rectangle is defined by--->a) Top-left corner (x, y)
- *                                  --->b) Width and Height
- */
+//Rectangle class
+// a rectangle is defined by top-left corner(x, y),width and height
 Rectangle::Rectangle(double x, double y, double width, double height):
      GraphicsObject(x, y, width, height) {}
 
-// Destructor
 Rectangle::~Rectangle(){}
 
 // Drawing the rectangle using QPainter
@@ -32,6 +27,7 @@ void Rectangle::draw(QPainter* painter) {
     
     // using Qt's setWidthF  precise double-precision width
     pen.setWidthF(getStrokeWidth());
+    pen.setJoinStyle(Qt::MiterJoin);  //remove rounded corners as width increases
     painter->setPen(pen);
 
     // setup for Fill -->Brush
@@ -81,11 +77,11 @@ std::unique_ptr<GraphicsObject> Rectangle::clone() const {
 std::string Rectangle::getType() const {
     return "Rectangle";
 }
-
+//move
 void Rectangle::move(double dx, double dy) {
     GraphicsObject::move(dx, dy); 
 }
-
+//resize
 void Rectangle::scale_factor(double factor) {
     setWidth(getWidth() * factor);
     setHeight(getHeight() * factor);

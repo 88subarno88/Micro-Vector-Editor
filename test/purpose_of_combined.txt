@@ -1,0 +1,7 @@
+//I have tested all properties of my shape classes working or not after making in browser as that comes with default svg parser.
+
+//It is mentioned that it is optional to include the tests in submission folder in class.
+
+//So they are put in a single file called combined_tests.cpp under test folder (path--> test/combined_test.cpp) it is 475 lines of code.
+
+So, I havenot taken efforts to break combined_tests.cpp in around 100 lines .cpp files as they are  obviously optional .

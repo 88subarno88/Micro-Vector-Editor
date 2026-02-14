@@ -1,26 +1,20 @@
-#ifndef WANT_TO_INCLUDE_CIRCLE_H
-#define WANT_TO_INCLUDE_CIRCLE_H
+#ifndef CIRCLE_H
+#define CIRCLE_H
 
 #include "core/GraphicsObject.h"
 #include <cmath>
 
-/**
- * Circle class 
- * ------- represents a circular shape
- * ------- a cirle is defined by--->a)Center point (centerX, centerY)
- *                              --->b)Radius
- */
+//this is circle class
+// a circle is defined by a centre point(centerX, centerY) and radius
 class Circle : public GraphicsObject {
 private:
-    double center_x_;    // X coordinate of circle center
-    double center_y_;    // Y coordinate of circle center
-    double radius_;      // Radius of the circle
+    double center_x_;    // x coordinate of circle center
+    double center_y_;    // y coordinate of circle center
+    double radius_;      // radius of the circle
 
 public:
-    // Constructor
     Circle(double centerX = 0.0, double centerY = 0.0, double radius = 10.0);
     
-    // Destructor
     virtual ~Circle();
     
     // Implement pure virtual functions from GraphicsObject
@@ -29,22 +23,24 @@ public:
     std::unique_ptr<GraphicsObject> clone() const override;
     std::string getType() const override;
     
-    // Circle-specific setters
+    // setters for circle
     void setCenterX(double x);
     void setCenterY(double y);
     void setRadius(double r);
     void setCenter(double x, double y);
     void move(double dx, double dy) override;
-    void scale_factor(double factor) override;
+   
 
-     // Circle-specific getters
+     // getters for circle
     double getCenterX() const { return center_x_; }
     double getCenterY() const { return center_y_; }
     double getRadius() const { return radius_; }
     
     
-    //  Precise circular hit detection
+    //  do (x,y) inside/on circle?
     bool contains(double x, double y) const override;
+    //resize
+     void scale_factor(double factor) override;
 };
 
-#endif // WANT_TO_INCLUDE_CIRCLE_H
+#endif // CIRCLE_H

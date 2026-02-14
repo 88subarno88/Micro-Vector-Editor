@@ -48,7 +48,7 @@ private:
 
     GraphicsObject* selected_Object = nullptr; // Pointer to the shape we are moving
     bool isDragging_Selection = false;         // Are we dragging a shape right now?
-    QPointF last_Mousepos;                     // Where the mouse was in the previous frame
+    QPointF last_Mousepos;                     // Where the mouse was in the previous frame?
     QPointF drag_StartPos;
     std::unique_ptr<GraphicsObject> clipboard;
 };

@@ -6,7 +6,7 @@
 
 class MenuBar {
 public:
-    // Static helper to create the menu bar
+    // static helper to create the menu bar
     static void createMenuBar(QMainWindow* mainWindow);
 };
 

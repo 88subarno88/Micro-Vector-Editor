@@ -10,31 +10,28 @@
 #include <QColor>
 #include <QPointF>
 
-/**
- * Circle class 
- * ------- represents a circular shape
- * ------- a cirle is defined by--->a)Center point (centerX, centerY)
- *                              --->b)Radius
- */
+//this is circle class
+// a circle is defined by a centre point(centerX, centerY) and radius
 Circle::Circle(double centerX, double centerY, double radius)
     : GraphicsObject(
-        centerX - radius,           // x (top-left of bounding box)
-        centerY - radius,           // y (top-left of bounding box)
-        radius * 2,                 // width (diameter)
-        radius * 2                  // height (diameter)
+        centerX-radius,           // x (top-left of bounding box)
+        centerY-radius,           // y (top-left of bounding box)
+        radius*2,                 // width (diameter)
+        radius*2                  // height (diameter)
       ),
       center_x_(centerX),
       center_y_(centerY),
       radius_(radius) {}
-// Destructor
+      
 Circle::~Circle() {}
 
 // Drawing the circle using QPainter.
 void Circle::draw(QPainter* painter) {
-    if (!painter) return;
+    if (!painter) {
+        return;
+    }
 
-    //  setup for  Stroke -->Pen
-    // convert std::string (example "red") to Qt's QColor
+    //  setup for  Stroke -->Pen and convert std::string (example "red") to Qt's QColor
     QColor sColor(QString::fromStdString(getStrokeColor()));
     QPen pen(sColor);
     
@@ -46,9 +43,7 @@ void Circle::draw(QPainter* painter) {
     QString fillColorStr = QString::fromStdString(getFillColor());
     painter->setBrush(QBrush(QColor(fillColorStr)));
 
-    // drawing the Circle
-    // drawEllipse(x, y, width, height) of Qt Framework
-    // using Qt's setWidthF  precise double-precision width
+    // drawing the Circle with drawEllipse(x, y, width, height) of Qt Framework
     painter->drawEllipse(QPointF(center_x_, center_y_), radius_, radius_);
 }
 /**
@@ -68,9 +63,10 @@ std::string Circle::toSVG() const {
     
     return svg.str();
 }
+
 //Create the deep copy of the object | used for copy pasting purpose 
 std::unique_ptr<GraphicsObject> Circle::clone() const {
-    auto copy = std::make_unique<Circle>(center_x_, center_y_, radius_);
+    auto copy= std::make_unique<Circle>(center_x_, center_y_, radius_);
     
     // Copy visual properties from base class
     copy->setStrokeColor(getStrokeColor());
@@ -86,54 +82,50 @@ std::string Circle::getType() const {
 }
 //set x cordinate of the center of the circle
 void Circle::setCenterX(double x) {
-    center_x_ = x;
-    setX(x - radius_);  // Update bounding box
+    center_x_ =x;
+    setX(x-radius_);  // Update bounding box
 }
 //set y cordinate of the center of the circle
 void Circle::setCenterY(double y) {
-    center_y_ = y;
-    setY(y - radius_);  // Update bounding box
+    center_y_ =y;
+    setY(y-radius_);  // Update bounding box
 }
 //Set radius of the circle and accordingly updating boundry
 void Circle::setRadius(double r) {
-    radius_ = r;
-    setX(center_x_ - r);        // Update bounding box x
-    setY(center_y_ - r);        // Update bounding box y
-    setWidth(r * 2);            // Update width
-    setHeight(r * 2);           // Update height
+    radius_ =r;
+    setX(center_x_ -r);        // Update bounding box x
+    setY(center_y_- r);        // Update bounding box y
+    setWidth(r*2);            // Update width
+    setHeight(r*2);           // Update height
 }
-/**
- * Set the center of the circle (both x and y).
- */
+//Set the center of the circle (both x and y).
 void Circle::setCenter(double x, double y) {
-    center_x_ = x;
-    center_y_ = y;
-    setX(x - radius_);
-    setY(y - radius_);
+    center_x_ =x;
+    center_y_ =y;
+    setX(x-radius_);
+    setY(y-radius_);
 }
-/**
- * check if the point(x,y) is inside the circle
- * inside the circle---> if (x - center_x_)^2+ (y - center_y_)^2<=radius^2
- */
+// check if the point(x,y) is inside the circle
+// inside the circle if (x - center_x_)^2+ (y - center_y_)^2<=radius^2
 bool Circle::contains(double x, double y) const {
-    double dx = x - center_x_;
-    double dy = y - center_y_;
-    double distance_squared = dx * dx + dy * dy;
-    double radius_squared = radius_ * radius_;
+    double dx=x-center_x_;
+    double dy=y-center_y_;
+    double distance_squared= dx * dx + dy * dy;
+    double radius_squared= radius_ * radius_;
     
-    return distance_squared <= radius_squared;
+    return distance_squared <=radius_squared;
 }
 
 // move 
 void Circle::move(double dx, double dy) {
-    center_x_ += dx;
-    center_y_ += dy;
+    center_x_ +=dx;
+    center_y_ +=dy;
 
     // update the bounding box
-    setX(getX() + dx);
-    setY(getY() + dy);
+    setX(getX()+ dx);
+    setY(getY()+ dy);
 }
-
+//for resize
 void Circle::scale_factor(double factor) {
-    radius_*= factor;
+    radius_*=factor;
 }
