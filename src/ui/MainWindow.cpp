@@ -36,35 +36,35 @@ MainWindow::~MainWindow() {
 // They now forward the command to the Canvas
 void MainWindow::setMode_Select() { 
     canvas->setTool(ToolType::Select);
-    setWindowTitle("You have chosen mode--> SELECT");
+    setWindowTitle("Current Tool :- SELECT");
 }
 void MainWindow::setMode_Circle() { 
     canvas->setTool(ToolType::Circle);
-    setWindowTitle("You have chosen mode--> CIRCLE");
+    setWindowTitle("Current Tool :- CIRCLE");
 }
 void MainWindow::setMode_Rect() { 
     canvas->setTool(ToolType::Rectangle);
-    setWindowTitle("You have chosen mode--> RECTANGLE");
+    setWindowTitle("Current Tool :- RECTANGLE");
 }
 void MainWindow::setMode_Roundedrect() { 
     canvas->setTool(ToolType::RoundedRectangle);
-    setWindowTitle("You have chosen mode--> ROUNDED RECTANGLE");
+    setWindowTitle("Current Tool :- ROUNDED RECTANGLE");
 }
 void MainWindow::setMode_Hexagon() { 
     canvas->setTool(ToolType::Hexagon);
-    setWindowTitle("You have chosen mode--> HEXAGON");
+    setWindowTitle("Current Tool :- HEXAGON");
 }
 void MainWindow::setMode_Line() { 
     canvas->setTool(ToolType::Line);
-    setWindowTitle("You have chosen mode--> LINE");
+    setWindowTitle("Current Tool :- LINE");
 }
 void MainWindow::setMode_Text() { 
     canvas->setTool(ToolType::Text);
-    setWindowTitle("You have chosen mode--> TEXT");
+    setWindowTitle("Current Tool :- TEXT");
 }
 void MainWindow::setMode_Freehand() { 
     canvas->setTool(ToolType::FreehandSketch);
-    setWindowTitle("You have chosen mode--> FREEHANDSKETCH");
+    setWindowTitle("Current Tool :- FREEHANDSKETCH");
 }
 void MainWindow::onSave_Trigger() {
     // 1. Open a "Save File" dialog box
@@ -75,7 +75,7 @@ void MainWindow::onSave_Trigger() {
         "SVG Files (*.svg)"
     );
 
-    // user press cancel ;  u do nothing ;)
+    // user press cancel ;  do nothing ;)
     if (fileName.isEmpty()) {
         return;
     }

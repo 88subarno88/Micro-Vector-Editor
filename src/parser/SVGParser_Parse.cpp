@@ -1,6 +1,4 @@
 #include "parser/SVGParser.h"
-#include <fstream>
-#include <iostream>
 #include <sstream>
 #include <vector>
 #include <limits>
@@ -14,31 +12,6 @@
 #include "core/RoundedRectangle.h"
 #include "core/Text.h"
 #include "core/FreehandSketch.h"
-
-void SVGParser::load_SVG(const std::string& filename, Diagram& diagram) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error:file isnot opening " << filename << "\n";
-        return;
-    }
-
-    std::string curr_line;
-    while (std::getline(file,curr_line)){
-        parse_Line(curr_line,diagram);
-    }
-    file.close();
-    std::cout<<"file is ssucessfully loaded into diagram"<<"\n" ;
-}
-
-std::string SVGParser::get_Attribute(const std::string& curr_line, const std::string& word) {
-    std::string search_word = word + "=\"";
-    size_t start_pos = curr_line.find(search_word);
-    if (start_pos == std::string::npos) return ""; // Not found
-    start_pos += search_word.length();
-    size_t end_pos = curr_line.find("\"", start_pos);
-    if (end_pos == std::string::npos) return ""; // Malformed
-    return curr_line.substr(start_pos, end_pos - start_pos);
-}
 
 enum class WhatdaShape {
     Rect,
@@ -60,7 +33,7 @@ WhatdaShape identifyTag(const std::string& line) {
     if (line.find("<path") != std::string::npos) return WhatdaShape::Freehand;
     return WhatdaShape::Unknown;
 }
-
+//parse shapes
 void SVGParser::parse_Line(const std::string& line, Diagram& diagram) {
     WhatdaShape tag = identifyTag(line);
     switch (tag) {
@@ -69,7 +42,7 @@ void SVGParser::parse_Line(const std::string& line, Diagram& diagram) {
             double y=std::stod(get_Attribute(line,"y"));
             double w=std::stod(get_Attribute(line,"width"));
             double h=std::stod(get_Attribute(line,"height"));
-            std::string cluestr = get_Attribute(line,"rx");//handled regular rectangle and rounded rectangle with the cluestr
+            std::string cluestr = get_Attribute(line,"rx");   //handled regular rectangle and rounded rectangle with the cluestr
 
             if (!cluestr.empty() && std::stod(cluestr) > 0) {
                 auto shape = std::make_unique<RoundedRectangle>(x, y, w, h, std::stod(cluestr));

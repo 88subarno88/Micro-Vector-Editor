@@ -40,7 +40,7 @@ public:
     //  do (x,y) inside/on circle?
     bool contains(double x, double y) const override;
     //resize
-     void scale_factor(double factor) override;
+    void scale_factor(double factor) override;
 };
 
 #endif // CIRCLE_H

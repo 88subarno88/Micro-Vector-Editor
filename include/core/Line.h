@@ -2,12 +2,9 @@
 #define INCLUDE_LINE_H
 
 #include "core/GraphicsObject.h"
-/**
- * Line class 
- * ------- represents a line segment
- * ------- a line is defined by--->a) Start point (x1, y1)
- *                             --->b) End point (x2, y2)
- */
+
+//Line class
+//a line is defined by a start point (x1, y1) and end point (x2, y2)
 class Line : public GraphicsObject {
 private:
     double x1_;    // X coordinate of start point

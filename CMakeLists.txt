@@ -30,9 +30,13 @@ set(SOURCES
     src/core/Diagram.cpp
     src/ui/MainWindow.cpp
     src/ui/Toolbar.cpp
-    src/ui/Canvas.cpp
+    src/ui/canvas_Core.cpp
+    src/ui/canvas_Key.cpp
+    src/ui/canvas_Menu.cpp
+    src/ui/canvas_Mouse.cpp
     src/ui/MenuBar.cpp
-    src/parser/SVGParser.cpp
+    src/parser/SVGParser_Core.cpp
+    src/parser/SVGParser_Parse.cpp
     src/commands/Command.cpp
     src/commands/CommandStack.cpp
     src/commands/CreateCommand.cpp
