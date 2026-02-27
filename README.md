@@ -1,8 +1,5 @@
 # Micro-Vector Editor (SVG)
 
-**Course:** COP 290  
-**Assignment Type:** Programming Assignment 1 
-
 ## Overview
 This project is a small vector graphics editor, inspired by tools like Inkscape. Built entirely in C++, it features a graphical user interface (GUI) developed using the Qt community version. The application is designed to read a restricted subset of SVG files, display the vector diagrams on a drawing canvas, allow user modifications, and write the updated diagram back to an SVG output file. 
 
