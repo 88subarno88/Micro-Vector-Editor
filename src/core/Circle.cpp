@@ -17,7 +17,7 @@ Circle::Circle(double centerX, double centerY, double radius)
         centerX-radius,           // x (top-left of bounding box)
         centerY-radius,           // y (top-left of bounding box)
         radius*2,                 // width (diameter)
-        radius*2                  // height (diameter)
+        radius*2                  // height(diameter)
       ),
       center_x_(centerX),
       center_y_(centerY),
