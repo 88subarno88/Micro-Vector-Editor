@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(BUILD_DESKTOP "Build the Qt desktop app" ON)
+option(BUILD_TESTS "Build the unit tests" ON)
+
+if(BUILD_TESTS)
+    enable_testing()
+endif()
 
 add_subdirectory(core)
 

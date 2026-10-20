@@ -17,5 +17,12 @@
       "name": "dev",
       "configurePreset": "dev"
     }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": { "outputOnFailure": true }
+    }
   ]
 }

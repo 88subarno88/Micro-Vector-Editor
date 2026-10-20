@@ -34,3 +34,7 @@ if(MSVC)
 else()
     target_compile_options(vec_core PRIVATE -Wall -Wextra -pedantic)
 endif()
+
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
