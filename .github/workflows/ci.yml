@@ -8,8 +8,22 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
+    env:
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
     steps:
       - uses: actions/checkout@v4
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: .vcpkg-cache
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ runner.os }}-
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}
 
       - name: Install Qt
         run: |
@@ -22,9 +36,10 @@ jobs:
           git -C "$RUNNER_TEMP/vcpkg" checkout "$(jq -r '."builtin-baseline"' vcpkg.json)"
           "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
           echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+          mkdir -p .vcpkg-cache
 
       - name: Configure
-        run: cmake --preset dev
+        run: cmake --preset dev -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build --preset dev --parallel
