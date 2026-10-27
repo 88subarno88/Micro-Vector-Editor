@@ -2,8 +2,8 @@ find_package(GTest CONFIG REQUIRED)
 include(GoogleTest)
 
 add_executable(vec_core_tests
-    AttributesTest.cpp
     DiagramTest.cpp
+    ParserHelpersTest.cpp
     ParserTest.cpp
 )
 

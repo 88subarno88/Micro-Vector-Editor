@@ -68,7 +68,9 @@ std::string Text::toSVG() const {
     svg << "y=\"" << getY() << "\" ";
     svg << "font-size=\"" << font_size_ << "\" ";
     svg << "font-family=\"" << font_family_<< "\" ";
-    svg << "fill=\"" << getStrokeColor() << "\"";
+    svg << "fill=\"" << getFillColor() << "\" ";
+    svg << "stroke=\"" << getStrokeColor() << "\" ";
+    svg << "stroke-width=\"" << getStrokeWidth() << "\"";
     svg << ">";
     svg <<text_;
     svg << "</text>";

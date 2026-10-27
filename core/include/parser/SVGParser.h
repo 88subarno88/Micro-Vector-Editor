@@ -23,12 +23,13 @@ public:
     // Returns `fallback` for empty, non-numeric or non-finite input. Never throws.
     static double parseNumber(std::string_view text, double fallback);
 
+    // Returns the next tag in `doc` at or after `pos` ("<rect .../>", "</svg>") and moves `pos`
+    // past it. Skips comments, <?...?> and <!...>. Returns "" at the end or on an unclosed tag.
+    static std::string_view nextTag(std::string_view doc, size_t& pos);
+
 private:
-    // parse single line
-    static void parse_Line(const std::string& line, Diagram& diagram);
-    
-    // extract a value string
-    static std::string get_Attribute(const std::string& line, const std::string& key);
+    // Adds the shape described by one tag (if any); `content` is the text following the tag.
+    static void parse_Tag(std::string_view tag, std::string_view content, Diagram& diagram);
 };
 
 #endif
