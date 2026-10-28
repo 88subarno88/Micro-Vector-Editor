@@ -1,14 +1,8 @@
 #include "core/Circle.h"
+#include "core/Renderer.h"
 #include <sstream>
 #include <iomanip>
 #include <cmath>
-
-//Qt includes
-#include <QPainter>
-#include <QPen>
-#include <QBrush>
-#include <QColor>
-#include <QPointF>
 
 //this is circle class
 // a circle is defined by a centre point(centerX, centerY) and radius
@@ -25,26 +19,8 @@ Circle::Circle(double centerX, double centerY, double radius)
       
 Circle::~Circle() {}
 
-// Drawing the circle using QPainter.
-void Circle::draw(QPainter* painter) {
-    if (!painter) {
-        return;
-    }
-
-    //  setup for  Stroke -->Pen and convert std::string (example "red") to Qt's QColor
-    QColor sColor(QString::fromStdString(getStrokeColor()));
-    QPen pen(sColor);
-    
-    // using Qt's setWidthF  precise double-precision width
-    pen.setWidthF(getStrokeWidth());
-    painter->setPen(pen);
-
-    // setup for Fill -->Brush
-    QString fillColorStr = QString::fromStdString(getFillColor());
-    painter->setBrush(QBrush(QColor(fillColorStr)));
-
-    // drawing the Circle with drawEllipse(x, y, width, height) of Qt Framework
-    painter->drawEllipse(QPointF(center_x_, center_y_), radius_, radius_);
+void Circle::draw(Renderer& renderer) const {
+    renderer.drawEllipse({{center_x_, center_y_}, radius_, radius_}, style());
 }
 /**
  * Convert circle to SVG format.

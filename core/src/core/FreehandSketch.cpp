@@ -82,7 +82,7 @@ std::string FreehandSketch::getType() const {
 
 // add a point to the freehand sketch
 void FreehandSketch::addPoint(double x, double y) {
-    points_.push_back(Point(x,y));
+    points_.push_back({x, y});
     updateBoundingBox();
 }
 

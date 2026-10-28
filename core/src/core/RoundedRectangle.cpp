@@ -1,5 +1,6 @@
 
 #include "core/RoundedRectangle.h"
+#include "core/Renderer.h"
 #include <sstream>
 #include <algorithm>
 
@@ -17,22 +18,8 @@ RoundedRectangle::RoundedRectangle(double x, double y, double width, double heig
 
 RoundedRectangle::~RoundedRectangle() {}
 
-// Drawing the rounded rectangle using QPainter.
-void RoundedRectangle::draw(QPainter* painter) {
-    if (!painter) {
-        return;
-    }
-
-    QColor sColor(QString::fromStdString(getStrokeColor()));
-    QPen pen(sColor);
-
-    pen.setWidthF(getStrokeWidth());
-    painter->setPen(pen);
-
-    painter->setBrush(QBrush(QColor(QString::fromStdString(getFillColor()))));
-
-    // (x, y, width, height, xRadius, yRadius)
-    painter->drawRoundedRect(QRectF(getX(), getY(), getWidth(), getHeight()), corner_radius_, corner_radius_);
+void RoundedRectangle::draw(Renderer& renderer) const {
+    renderer.drawRect({getX(), getY(), getWidth(), getHeight(), corner_radius_}, style());
 }
 /**
  * Convert rounded rectangle to SVG format.

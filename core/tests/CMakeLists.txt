@@ -6,6 +6,7 @@ add_executable(vec_core_tests
     FixtureTest.cpp
     ParserHelpersTest.cpp
     ParserTest.cpp
+    RenderTest.cpp
 )
 
 target_link_libraries(vec_core_tests PRIVATE vec_core GTest::gtest_main)

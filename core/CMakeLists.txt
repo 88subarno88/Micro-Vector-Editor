@@ -8,6 +8,7 @@ add_library(vec_core
     src/core/FreehandSketch.cpp
     src/core/Text.cpp
     src/core/Diagram.cpp
+    src/core/QtRenderer.cpp
     src/parser/SVGParser_Core.cpp
     src/parser/SVGParser_Parse.cpp
     src/commands/Command.cpp

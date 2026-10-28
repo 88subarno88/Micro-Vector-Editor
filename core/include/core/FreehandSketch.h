@@ -2,18 +2,13 @@
 #define FREEHANDSCETCH_H
 
 #include "core/GraphicsObject.h"
+#include "core/Geometry.h"
 #include <cmath>
 #include <vector>
 #include <memory>
 #include <string>
 
 class QPainter;
-
-struct Point {
-    double x;
-    double y;
-    Point(double xCoord=0.0, double yCoord=0.0) : x(xCoord), y(yCoord) {}
-};
 
 class FreehandSketch : public GraphicsObject {
 private:    

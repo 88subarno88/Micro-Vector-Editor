@@ -18,7 +18,7 @@ public:
     virtual ~Circle();
     
     // Implement pure virtual functions from GraphicsObject
-    void draw(QPainter* painter) override;
+    void draw(Renderer& renderer) const override;
     std::string toSVG() const override;
     std::unique_ptr<GraphicsObject> clone() const override;
     std::string getType() const override;

@@ -1,13 +1,6 @@
 #include "core/Rectangle.h"
+#include "core/Renderer.h"
 #include <sstream>
-
-
-//Qt includes
-#include <QPainter>
-#include <QPen>
-#include <QBrush>
-#include <QColor>
-#include <QPointF>
 
 //Rectangle class
 // a rectangle is defined by top-left corner(x, y),width and height
@@ -16,28 +9,8 @@ Rectangle::Rectangle(double x, double y, double width, double height):
 
 Rectangle::~Rectangle(){}
 
-// Drawing the rectangle using QPainter
-void Rectangle::draw(QPainter* painter) {
-    if (!painter) return;
-
-    // setup for  Stroke -->Pen
-    // convert std::string (example "red") to Qt's QColor
-    QColor sColor(QString::fromStdString(getStrokeColor()));
-    QPen pen(sColor);
-    
-    // using Qt's setWidthF  precise double-precision width
-    pen.setWidthF(getStrokeWidth());
-    pen.setJoinStyle(Qt::MiterJoin);  //remove rounded corners as width increases
-    painter->setPen(pen);
-
-    // setup for Fill -->Brush
-    QString fillColorStr = QString::fromStdString(getFillColor());
-    painter->setBrush(QBrush(QColor(fillColorStr)));
-
-    // drawingthe Rectangle
-    // using Qt's setWidthF  precise double-precision width
-    // drawRect(x, y, width, height) of Qt Framework
-    painter->drawRect(QRectF(getX(), getY(), getWidth(), getHeight()));
+void Rectangle::draw(Renderer& renderer) const {
+    renderer.drawRect({getX(), getY(), getWidth(), getHeight()}, style());
 }
 
 /**

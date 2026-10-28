@@ -20,7 +20,7 @@ public:
     virtual ~RoundedRectangle();
     
     // Implement pure virtual functions from GraphicsObject
-    virtual void draw(QPainter* painter) override;
+    void draw(Renderer& renderer) const override;
     virtual std::string toSVG() const override;
     virtual std::unique_ptr<GraphicsObject> clone() const override;
     virtual std::string getType() const override;

@@ -14,7 +14,7 @@ class Rectangle : public GraphicsObject{
     virtual ~Rectangle();
     
     // Implement pure virtual functions from GraphicsObject
-    void draw(QPainter* painter) override;
+    void draw(Renderer& renderer) const override;
     void move(double dx, double dy) override;
     std::string toSVG() const override;
     std::unique_ptr<GraphicsObject> clone() const override;

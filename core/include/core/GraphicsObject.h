@@ -4,9 +4,11 @@
 #include <string>
 #include <memory>
 #include <QPainter>
+#include "core/Geometry.h"
 
 
 class QPainter;
+class Renderer;
 
 
 class GraphicsObject{
@@ -30,8 +32,13 @@ public:
 
     virtual ~GraphicsObject();
 
-   // Implement pure virtual functions from GraphicsObject
-    virtual void draw(QPainter* painter) = 0;
+    // draws the shape onto `renderer`
+    // TODO(step 7.3): make pure virtual once every shape implements it.
+    virtual void draw(Renderer& renderer) const;
+
+    // TODO(step 7.4): remove once the canvas draws through QtRenderer itself.
+    // Default: wraps `painter` in a QtRenderer and calls draw(Renderer&).
+    virtual void draw(QPainter* painter);
 
     //help to convert the shape to SVG XML format
     virtual std::string toSVG() const = 0;
@@ -70,9 +77,13 @@ public:
     //do point(x,y) inside the shape?
     virtual bool contains(double x, double y) const;
 
-    //move the x->x+dx 
-    //move the y->y+dy 
+    //move the x->x+dx
+    //move the y->y+dy
     virtual void move(double dx, double dy);
+
+protected:
+    // stroke, fill and stroke width bundled for a Renderer
+    Style style() const { return {strokecolor_, fillcolor_, strokewidth_}; }
 };
 
 #endif  //GRAPHICS_OBJECT_H
