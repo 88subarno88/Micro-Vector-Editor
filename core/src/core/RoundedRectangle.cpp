@@ -47,7 +47,6 @@ std::unique_ptr<GraphicsObject> RoundedRectangle::clone() const {
     copy->setStrokeColor(getStrokeColor());
     copy->setFillColor(getFillColor());
     copy->setStrokeWidth(getStrokeWidth());
-    copy->setSelected(isSelected());
     return copy;
 }
 

@@ -13,6 +13,8 @@ private:
     std::string font_family_; //font family
     double font_size_;//font size
 
+    void updateSize();  // recompute the bounding box from the text and font size
+
 public:
     Text(double x, double y, std::string content);
     

@@ -4,25 +4,24 @@
 #include <iomanip>
 #include <cmath>
 #include <string>
-#include <QFont>
-#include <QFontMetrics>
 
 //Text class
 //text is defined by baseline point (x, y),content of the text,font family and font size
 Text::Text(double x, double y, std::string content)
-    : GraphicsObject(
-        x,           // x (top-left of bounding box)
-        y,           // y (top-left of bounding box)
-        80,          // default width (diameter)
-        20           // default height (diameter)
-){
+    : GraphicsObject(x, y)   // (x, y) = top-left of bounding box
+{
     text_ = content;          // set the text content
     font_size_= 16;           // default size is 16
     font_family_= "Arial";
-    double width_guess = text_.length()*20;  // Rough guess
-    setWidth(width_guess);                   //default
-    setHeight(40);                           //default
-}    
+    updateSize();
+}
+
+// Estimates the bounding box without a font library: in Arial, typical text averages
+// about 0.6 x font size per character and a line is about 1.5 x font size tall.
+void Text::updateSize() {
+    setWidth(0.6 * font_size_ * text_.length());
+    setHeight(1.5 * font_size_);
+}
 
 Text::~Text() {}
 
@@ -68,7 +67,6 @@ std::unique_ptr<GraphicsObject> Text::clone() const {
     copy->setStrokeColor(getStrokeColor());
     copy->setFillColor(getFillColor());
     copy->setStrokeWidth(getStrokeWidth());
-    copy->setSelected(isSelected());
     
     return copy;
 }
@@ -85,13 +83,12 @@ void Text::setFrontSize(double size) {
         throw std::invalid_argument("Font size must be positive.");
     }else{
         font_size_ =size;
+        updateSize();
     }
 }
 void Text::setText(const std::string& content) {
     text_ =content;
-    double new_width= content.length()*10;  // Rough guess
-    setWidth(new_width);
-
+    updateSize();
 }
 
 //move
@@ -106,19 +103,5 @@ void Text::scale_factor(double factor) {
     if (font_size_ < 1){
          font_size_ = 1;
     }
-
-    // measure the NEW size of the text and keep the fontstyle as before
-    QFont font("Arial", static_cast<int>(font_size_)); 
-    QFontMetrics metrics(font);
-    
-    // Calculate new dimensions based on the text string
-    QString qText = QString::fromStdString(text_); 
-    
-    double newWidth = metrics.horizontalAdvance(qText); 
-    double newHeight = metrics.height();
-
-    // update object dimensions
-    // a small buffer (+7) is added to prevent the last letter from being clipped
-    setWidth(newWidth +7); 
-    setHeight(newHeight);
+    updateSize();
 }

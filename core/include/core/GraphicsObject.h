@@ -20,9 +20,6 @@ private:
     std::string strokecolor_;     // border color 
     std::string fillcolor_;       // interior color
     double strokewidth_;          // border thickness in pixels
-    
-    // selection state
-    bool isselected_;
 
 public:
     GraphicsObject(double x = 0.0, double y = 0.0, 
@@ -54,7 +51,6 @@ public:
     void setStrokeColor(const std::string& color) { strokecolor_ =color; }
     void setFillColor(const std::string& color) { fillcolor_ =color; }
     void setStrokeWidth(double width) { strokewidth_ =width; }
-    void setSelected(bool selected) { isselected_ =selected; }
     
 
     //getters
@@ -65,7 +61,6 @@ public:
     std::string getStrokeColor() const { return strokecolor_; }
     std::string getFillColor() const { return fillcolor_; }
     double getStrokeWidth() const { return strokewidth_; }
-    bool isSelected() const { return isselected_; }
 
     //do point(x,y) inside the shape?
     virtual bool contains(double x, double y) const;

@@ -44,7 +44,6 @@ std::unique_ptr<GraphicsObject> FreehandSketch::clone() const {
     // copy visual properties from base class
     copy->setStrokeColor(getStrokeColor());
     copy->setStrokeWidth(getStrokeWidth());
-    copy->setSelected(isSelected());
     
     return copy;
 }

@@ -140,6 +140,19 @@ TEST(RenderTest, TextDrawsItsContentAndFont) {
     EXPECT_DOUBLE_EQ(renderer.text.fontSize, 24);
 }
 
+TEST(RenderTest, TextBoundingBoxFollowsContentAndFontSize) {
+    Text text(0, 0, "Hello");
+    const double width = text.getWidth();
+    EXPECT_GT(width, 0);
+    EXPECT_GT(text.getHeight(), 0);
+
+    text.scale_factor(2);
+    EXPECT_DOUBLE_EQ(text.getWidth(), 2 * width);
+
+    text.setText("Hello Hello");
+    EXPECT_GT(text.getWidth(), 2 * width);
+}
+
 TEST(RenderTest, ShapePassesItsStyle) {
     Rectangle shape(0, 0, 1, 1);
     shape.setStrokeColor("red");

@@ -41,7 +41,6 @@ std::unique_ptr<GraphicsObject> Rectangle::clone() const {
     copy->setStrokeColor(getStrokeColor());
     copy->setFillColor(getFillColor());
     copy->setStrokeWidth(getStrokeWidth());
-    copy->setSelected(isSelected());
     
     return copy;
 }

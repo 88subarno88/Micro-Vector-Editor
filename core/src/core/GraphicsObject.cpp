@@ -9,8 +9,7 @@ GraphicsObject::GraphicsObject(double x, double y, double width, double height):
      height_(height),
      strokecolor_("black"), //default black
      fillcolor_("white"),//default white
-     strokewidth_(1.0), //default 1px
-     isselected_(false){} //default false
+     strokewidth_(1.0){} //default 1px
 
 GraphicsObject::~GraphicsObject() {}
 

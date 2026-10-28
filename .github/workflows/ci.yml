@@ -7,7 +7,16 @@ on:
 
 jobs:
   build-and-test:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Full build
+            desktop: ON
+          - name: Core only (no Qt)
+            desktop: OFF
     env:
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
     steps:
@@ -23,9 +32,10 @@ jobs:
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ runner.os }}
+          key: ${{ runner.os }}-desktop-${{ matrix.desktop }}
 
       - name: Install Qt
+        if: matrix.desktop == 'ON'
         run: |
           sudo apt-get update
           sudo apt-get install -y qt6-base-dev libgl-dev
@@ -39,7 +49,7 @@ jobs:
           mkdir -p .vcpkg-cache
 
       - name: Configure
-        run: cmake --preset dev -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake --preset dev -DBUILD_DESKTOP=${{ matrix.desktop }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build --preset dev --parallel

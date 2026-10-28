@@ -43,7 +43,6 @@ std::unique_ptr<GraphicsObject> Line::clone() const {
     // Copy visual properties from base class
     copy->setStrokeColor(getStrokeColor()); 
     copy->setStrokeWidth(getStrokeWidth()); 
-    copy->setSelected(isSelected());
 
     return copy;
 }

@@ -28,10 +28,6 @@ target_compile_features(vec_core PUBLIC cxx_std_17)
 find_package(tl-expected CONFIG REQUIRED)
 target_link_libraries(vec_core PUBLIC tl::expected)
 
-# TODO(step 7): remove once drawing goes through a Renderer interface.
-find_package(Qt6 REQUIRED COMPONENTS Gui)
-target_link_libraries(vec_core PUBLIC Qt6::Gui)
-
 if(MSVC)
     target_compile_options(vec_core PRIVATE /W4)
 else()
