@@ -3,20 +3,24 @@
 
 #include "core/GraphicsObject.h"
 #include <cmath>
+#include <vector>
 
 //A hexagonal shape has been defined by its centre point (centerX, centerY) and radius(distance of centre from any vertex)
 class Hexagon : public GraphicsObject {
 private:
     double center_x_;    // X coordinate of hexagonal center
     double center_y_;    // Y coordinate of hexagonal center
-    double radius_;      // radius of the hexagon 
+    double radius_;      // radius of the hexagon
+
+    // the 6 corners, starting at the rightmost one and going clockwise on screen
+    std::vector<Point> vertices() const;
 
 public:
     Hexagon(double centerX=0.0, double centerY=0.0, double radius=10.0);
     virtual ~Hexagon();
     
     // implement pure virtual functions from GraphicsObject
-    void draw(QPainter* painter) override;
+    void draw(Renderer& renderer) const override;
     std::string toSVG() const override;
     std::unique_ptr<GraphicsObject> clone() const override;
     std::string getType() const override;

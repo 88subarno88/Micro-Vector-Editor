@@ -1,43 +1,17 @@
 #include "core/FreehandSketch.h"
+#include "core/Renderer.h"
 #include <sstream>
 #include <iomanip>
 #include <cmath>
 #include <algorithm>
 
-//Qt includes
-#include <QPainter>
-#include <QPen>
-#include <QBrush>
-#include <QColor>
-#include <QPointF>
-
 FreehandSketch::FreehandSketch(): GraphicsObject(0,0,0,0 ){}      // (x,y,width,height)
-      
+
 FreehandSketch::~FreehandSketch() {}
 
-// Drawing the freehandsketch using QPainter.
-void FreehandSketch::draw(QPainter* painter) {
-    if (!painter || points_.empty()) {
-        return;
-    }
-
-    // adding pen for freehandsketch
-    QPen pen{QColor(QString::fromStdString(getStrokeColor()))};
-    pen.setWidthF(getStrokeWidth());
-    pen.setJoinStyle(Qt::MiterJoin);        //remove rounded corners as width increases
-    painter->setPen(pen);
-    
-    painter->setBrush(Qt::NoBrush); // transparent fill
-
-    // converting points to Qt points
-    QVector<QPointF> qtPoints;
-    qtPoints.reserve(points_.size());
-    
-    for (const auto& p : points_) {
-        qtPoints.append(QPointF(p.x, p.y));
-    }
-    // drawing the lines
-    painter->drawPolyline(qtPoints);
+// an open polyline, so it is never filled
+void FreehandSketch::draw(Renderer& renderer) const {
+    if (!points_.empty()) renderer.drawPolyline(points_, false, style());
 }
 
 std::string FreehandSketch::toSVG() const {  

@@ -2,6 +2,7 @@
 #include <fstream>
 #include "ui/Canvas.h"
 #include "parser/SVGParser.h"
+#include "ui/QtRenderer.h"
 #include <QPainter>
 
 Canvas::Canvas(QWidget *parent) 
@@ -21,12 +22,13 @@ void Canvas::paintEvent(QPaintEvent *event) {
     Q_UNUSED(event);
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing); // smoothout the edges
+    QtRenderer renderer(painter);
 
     for (const auto& shape : diagram.getShapes()) {
-        shape->draw(&painter);
+        shape->draw(renderer);
     }
     if (isDrawing && current_Shape) {
-        current_Shape->draw(&painter);
+        current_Shape->draw(renderer);
     }
 
 }

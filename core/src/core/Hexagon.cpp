@@ -1,14 +1,8 @@
 #include "core/Hexagon.h"
+#include "core/Renderer.h"
 #include <sstream>
 #include <iomanip>
 #include <cmath>
-
-//Qt includes
-#include <QPainter>
-#include <QPen>
-#include <QBrush>
-#include <QColor>
-#include <QPointF>
 
 
 //Hexagon class 
@@ -31,28 +25,17 @@ Hexagon::Hexagon(double centerX, double centerY, double radius)
 
 Hexagon::~Hexagon() {}
 
-// Drawing the hexagon using QPainter.
-void Hexagon::draw(QPainter* painter) {
-    if (!painter) return;
-
-    QPen pen{QColor(QString::fromStdString(getStrokeColor()))};
-    pen.setWidthF(getStrokeWidth());
-    pen.setJoinStyle(Qt::MiterJoin);   //remove rounded corners as width increases
-    painter->setPen(pen);
-
-    painter->setBrush(QBrush(QColor(QString::fromStdString(getFillColor()))));
-
-    // 6 points calculation
-    QPolygonF points;
+std::vector<Point> Hexagon::vertices() const {
+    std::vector<Point> points;
     for (int i = 0; i < 6; ++i) {
-        double angle = (M_PI / 3.0) * i;
-        
-        double px = center_x_ + radius_ * std::cos(angle);
-        double py = center_y_ + radius_ * std::sin(angle);
-        
-        points << QPointF(px, py);
+        const double angle = PI / 3 * i;  // 60 degrees apart
+        points.push_back({center_x_ + radius_ * std::cos(angle), center_y_ + radius_ * std::sin(angle)});
     }
-    painter->drawPolygon(points);
+    return points;
+}
+
+void Hexagon::draw(Renderer& renderer) const {
+    renderer.drawPolyline(vertices(), true, style());
 }
 /**
  * Convert hexagon to SVG format.
@@ -64,15 +47,12 @@ std::string Hexagon::toSVG() const {
     // The parser rebuilds the centre from these points; 10 digits keeps the drift per save tiny.
     svg << std::setprecision(10);
 
-    for (int i=0;i<6;i++){
-        double angle=PI/3*i; //60 degree in radian
-        double x= center_x_ + radius_ * cos(angle);
-        double y= center_y_ + radius_ * sin(angle);
-        svg << x << "," << y;
-        if(i!=5) svg << " ";
-
+    const char* separator = "";
+    for (const Point& p : vertices()) {
+        svg << separator << p.x << "," << p.y;
+        separator = " ";
     }
-    svg << "\" "; 
+    svg << "\" ";
     svg << "stroke=\"" << getStrokeColor() << "\" ";
     svg << "stroke-width=\"" << getStrokeWidth() << "\" ";
     svg << "fill=\"" << getFillColor() << "\"";

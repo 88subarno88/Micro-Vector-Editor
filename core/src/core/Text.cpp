@@ -1,12 +1,11 @@
 #include "core/Text.h"
+#include "core/Renderer.h"
 #include <sstream>
 #include <iomanip>
 #include <cmath>
 #include <string>
 #include <QFont>
 #include <QFontMetrics>
-#include <QPainterPath>
-#include <QFontMetricsF>
 
 //Text class
 //text is defined by baseline point (x, y),content of the text,font family and font size
@@ -27,35 +26,8 @@ Text::Text(double x, double y, std::string content)
 
 Text::~Text() {}
 
-// Drawing the text using QPainter.
-void Text::draw(QPainter* painter) {
-    if (!painter) return;
-
-    QString family = QString::fromStdString(font_family_);
-    if (family.isEmpty()) family = "Arial";                  // default fontfamily
-    
-    QFont font(family);
-    font.setPointSizeF(font_size_);
-    painter->setFont(font);
-
-    // convert text to a Vector Path 
-    QPainterPath path;
-    QFontMetricsF fm(font);
-    
-    // addText uses the text's "baseline" (bottom). 
-    path.addText(getX(), getY() + fm.ascent(), font, QString::fromStdString(text_));
-
-    // fill inside text
-    QBrush brush{QColor(QString::fromStdString(getFillColor()))};
-    painter->fillPath(path, brush);
-
-    // draw stroke
-    QPen pen{QColor(QString::fromStdString(getStrokeColor()))};
-    
-    // apply thickness
-    pen.setWidthF(getStrokeWidth()); 
-    
-    painter->strokePath(path, pen);
+void Text::draw(Renderer& renderer) const {
+    renderer.drawText({{getX(), getY()}, text_, font_family_, font_size_}, style());
 }
 /**
  * Convert text to SVG format.

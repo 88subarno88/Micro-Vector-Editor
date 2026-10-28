@@ -5,8 +5,7 @@
 
 class QPainter;
 
-// Draws through a QPainter.
-// TODO(step 7.4): move to desktop/; it lives in core only while shapes still have draw(QPainter*).
+// Draws shapes through a QPainter.
 class QtRenderer : public Renderer {
 public:
     explicit QtRenderer(QPainter& painter) : painter_(painter) {}

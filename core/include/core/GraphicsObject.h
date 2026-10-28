@@ -3,11 +3,9 @@
 
 #include <string>
 #include <memory>
-#include <QPainter>
 #include "core/Geometry.h"
 
 
-class QPainter;
 class Renderer;
 
 
@@ -33,12 +31,7 @@ public:
     virtual ~GraphicsObject();
 
     // draws the shape onto `renderer`
-    // TODO(step 7.3): make pure virtual once every shape implements it.
-    virtual void draw(Renderer& renderer) const;
-
-    // TODO(step 7.4): remove once the canvas draws through QtRenderer itself.
-    // Default: wraps `painter` in a QtRenderer and calls draw(Renderer&).
-    virtual void draw(QPainter* painter);
+    virtual void draw(Renderer& renderer) const = 0;
 
     //help to convert the shape to SVG XML format
     virtual std::string toSVG() const = 0;

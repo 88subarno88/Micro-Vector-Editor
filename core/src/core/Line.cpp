@@ -1,15 +1,9 @@
 #include "core/Line.h"
+#include "core/Renderer.h"
 #include <sstream>
 #include <cmath>
 #include <iostream>
 #include <algorithm>
-
-//Qt includes
-#include <QPainter>
-#include <QPen>
-#include <QBrush>
-#include <QColor>
-#include <QPointF>
 
 
 //Line class
@@ -20,18 +14,8 @@ Line::Line(double x1, double y1, double x2, double y2):
 }
 
 Line::~Line() {}
-// Drawing the line using QPainter
-void Line::draw(QPainter* painter) {
-    if (!painter) return;
-
-    QColor sColor(QString::fromStdString(getStrokeColor()));
-    QPen pen(sColor);
-
-    pen.setWidthF(getStrokeWidth());
-    painter->setPen(pen);
-    
-    // lines don't have fill
-    painter->drawLine(QPointF(x1_, y1_), QPointF(x2_, y2_));
+void Line::draw(Renderer& renderer) const {
+    renderer.drawPolyline({{x1_, y1_}, {x2_, y2_}}, false, style());
 }
 
 /**

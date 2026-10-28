@@ -9,6 +9,7 @@ add_executable(micro-vector-editor
     src/ui/canvas_Key.cpp
     src/ui/canvas_Menu.cpp
     src/ui/canvas_Mouse.cpp
+    src/ui/QtRenderer.cpp
     # Headers with Q_OBJECT live outside src/, so list them for AUTOMOC.
     include/ui/MainWindow.h
     include/ui/Toolbar.h

@@ -1,4 +1,4 @@
-#include "QtRenderer.h"
+#include "ui/QtRenderer.h"
 
 #include <QBrush>
 #include <QFont>

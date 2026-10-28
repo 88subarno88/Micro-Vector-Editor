@@ -8,8 +8,6 @@
 #include <memory>
 #include <string>
 
-class QPainter;
-
 class FreehandSketch : public GraphicsObject {
 private:    
     std::vector<Point> points_;  // list of points defining the freehand sketch
@@ -20,7 +18,7 @@ public:
     
      
     // implement pure virtual functions from GraphicsObject
-    void draw(QPainter* painter) override;
+    void draw(Renderer& renderer) const override;
     void move(double dx, double dy) override;
     std::string toSVG() const override;
     std::unique_ptr<GraphicsObject> clone() const override;

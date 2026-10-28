@@ -5,8 +5,6 @@
 #include <string>
 #include <memory>
 
-class QPainter;
-
 //Rounded Rectangle
 //a rounded rectangle is defined by top-left corner(x, y) , width and height
 class RoundedRectangle : public GraphicsObject {

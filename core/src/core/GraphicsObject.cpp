@@ -1,5 +1,4 @@
 #include "core/GraphicsObject.h"
-#include "QtRenderer.h"
 #include <cmath>
 
 
@@ -15,13 +14,6 @@ GraphicsObject::GraphicsObject(double x, double y, double width, double height):
 
 GraphicsObject::~GraphicsObject() {}
 
-void GraphicsObject::draw(Renderer&) const {}
-
-void GraphicsObject::draw(QPainter* painter) {
-    if (!painter) return;
-    QtRenderer renderer(*painter);
-    draw(renderer);
-}
 
 //Check if point(x,y) inside the shape
 bool GraphicsObject::contains(double x, double y) const {
