@@ -98,7 +98,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
 
         case WhatdaShape::Text:{
             if (!content.empty()) {
-                auto shape = std::make_unique<Text>(number("x"), number("y"), std::string(content));
+                auto shape = std::make_unique<Text>(number("x"), number("y"), decodeEntities(content));
                 applyStroke(*shape, attrs);
                 applyFill(*shape, attrs);
                 diagram.addObject(std::move(shape));

@@ -53,10 +53,15 @@ void Canvas::saveToFile(const std::string& filename) {
     file.close();
 }
 
-void Canvas::loadFromFile(const std::string& filename) {
+tl::expected<void, ParseError> Canvas::loadFromFile(const std::string& filename) {
 
-    SVGParser::load_SVG(filename, diagram);
-    update(); 
+    auto loaded = SVGParser::load_SVG(filename);
+    if (!loaded) return tl::unexpected(loaded.error());
+
+    clear_new();  // undo history and selection point into the old diagram
+    diagram = std::move(*loaded);
+    update();
+    return {};
 }
 
 void Canvas::undo() {

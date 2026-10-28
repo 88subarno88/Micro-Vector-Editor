@@ -2,13 +2,6 @@
 #include "core/Diagram.h"
 #include <algorithm>
 
-Diagram::Diagram() {
-  //autoamtically initaialize an empty vector
-}
-
-Diagram::~Diagram() {
-    objects_.clear();
-}
 //adds a object like the shapes circle,hexagon etc to the objects_ vector
 void Diagram::addObject(std::unique_ptr<GraphicsObject> obj) {
     objects_.push_back(std::move(obj));

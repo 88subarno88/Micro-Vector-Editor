@@ -11,9 +11,6 @@ class Diagram{
     private :
         std::vector<std::unique_ptr<GraphicsObject>> objects_; // list of graphics objects in the diagram
     public :
-        Diagram();
-        ~Diagram();
-
         // add a graphics object to the diagram
         void addObject(std::unique_ptr<GraphicsObject> obj);
 

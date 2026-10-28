@@ -72,7 +72,16 @@ std::string Text::toSVG() const {
     svg << "stroke=\"" << getStrokeColor() << "\" ";
     svg << "stroke-width=\"" << getStrokeWidth() << "\"";
     svg << ">";
-    svg <<text_;
+    for (const char c : text_) {  // escape characters that would break the XML
+        switch (c) {
+            case '<':  svg << "&lt;";   break;
+            case '>':  svg << "&gt;";   break;
+            case '&':  svg << "&amp;";  break;
+            case '"':  svg << "&quot;"; break;
+            case '\'': svg << "&apos;"; break;
+            default:   svg << c;
+        }
+    }
     svg << "</text>";
     
     return svg.str();

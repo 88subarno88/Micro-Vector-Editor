@@ -1,8 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <filesystem>
-#include <fstream>
 #include <string>
+#include <utility>
 
 #include "core/Diagram.h"
 #include "core/Hexagon.h"
@@ -12,14 +11,11 @@
 
 namespace {
 
-// Writes `svg` to a temp file and loads it into `diagram`.
+// Parses `svg` into `diagram`; fails the test if parsing returns an error.
 void loadFromString(const std::string& svg, Diagram& diagram) {
-    const auto* info = ::testing::UnitTest::GetInstance()->current_test_info();
-    const auto path = std::filesystem::temp_directory_path() /
-                      (std::string("vec_parser_") + info->name() + ".svg");
-    std::ofstream(path) << svg;
-    SVGParser::load_SVG(path.string(), diagram);
-    std::filesystem::remove(path);
+    auto result = SVGParser::parse_SVG(svg);
+    ASSERT_TRUE(result) << result.error().message;
+    diagram = std::move(*result);
 }
 
 // Returns the diagram's single shape as a Hexagon (throws if it is something else).
@@ -153,6 +149,23 @@ TEST(ParserTest, TextColorsSurviveSaveAndLoad) {
     EXPECT_DOUBLE_EQ(loaded.getStrokeWidth(), 2.0);
 }
 
+TEST(ParserTest, TextDecodesEntities) {
+    Diagram diagram;
+    loadFromString("<text x=\"0\" y=\"0\">a &lt; b &amp;&amp; c</text>", diagram);
+
+    ASSERT_EQ(diagram.getObjectCount(), 1);
+    EXPECT_EQ(static_cast<const Text&>(*diagram.getShapes()[0]).getText(), "a < b && c");
+}
+
+TEST(ParserTest, SpecialCharactersInTextSurviveSaveAndLoad) {
+    const std::string content = R"(<b> & "q" 'a')";
+    Diagram diagram;
+    loadFromString(Text(0, 0, content).toSVG(), diagram);
+
+    ASSERT_EQ(diagram.getObjectCount(), 1);
+    EXPECT_EQ(static_cast<const Text&>(*diagram.getShapes()[0]).getText(), content);
+}
+
 TEST(ParserTest, MissingColorsKeepDefaults) {
     Diagram diagram;
     loadFromString(R"(<rect x="0" y="0" width="1" height="1"/>)", diagram);
@@ -160,6 +173,31 @@ TEST(ParserTest, MissingColorsKeepDefaults) {
     ASSERT_EQ(diagram.getObjectCount(), 1);
     EXPECT_EQ(diagram.getShapes()[0]->getStrokeColor(), "black");
     EXPECT_EQ(diagram.getShapes()[0]->getFillColor(), "white");
+}
+
+TEST(ParserTest, MissingFileIsAnError) {
+    const auto result = SVGParser::load_SVG("/no/such/dir/drawing.svg");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().line, 0);
+    EXPECT_NE(result.error().message.find("cannot open"), std::string::npos);
+}
+
+TEST(ParserTest, UnclosedTagReportsLineAndColumn) {
+    const auto result = SVGParser::parse_SVG("<svg>\n  <rect x=\"1\"/>\n  <circle r=\"2\"");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().line, 3);
+    EXPECT_EQ(result.error().column, 3);
+    EXPECT_EQ(result.error().message, "unclosed tag");
+}
+
+TEST(ParserTest, UnclosedCommentIsAnError) {
+    const auto result = SVGParser::parse_SVG("<svg><!-- <rect/>");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().column, 6);
+    EXPECT_EQ(result.error().message, "unclosed comment");
 }
 
 TEST(ParserTest, InvalidNumberDoesNotThrow) {

@@ -108,7 +108,15 @@ void MainWindow::onLoad_Trigger() {
     }
 
     // load file
-    canvas->loadFromFile(fileName.toStdString());
+    if (const auto loaded = canvas->loadFromFile(fileName.toStdString()); !loaded) {
+        const ParseError& error = loaded.error();
+        QString message = QString::fromStdString(error.message);
+        if (error.line > 0) {
+            message = QString("Line %1, column %2: %3").arg(error.line).arg(error.column).arg(message);
+        }
+        QMessageBox::warning(this, "Could not open file", message);
+        return;
+    }
 
     // tell a success message
     QMessageBox::information(this, "Success", "File loaded successfully!");

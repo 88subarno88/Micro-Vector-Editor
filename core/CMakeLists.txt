@@ -25,6 +25,9 @@ add_library(vec_core
 target_include_directories(vec_core PUBLIC include)
 target_compile_features(vec_core PUBLIC cxx_std_17)
 
+find_package(tl-expected CONFIG REQUIRED)
+target_link_libraries(vec_core PUBLIC tl::expected)
+
 # TODO(step 7): remove once drawing goes through a Renderer interface.
 find_package(Qt6 REQUIRED COMPONENTS Gui)
 target_link_libraries(vec_core PUBLIC Qt6::Gui)

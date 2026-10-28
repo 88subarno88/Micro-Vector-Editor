@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QPointF>
 #include "core/Diagram.h"
+#include "parser/SVGParser.h"
 #include "ui/EditorTypes.h" 
 #include "commands/CommandStack.h"
 #include "commands/CreateCommand.h"
@@ -18,7 +19,8 @@ public:
     // Called by MainWindow to change the tool
     void setTool(ToolType tool);
     void saveToFile(const std::string& filename);
-    void loadFromFile(const std::string& filename);
+    // Replaces the drawing with the file's contents; on error the drawing is left unchanged.
+    tl::expected<void, ParseError> loadFromFile(const std::string& filename);
     void undo();
     void redo();
     void clear_new();

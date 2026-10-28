@@ -61,6 +61,19 @@ TEST(ParseNumberTest, ReturnsFallbackForBadInput) {
     EXPECT_DOUBLE_EQ(SVGParser::parseNumber("1e999", 7), 7.0);
 }
 
+TEST(DecodeEntitiesTest, DecodesTheFiveXmlEntities) {
+    EXPECT_EQ(SVGParser::decodeEntities("&lt;a&gt; &amp; &quot;b&quot; &apos;c&apos;"),
+              "<a> & \"b\" 'c'");
+}
+
+TEST(DecodeEntitiesTest, DecodesOnlyOnce) {
+    EXPECT_EQ(SVGParser::decodeEntities("&amp;lt;"), "&lt;");
+}
+
+TEST(DecodeEntitiesTest, LeavesUnknownOrBrokenEntitiesAsIs) {
+    EXPECT_EQ(SVGParser::decodeEntities("a & b &foo; &lt"), "a & b &foo; &lt");
+}
+
 namespace {
 
 std::vector<std::string_view> allTags(std::string_view doc) {
@@ -99,6 +112,15 @@ TEST(NextTagTest, LeavesPosAfterTagForTextContent) {
     size_t pos = 0;
     SVGParser::nextTag(doc, pos);
     EXPECT_EQ(doc.substr(pos, 2), "Hi");
+}
+
+TEST(NextTagTest, LeavesPosAtUnclosedTag) {
+    const std::string_view doc = R"(<svg> <rect x="1)";
+    size_t pos = 0;
+    SVGParser::nextTag(doc, pos);  // <svg>
+
+    EXPECT_TRUE(SVGParser::nextTag(doc, pos).empty());
+    EXPECT_EQ(pos, 6u);
 }
 
 TEST(NextTagTest, StopsOnUnclosedInput) {
