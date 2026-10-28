@@ -41,16 +41,7 @@ void Canvas::saveToFile(const std::string& filename) {
         return;
     }
 
-    //standard SVG Header
-    file << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"600\" version=\"1.1\">\n";
-
-    //get shapes and convert into svg
-    for (const auto& shape : diagram.getShapes()) {
-        file << "  " << shape->toSVG() << "\n";
-    }
-
-    file << "</svg>";
-    file.close();
+    file << diagram.toSVG();
 }
 
 tl::expected<void, ParseError> Canvas::loadFromFile(const std::string& filename) {

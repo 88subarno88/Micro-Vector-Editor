@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100">
+  <text x="10" y="40" fill="black">Hello, SVG</text>
+  <text x="10" y="80" fill="purple" stroke="none">a &lt; b &amp;&amp; c &gt; d</text>
+</svg>

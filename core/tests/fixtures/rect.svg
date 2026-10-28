@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200">
+  <!-- a plain and a rounded rectangle -->
+  <rect x="20" y="20" width="150" height="100"
+        fill="#3366ff" stroke="navy" stroke-width="2"/>
+  <rect x='200' y='20' width='150' height='100' rx='15' ry='15' fill='orange'/>
+</svg>

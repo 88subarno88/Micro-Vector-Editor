@@ -27,7 +27,10 @@ class Diagram{
         int getObjectCount() const;  
         
         //clear all objects
-        void clearallObjects();     
+        void clearallObjects();
+
+        // the whole drawing as an SVG document
+        std::string toSVG() const;
 
 };
 

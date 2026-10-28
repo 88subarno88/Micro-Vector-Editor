@@ -61,6 +61,8 @@ void Hexagon::draw(QPainter* painter) {
 std::string Hexagon::toSVG() const {
     std::ostringstream svg;  
     svg << "<polygon points=\"";
+    // The parser rebuilds the centre from these points; 10 digits keeps the drift per save tiny.
+    svg << std::setprecision(10);
 
     for (int i=0;i<6;i++){
         double angle=PI/3*i; //60 degree in radian

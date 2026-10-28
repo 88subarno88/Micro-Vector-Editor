@@ -14,6 +14,14 @@ int  Diagram::getObjectCount() const {
 void Diagram::clearallObjects() {
     objects_.clear();
 }
+// standard SVG header, then one line per shape
+std::string Diagram::toSVG() const {
+    std::string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"600\" version=\"1.1\">\n";
+    for (const auto& obj : objects_) {
+        svg += "  " + obj->toSVG() + "\n";
+    }
+    return svg + "</svg>";
+}
 // get the vector objects_ in return by reference
 const std::vector<std::unique_ptr<GraphicsObject>>& Diagram::getShapes() const {
     return objects_;

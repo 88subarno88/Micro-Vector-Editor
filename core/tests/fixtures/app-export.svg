@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" version="1.1">
+  <rect x="40" y="40" width="120" height="80" stroke="black" stroke-width="1" fill="#ffcc00" />
+  <rect x="200" y="40" width="120" height="80" rx="12" ry="12" stroke="black" stroke-width="1" fill="white" />
+  <circle cx="420" cy="80" r="40" stroke="red" stroke-width="3" fill="white" />
+  <line x1="40" y1="200" x2="300" y2="260" stroke="black" stroke-width="1" />
+  <polygon points="465,230 442.5,268.971 397.5,268.971 375,230 397.5,191.029 442.5,191.029" stroke="black" stroke-width="1" fill="white" />
+  <path d="M 40 320 L 80 350 L 130 330" stroke="black" stroke-width="1" fill="none" />
+  <text x="200" y="320" font-size="16" font-family="Arial" fill="white" stroke="black" stroke-width="1">Tom &amp; Jerry &lt;3</text>
+</svg>

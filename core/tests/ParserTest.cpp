@@ -1,10 +1,15 @@
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <string>
 #include <utility>
 
+#include "core/Circle.h"
 #include "core/Diagram.h"
+#include "core/FreehandSketch.h"
 #include "core/Hexagon.h"
+#include "core/Line.h"
+#include "core/Rectangle.h"
 #include "core/RoundedRectangle.h"
 #include "core/Text.h"
 #include "parser/SVGParser.h"
@@ -164,6 +169,31 @@ TEST(ParserTest, SpecialCharactersInTextSurviveSaveAndLoad) {
 
     ASSERT_EQ(diagram.getObjectCount(), 1);
     EXPECT_EQ(static_cast<const Text&>(*diagram.getShapes()[0]).getText(), content);
+}
+
+TEST(ParserTest, EveryShapeSurvivesSaveAndLoad) {
+    Diagram original;
+    original.addObject(std::make_unique<Rectangle>(10, 20, 30, 40));
+    original.addObject(std::make_unique<RoundedRectangle>(50, 60, 70, 80, 9));
+    original.addObject(std::make_unique<Circle>(100, 110, 25));
+    original.addObject(std::make_unique<Line>(1, 2, 300, 400));
+    original.addObject(std::make_unique<Hexagon>(200, 210, 50));
+    auto sketch = std::make_unique<FreehandSketch>();
+    sketch->addPoint(5, 6);
+    sketch->addPoint(7.5, 8.25);
+    original.addObject(std::move(sketch));
+    auto text = std::make_unique<Text>(15, 25, "Tom & Jerry <3");
+    text->setFrontSize(32);
+    original.addObject(std::move(text));
+    for (const auto& shape : original.getShapes()) {
+        shape->setStrokeColor("#123456");
+        shape->setFillColor("#abcdef");
+        shape->setStrokeWidth(2.5);
+    }
+
+    Diagram loaded;
+    loadFromString(original.toSVG(), loaded);
+    EXPECT_EQ(loaded.toSVG(), original.toSVG());
 }
 
 TEST(ParserTest, MissingColorsKeepDefaults) {
