@@ -79,6 +79,61 @@ TEST_F(CommandStackTest, ExecutingAfterAnUndoDropsTheRedoHistory) {
     EXPECT_DOUBLE_EQ(shape().getX(), 11);
 }
 
+TEST_F(CommandStackTest, UndoAfterATruncationSkipsTheDroppedOps) {
+    ASSERT_TRUE(stack.execute(diagram, Move{"a", 1, 0}));
+    ASSERT_TRUE(stack.execute(diagram, Move{"a", 10, 0}));
+    ASSERT_TRUE(stack.undo(diagram));
+    ASSERT_TRUE(stack.execute(diagram, Move{"a", 100, 0}));
+
+    ASSERT_TRUE(stack.undo(diagram));
+    EXPECT_DOUBLE_EQ(shape().getX(), 2);
+    ASSERT_TRUE(stack.undo(diagram));
+    EXPECT_DOUBLE_EQ(shape().getX(), 1);
+}
+
+TEST_F(CommandStackTest, UndoAndRedoPastTheEndsOfTheHistoryDoNothing) {
+    ASSERT_TRUE(stack.execute(diagram, Move{"a", 1, 0}));
+
+    EXPECT_TRUE(stack.redo(diagram));
+    EXPECT_DOUBLE_EQ(shape().getX(), 2);
+
+    ASSERT_TRUE(stack.undo(diagram));
+    EXPECT_TRUE(stack.undo(diagram));
+    EXPECT_DOUBLE_EQ(shape().getX(), 1);
+
+    ASSERT_TRUE(stack.redo(diagram));
+    EXPECT_DOUBLE_EQ(shape().getX(), 2);
+}
+
+TEST_F(CommandStackTest, AFailedUndoKeepsItsPlaceInTheHistory) {
+    ASSERT_TRUE(stack.execute(diagram, Move{"a", 5, 0}));
+    const auto removed = diagram.removeObject("a");  // as an edit from outside the stack could
+
+    const auto result = stack.undo(diagram);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error(), ApplyError::ShapeNotFound);
+    EXPECT_TRUE(stack.canUndo());
+    EXPECT_FALSE(stack.canRedo());
+
+    ASSERT_TRUE(apply(diagram, addRect("a")));
+    ASSERT_TRUE(stack.undo(diagram));
+    EXPECT_DOUBLE_EQ(shape().getX(), -4);
+}
+
+TEST_F(CommandStackTest, AFailedRedoKeepsItsPlaceInTheHistory) {
+    ASSERT_TRUE(stack.execute(diagram, Move{"a", 5, 0}));
+    ASSERT_TRUE(stack.undo(diagram));
+    const auto removed = diagram.removeObject("a");
+
+    const auto result = stack.redo(diagram);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error(), ApplyError::ShapeNotFound);
+    EXPECT_FALSE(stack.canUndo());
+    EXPECT_TRUE(stack.canRedo());
+}
+
 TEST_F(CommandStackTest, AFailedOpIsNotRecordedAndKeepsTheRedoHistory) {
     ASSERT_TRUE(stack.execute(diagram, Move{"a", 1, 0}));
     ASSERT_TRUE(stack.undo(diagram));
