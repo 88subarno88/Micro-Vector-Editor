@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <fstream>
 #include <string>
 #include <string_view>
 
@@ -215,3 +217,30 @@ TEST(SnapshotTest, ShapesThatApplyRejectsAreErrors) {
     EXPECT_FALSE(decodeDiagram(json{{"version", 1}, {"shapes", {snapshot("a", 0)}}}));
     EXPECT_FALSE(decodeDiagram(json{{"version", 1}, {"shapes", {snapshot("a\"", 9)}}}));
 }
+
+namespace {
+
+class OpFixtureTest : public ::testing::TestWithParam<const char*> {};
+
+}  // namespace
+
+TEST_P(OpFixtureTest, DecodesAndEncodesBackToTheSameJson) {
+    std::ifstream file(std::string(FIXTURE_DIR) + "/ops/" + GetParam() + ".json");
+    ASSERT_TRUE(file.is_open());
+    const json expected = json::parse(file);
+
+    const auto op = decodeOperation(expected);
+
+    ASSERT_TRUE(op) << op.error().message;
+    EXPECT_EQ(json(*op), expected);
+}
+
+INSTANTIATE_TEST_SUITE_P(Ops, OpFixtureTest,
+                         ::testing::Values("add-rect", "add-rounded-rect", "add-circle", "add-line",
+                                           "add-hexagon", "add-freehand", "add-text", "add-at-position",
+                                           "delete", "move", "resize", "set-style-all", "set-style-one"),
+                         [](const auto& info) {  // "add-rect" -> "add_rect"
+                             std::string name = info.param;
+                             std::replace(name.begin(), name.end(), '-', '_');
+                             return name;
+                         });

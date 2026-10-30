@@ -1,0 +1,17 @@
+{
+  "kind": "addShape",
+  "id": "s_1",
+  "shape": {
+    "kind": "hexagon",
+    "center": {
+      "x": 10,
+      "y": 20
+    },
+    "radius": 30,
+    "style": {
+      "stroke": "red",
+      "fill": "#00ff00",
+      "strokeWidth": 2.5
+    }
+  }
+}

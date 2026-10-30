@@ -1,0 +1,26 @@
+{
+  "kind": "addShape",
+  "id": "s_1",
+  "shape": {
+    "kind": "freehand",
+    "points": [
+      {
+        "x": 1,
+        "y": 2
+      },
+      {
+        "x": 3.5,
+        "y": 4.5
+      },
+      {
+        "x": 5,
+        "y": 6
+      }
+    ],
+    "style": {
+      "stroke": "red",
+      "fill": "#00ff00",
+      "strokeWidth": 2.5
+    }
+  }
+}

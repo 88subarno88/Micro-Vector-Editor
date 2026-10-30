@@ -1,0 +1,18 @@
+{
+  "kind": "addShape",
+  "id": "s_1",
+  "shape": {
+    "kind": "text",
+    "position": {
+      "x": 10,
+      "y": 20
+    },
+    "text": "a \"quoted\" <word> & café",
+    "fontSize": 18,
+    "style": {
+      "stroke": "red",
+      "fill": "#00ff00",
+      "strokeWidth": 2.5
+    }
+  }
+}

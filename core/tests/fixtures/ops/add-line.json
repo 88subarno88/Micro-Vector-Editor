@@ -1,0 +1,20 @@
+{
+  "kind": "addShape",
+  "id": "s_1",
+  "shape": {
+    "kind": "line",
+    "start": {
+      "x": 1,
+      "y": 2
+    },
+    "end": {
+      "x": 3,
+      "y": 4
+    },
+    "style": {
+      "stroke": "red",
+      "fill": "#00ff00",
+      "strokeWidth": 2.5
+    }
+  }
+}

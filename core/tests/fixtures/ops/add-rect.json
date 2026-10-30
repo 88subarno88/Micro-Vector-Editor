@@ -1,0 +1,17 @@
+{
+  "kind": "addShape",
+  "id": "s_1",
+  "shape": {
+    "kind": "rect",
+    "x": 10,
+    "y": 20,
+    "width": 30,
+    "height": 40,
+    "cornerRadius": 0,
+    "style": {
+      "stroke": "red",
+      "fill": "#00ff00",
+      "strokeWidth": 2.5
+    }
+  }
+}

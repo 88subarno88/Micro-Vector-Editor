@@ -1,0 +1,18 @@
+{
+  "kind": "addShape",
+  "id": "s_1",
+  "position": 2,
+  "shape": {
+    "kind": "circle",
+    "center": {
+      "x": 10,
+      "y": 20
+    },
+    "radius": 30,
+    "style": {
+      "stroke": "red",
+      "fill": "#00ff00",
+      "strokeWidth": 2.5
+    }
+  }
+}
