@@ -12,13 +12,15 @@ add_library(vec_core
     src/parser/SVGParser_Parse.cpp
     src/ops/Apply.cpp
     src/ops/CommandStack.cpp
+    src/ops/Json.cpp
 )
 
 target_include_directories(vec_core PUBLIC include)
 target_compile_features(vec_core PUBLIC cxx_std_17)
 
 find_package(tl-expected CONFIG REQUIRED)
-target_link_libraries(vec_core PUBLIC tl::expected)
+find_package(nlohmann_json CONFIG REQUIRED)
+target_link_libraries(vec_core PUBLIC tl::expected nlohmann_json::nlohmann_json)
 
 if(MSVC)
     target_compile_options(vec_core PRIVATE /W4)

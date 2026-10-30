@@ -6,6 +6,7 @@ add_executable(vec_core_tests
     CommandStackTest.cpp
     DiagramTest.cpp
     FixtureTest.cpp
+    JsonTest.cpp
     ParserHelpersTest.cpp
     ParserTest.cpp
     RenderTest.cpp
