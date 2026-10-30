@@ -20,7 +20,7 @@ void Rectangle::draw(Renderer& renderer) const {
 std::string Rectangle::toSVG() const {
     std::ostringstream svg;
     
-    svg << "<rect ";
+    svg << "<rect " << idAttribute();
     svg << "x=\"" << getX() << "\" ";
     svg << "y=\"" << getY() << "\" ";
     svg << "width=\"" << getWidth() << "\" ";

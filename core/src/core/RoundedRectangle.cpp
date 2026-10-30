@@ -27,7 +27,7 @@ void RoundedRectangle::draw(Renderer& renderer) const {
  */
 std::string RoundedRectangle::toSVG() const {
     std::ostringstream svg;
-    svg << "<rect ";
+    svg << "<rect " << idAttribute();
     svg << "x=\"" << getX() << "\" ";
     svg << "y=\"" << getY() << "\" ";
     svg << "width=\"" << getWidth() << "\" ";

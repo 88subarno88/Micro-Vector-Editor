@@ -28,7 +28,7 @@ void Circle::draw(Renderer& renderer) const {
  */
 std::string Circle::toSVG() const {
     std::ostringstream svg;  
-    svg << "<circle ";
+    svg << "<circle " << idAttribute();
     svg << "cx=\"" << center_x_ << "\" ";
     svg << "cy=\"" << center_y_ << "\" ";
     svg << "r=\"" << radius_ << "\" ";

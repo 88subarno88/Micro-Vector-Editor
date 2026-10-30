@@ -18,7 +18,7 @@ std::string FreehandSketch::toSVG() const {
     if (points_.empty()) { return "";}
     std::ostringstream svg;
 
-    svg << "<path d=\"";
+    svg << "<path " << idAttribute() << "d=\"";
     svg << "M " << points_[0].x << " " << points_[0].y;
     for (size_t i = 1; i < points_.size(); i++) {
         svg << " L " << points_[i].x << " " << points_[i].y;    //get all pts

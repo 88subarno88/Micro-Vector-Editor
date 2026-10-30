@@ -34,7 +34,7 @@ void Text::draw(Renderer& renderer) const {
 std::string Text::toSVG() const {
     std::ostringstream svg;  
 
-    svg << "<text ";
+    svg << "<text " << idAttribute();
     svg << "x=\"" << getX() << "\" ";
     svg << "y=\"" << getY() << "\" ";
     svg << "font-size=\"" << font_size_ << "\" ";

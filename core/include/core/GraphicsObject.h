@@ -40,6 +40,9 @@ public:
 
     const ShapeId& getId() const { return id_; }
 
+    // restores a saved id; call before adding the shape to a Diagram, which indexes by id
+    void setId(const ShapeId& id) { id_ = id; }
+
     // draws the shape onto `renderer`
     virtual void draw(Renderer& renderer) const = 0;
 
@@ -85,6 +88,9 @@ public:
 protected:
     // stroke, fill and stroke width bundled for a Renderer
     Style style() const { return {strokecolor_, fillcolor_, strokewidth_}; }
+
+    // the id as the start of an SVG tag's attributes
+    std::string idAttribute() const { return "id=\"" + id_ + "\" "; }
 };
 
 #endif  //GRAPHICS_OBJECT_H

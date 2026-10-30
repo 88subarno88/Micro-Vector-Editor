@@ -65,6 +65,13 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
         return it == attrs.end() ? std::string() : it->second;
     };
     const auto number = [&](const char* key) { return parseNumber(text(key), 0.0); };
+    // Keeps the file's id, unless it's empty, taken, or would break the quotes when saved;
+    // the shape's generated id stays in those cases.
+    const auto add = [&](std::unique_ptr<GraphicsObject> shape) {
+        const std::string id = text("id");
+        if (!id.empty() && id.find('"') == std::string::npos && !diagram.find(id)) shape->setId(id);
+        diagram.addObject(std::move(shape));
+    };
 
     switch (tag) {
         case WhatdaShape::Rect: {
@@ -77,7 +84,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
             else        shape = std::make_unique<Rectangle>(x, y, w, h);
             applyStroke(*shape, attrs);
             applyFill(*shape, attrs);
-            diagram.addObject(std::move(shape));
+            add(std::move(shape));
             break;
         }
 
@@ -85,14 +92,14 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
             auto shape = std::make_unique<Circle>(number("cx"), number("cy"), number("r"));
             applyStroke(*shape, attrs);
             applyFill(*shape, attrs);
-            diagram.addObject(std::move(shape));
+            add(std::move(shape));
             break;
         }
 
         case WhatdaShape::Line: {
             auto shape = std::make_unique<Line>(number("x1"), number("y1"), number("x2"), number("y2"));
             applyStroke(*shape, attrs);
-            diagram.addObject(std::move(shape));
+            add(std::move(shape));
             break;
         }
 
@@ -102,7 +109,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
                 if (const double size = number("font-size"); size > 0) shape->setFrontSize(size);
                 applyStroke(*shape, attrs);
                 applyFill(*shape, attrs);
-                diagram.addObject(std::move(shape));
+                add(std::move(shape));
             }
             break;
         }
@@ -128,7 +135,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
                                                    (maxX - minX) / 2.0);
             applyStroke(*shape, attrs);
             applyFill(*shape, attrs);
-            diagram.addObject(std::move(shape));
+            add(std::move(shape));
             break;
         }
 
@@ -146,7 +153,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
                 }
             }
             applyStroke(*sketch, attrs);
-            diagram.addObject(std::move(sketch));
+            add(std::move(sketch));
             break;
         }
 

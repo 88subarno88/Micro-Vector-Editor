@@ -43,7 +43,7 @@ void Hexagon::draw(Renderer& renderer) const {
  */
 std::string Hexagon::toSVG() const {
     std::ostringstream svg;  
-    svg << "<polygon points=\"";
+    svg << "<polygon " << idAttribute() << "points=\"";
     // The parser rebuilds the centre from these points; 10 digits keeps the drift per save tiny.
     svg << std::setprecision(10);
 

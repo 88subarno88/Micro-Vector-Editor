@@ -24,7 +24,7 @@ void Line::draw(Renderer& renderer) const {
 std::string Line::toSVG() const {
     std::ostringstream svg;
 
-    svg << "<line "; 
+    svg << "<line " << idAttribute();
     svg << "x1=\"" << x1_ << "\" ";
     svg << "y1=\"" << y1_ << "\" ";
     svg << "x2=\"" << x2_ << "\" ";
