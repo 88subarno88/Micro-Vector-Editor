@@ -112,7 +112,7 @@ void Canvas::mouseReleaseEvent(QMouseEvent *event) {
 
             if (std::abs(total_dx) > 0.01 || std::abs(total_dy) > 0.01) {
                 selected_Object->move(-total_dx, -total_dy);
-                auto cmd = std::make_unique<MoveCommand>(selected_Object, total_dx, total_dy);
+                auto cmd = std::make_unique<MoveCommand>(&diagram, selected_Object->getId(), total_dx, total_dy);
                 commandStack.execute(std::move(cmd));
                 // std::cout << "Move saved to Undo stack." << std::endl;                      //Debug
             }

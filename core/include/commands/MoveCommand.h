@@ -2,17 +2,18 @@
 #define MOVECOMMAND_H
 
 #include "commands/Command.h"
-#include "core/GraphicsObject.h"
+#include "core/Diagram.h"
 
 class MoveCommand :public Command {
 public:
-    MoveCommand(GraphicsObject* object, double dx, double dy);
+    MoveCommand(Diagram* diagram, ShapeId id, double dx, double dy);
 
     void execute() override;
     void undo() override;
 
 private:
-    GraphicsObject* object;
+    Diagram* diagram;
+    ShapeId id;
     double dx, dy;
 };
 

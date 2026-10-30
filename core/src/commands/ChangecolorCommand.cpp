@@ -1,28 +1,28 @@
 #include "commands/ChangecolorCommand.h"
-#include <iostream>
+#include <utility>
 
-ChangeColorCommand::ChangeColorCommand(GraphicsObject* obj, std::string color, bool changeFill)
-    : object(obj), newColor(color), isFill(changeFill) {
-    
-    // Save old color
-    if (isFill) {
-        oldColor = object->getFillColor();
-    } else {
-        oldColor = object->getStrokeColor();
-    }
+ChangeColorCommand::ChangeColorCommand(Diagram* d, ShapeId shapeId, std::string color, bool changeFill)
+    : diagram(d), id(std::move(shapeId)), newColor(std::move(color)), isFill(changeFill) {
 }
 
 void ChangeColorCommand::execute() {
+    GraphicsObject* object = diagram->find(id);
+    if (!object) return;
+
+    // Save old color
     if (isFill) {
+        oldColor = object->getFillColor();
         object->setFillColor(newColor);
-        // std::cout << "Changed Fill Color to" << newColor << std::endl;    //Debug
     } else {
+        oldColor = object->getStrokeColor();
         object->setStrokeColor(newColor);
-        // std::cout << "Changed Stroke Color to" << newColor << std::endl;     //Debug
     }
 }
 
 void ChangeColorCommand::undo() {
+    GraphicsObject* object = diagram->find(id);
+    if (!object) return;
+
     if (isFill) {
         object->setFillColor(oldColor);
     } else {

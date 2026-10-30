@@ -42,7 +42,7 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
         QColor color = QColorDialog::getColor(Qt::white, this, "Select Fill Color");
         if (color.isValid()) {
             std::string colorStr = color.name().toStdString();
-            auto cmd =std::make_unique<ChangeColorCommand>(selected_Object, colorStr, true);
+            auto cmd =std::make_unique<ChangeColorCommand>(&diagram, selected_Object->getId(), colorStr, true);
             commandStack.execute(std::move(cmd));
             update();
         }
@@ -52,7 +52,7 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
         QColor color = QColorDialog::getColor(Qt::black, this, "Select Stroke Color");
         if (color.isValid()) {
             std::string colorStr =color.name().toStdString();
-            auto cmd = std::make_unique<ChangeColorCommand>(selected_Object, colorStr, false);
+            auto cmd = std::make_unique<ChangeColorCommand>(&diagram, selected_Object->getId(), colorStr, false);
             commandStack.execute(std::move(cmd));
             update();
         }
@@ -65,14 +65,14 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
                             100.0, 1.0, 1000.0, 1, &ok);
         if (ok) {
             double factor = percentage / 100.0;
-            auto cmd= std::make_unique<ResizeCommand>(selected_Object, factor);
+            auto cmd= std::make_unique<ResizeCommand>(&diagram, selected_Object->getId(), factor);
             commandStack.execute(std::move(cmd));
             update();
         }
     }
     //delete
     else if (selectedItem == deleteAction) {
-        auto cmd = std::make_unique<DeleteCommand>(&diagram, selected_Object);
+        auto cmd = std::make_unique<DeleteCommand>(&diagram, selected_Object->getId());
         commandStack.execute(std::move(cmd));
         selected_Object = nullptr;
         update();
@@ -88,7 +88,7 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
         );
 
         if (ok && newWidth != currentWidth) {
-            auto cmd= std::make_unique<ChangeStrokeWidthCommand>(selected_Object, newWidth);
+            auto cmd= std::make_unique<ChangeStrokeWidthCommand>(&diagram, selected_Object->getId(), newWidth);
             commandStack.execute(std::move(cmd));
             update(); 
         }

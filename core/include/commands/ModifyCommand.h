@@ -2,19 +2,20 @@
 #define MODIFYCOMMAND_H
 
 #include "commands/Command.h"
-#include "core/GraphicsObject.h"
+#include "core/Diagram.h"
 #include <string>
 
 class ModifyCommand :public Command {
 public:
     // pass the obj to new settings
-    ModifyCommand(GraphicsObject* obj, const std::string& newStroke, const std::string& newFill,double newWidth);
+    ModifyCommand(Diagram* diagram, ShapeId id, const std::string& newStroke, const std::string& newFill,double newWidth);
 
     void execute() override;
     void undo() override;
 
 private:
-    GraphicsObject* object;
+    Diagram* diagram;
+    ShapeId id;
     
     //new vals
     std::string new_Stroke, new_Fill;
@@ -22,7 +23,7 @@ private:
 
     //old vals
     std::string old_Stroke, old_Fill;
-    double old_Width;
+    double old_Width = 0.0;
 };
 
 #endif

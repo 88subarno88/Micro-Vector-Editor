@@ -15,8 +15,8 @@ public:
 
 private:
     Diagram* diagram;
+    ShapeId id;                                   // track the shape
     std::unique_ptr<GraphicsObject> undone_shape; // store shape after it is undone 
-    GraphicsObject* shapeaddress_ptr;             // track shape's addresss
 };
 
 #endif

@@ -1,17 +1,18 @@
 #include "commands/MoveCommand.h"
+#include <utility>
 
-MoveCommand::MoveCommand(GraphicsObject* obj, double x, double y)
-    : object(obj),dx(x),dy(y) {
+MoveCommand::MoveCommand(Diagram* d, ShapeId shapeId, double x, double y)
+    : diagram(d), id(std::move(shapeId)), dx(x), dy(y) {
 }
 
 void MoveCommand::execute() {
-    if (object) {
+    if (GraphicsObject* object = diagram->find(id)) {
         object->move(dx, dy);
     }
 }
 
 void MoveCommand::undo() {
-    if (object){
+    if (GraphicsObject* object = diagram->find(id)) {
         object->move(-dx, -dy);
     }
 }

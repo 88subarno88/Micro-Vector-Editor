@@ -1,9 +1,8 @@
-#include <iostream>
 #include "core/Diagram.h"
-#include <algorithm>
 
 //adds a object like the shapes circle,hexagon etc to the objects_ vector
 void Diagram::addObject(std::unique_ptr<GraphicsObject> obj) {
+    index_[obj->getId()] = objects_.size();
     objects_.push_back(std::move(obj));
 }
 // get number of objects in the  objects_ vector
@@ -13,7 +12,29 @@ int  Diagram::getObjectCount() const {
 //clear all objects in objects_ vector
 void Diagram::clearallObjects() {
     objects_.clear();
+    index_.clear();
 }
+GraphicsObject* Diagram::find(const ShapeId& id) const {
+    const auto it = index_.find(id);
+    return it == index_.end() ? nullptr : objects_[it->second].get();
+}
+
+std::unique_ptr<GraphicsObject> Diagram::removeObject(const ShapeId& id) {
+    const auto it = index_.find(id);
+    if (it == index_.end()) return nullptr;
+
+    const size_t position = it->second;
+    auto shape = std::move(objects_[position]);
+    objects_.erase(objects_.begin() + position);
+    index_.erase(it);
+
+    // every shape after the removed one moved down by one
+    for (size_t i = position; i < objects_.size(); ++i) {
+        index_[objects_[i]->getId()] = i;
+    }
+    return shape;
+}
+
 // standard SVG header, then one line per shape
 std::string Diagram::toSVG() const {
     std::string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"600\" version=\"1.1\">\n";
@@ -27,20 +48,3 @@ const std::vector<std::unique_ptr<GraphicsObject>>& Diagram::getShapes() const {
     return objects_;
 }
 
-//find an object and if find then remove
-std::unique_ptr<GraphicsObject> Diagram::removeObject(GraphicsObject* obj) {
-    auto it = std::find_if(objects_.begin(), objects_.end(),
-        [obj](const std::unique_ptr<GraphicsObject>& s) { 
-            return s.get() == obj; 
-        });
-
-    if (it != objects_.end()) {
-        std::unique_ptr<GraphicsObject> foundShape = std::move(*it);
-        objects_.erase(it); 
-        // std::cout << "Diagram: Shape found and removed." << std::endl;         //Debug
-        return foundShape;
-    }
-    
-    // std::cout << "Diagram: Shape NOT found." << std::endl;           //debug
-    return nullptr;
-}

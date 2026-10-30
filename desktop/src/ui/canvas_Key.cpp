@@ -31,7 +31,7 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
     if (event->matches(QKeySequence::Cut)) {
         if (selected_Object) {
             clipboard = selected_Object->clone();
-            auto cmd = std::make_unique<DeleteCommand>(&diagram, selected_Object);
+            auto cmd = std::make_unique<DeleteCommand>(&diagram, selected_Object->getId());
             commandStack.execute(std::move(cmd));
             
             selected_Object = nullptr;
@@ -44,7 +44,7 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
     // Delete / Backspace
     if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
         if (selected_Object) {
-            auto cmd = std::make_unique<DeleteCommand>(&diagram, selected_Object);
+            auto cmd = std::make_unique<DeleteCommand>(&diagram, selected_Object->getId());
             commandStack.execute(std::move(cmd));
             
             selected_Object = nullptr;

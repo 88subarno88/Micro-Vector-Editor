@@ -9,7 +9,7 @@
 class AddCommand : public Command {
 private:
     Diagram* diagram;
-    GraphicsObject* raw_Ptr; // will help to find shapes later
+    ShapeId id; // will help to find shapes later
     
     // This holds the shape in undo state
     std::unique_ptr<GraphicsObject> shape_ownership; 

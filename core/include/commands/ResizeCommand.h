@@ -2,18 +2,19 @@
 #define RESIZECOMMAND_H
 
 #include "commands/Command.h"
-#include "core/GraphicsObject.h"
+#include "core/Diagram.h"
 
 class ResizeCommand:public Command {
 public:
     // scale -> increase / decrease 
-    ResizeCommand(GraphicsObject* obj,double scaler);
+    ResizeCommand(Diagram* diagram, ShapeId id, double scaler);
 
     void execute() override;
     void undo() override;
 
 private:
-    GraphicsObject* object;
+    Diagram* diagram;
+    ShapeId id;
     double change_factor;
 };
 

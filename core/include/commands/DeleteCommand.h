@@ -7,14 +7,14 @@
 
 class DeleteCommand : public Command {
 public:
-    DeleteCommand(Diagram* diagram, GraphicsObject* object);
+    DeleteCommand(Diagram* diagram, ShapeId id);
 
     void execute() override;
     void undo() override;
 
 private:
     Diagram* diagram;
-    GraphicsObject* object_Ptr; //helps to find obj
+    ShapeId id; //helps to find obj
     std::unique_ptr<GraphicsObject> deleted_Shape; //store the deleted shape
 };
 
