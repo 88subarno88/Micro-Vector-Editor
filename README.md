@@ -44,16 +44,16 @@ The `core` directory contains the purely mathematical and logical representation
   * `clone()`: Returns a deep copy of the shape (used heavily for Copy/Paste operations).
 * **`Diagram`:** Acts as the centralized state of the canvas. It holds a `std::vector<std::unique_ptr<GraphicsObject>>` representing all active shapes on the screen.
 
-### 3. Command Pattern (Undo / Redo System)
-To fulfill the requirement for a robust Undo/Redo system, the application implements the **Command Design Pattern**.
-* **`Command` (Interface):** Defines virtual `execute()` and `undo()` methods.
-* **Concrete Commands:** Every user action that modifies the canvas state is encapsulated in a specific command object (e.g., `AddCommand`, `MoveCommand`, `DeleteCommand`, `ChangeColorCommand`, `ResizeCommand`). 
-* **`CommandStack`:** Manages two internal stacks (one for Undo, one for Redo). This prevents the UI from modifying shapes directly, completely decoupling user inputs from the data model and making history states trivial to manage.
+### 3. Operations (Undo / Redo System)
+Every edit to the canvas is an **operation**: plain data that can be stored, sent elsewhere and inverted.
+* **`Operation`:** A `std::variant` of `AddShape`, `DeleteShape`, `Move`, `Resize` and `SetStyle`.
+* **`apply` / `invert`:** `apply` changes a `Diagram` and returns an error instead of crashing on a bad operation. `invert` returns the operation that undoes another one.
+* **`CommandStack`:** Stores each applied operation with its inverse, which is all undo and redo need.
 
 ### 4. UI System (View & Controllers)
 The graphical user interface is built using **Qt6**.
 * **`MainWindow`:** Sets up the application frame, docks the `MenuBar` and `Toolbar`, and sets the central widget.
-* **`Canvas` (The Controller):** The most complex UI component. It catches Qt events (mouse clicks, drags, key presses, context menus) and translates them into Core modifications or Command executions.
+* **`Canvas` (The Controller):** The most complex UI component. It catches Qt events (mouse clicks, drags, key presses, context menus) and translates them into operations.
 * ***File Split Architecture:*** To adhere to assignment constraints, the implementation of `Canvas.cpp` was modularized into specific behavioral files (`canvas_Core.cpp`, `canvas_Mouse.cpp`, `canvas_Menu.cpp`, `canvas_Key.cpp`) without breaking the class definition.
 
 ### 5. Custom SVG Parser
@@ -68,7 +68,7 @@ No third-party XML or SVG parsing libraries were used. The `parser` module imple
 The codebase utilizes structured, readable, and robust design principles:
 * **File Length Limits:** The codebase was explicitly refactored to ensure no single `.cpp` or `.h` file exceeds 100 lines. Complex classes have their implementations split across multiple source files.
 * **Headers:** Header files (`.h`) strictly contain class definitions, variables, and function signatures. All implementation logic is deferred to the `.cpp` files.
-* **Memory Management:** Raw pointers are only used when explicitly required by Qt's object tree (e.g., `QPainter*`, `QWidget*`). All internal data structures (Shapes, Commands) are managed exclusively via `std::unique_ptr` and `std::move` semantics to prevent memory leaks.
+* **Memory Management:** Raw pointers are only used when explicitly required by Qt's object tree (e.g., `QPainter*`, `QWidget*`). All internal data structures (Shapes) are managed exclusively via `std::unique_ptr` and `std::move` semantics to prevent memory leaks.
 * **Style:** The codebase is extensively commented and follows the Google C++ Style Guide conventions for naming, indentation, and standard library usage.
 
 ---

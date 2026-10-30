@@ -15,7 +15,11 @@ enum class ApplyError {
     InvalidValue,   // Move, Resize or SetStyle with a number or colour that can't be used
 };
 
+// Describes an existing shape as data, for AddShape.
+ShapeData toShapeData(const GraphicsObject& shape);
+
 // Applies `op` to `diagram`. On an error the diagram is left unchanged.
+// Call it as vec::apply: for a non-const Operation, plain apply() can pick std::apply.
 tl::expected<void, ApplyError> apply(Diagram& diagram, const Operation& op);
 
 // Returns the op that undoes `op`. Call it before applying `op`, while `diagram` still holds

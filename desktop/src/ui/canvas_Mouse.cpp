@@ -11,13 +11,11 @@
 #include "core/FreehandSketch.h"
 #include "core/Line.h"
 #include "core/RoundedRectangle.h"
-#include "commands/MoveCommand.h"
-#include "commands/AddCommand.h"
 
 void Canvas::mousePressEvent(QMouseEvent *event) {
     // is in select mode 
     if (currentMode == ToolType::Select) {
-        selected_Object = nullptr;
+        selected_Id.clear();
         isDragging_Selection = false;
         
         // auto& shapes to modify the actual shapes in the list
@@ -28,7 +26,7 @@ void Canvas::mousePressEvent(QMouseEvent *event) {
 
             //Is the click done inside?
             if ((*curr)->contains(mouseX, mouseY)) {
-                selected_Object = curr->get();      // grab the shape
+                selected_Id = (*curr)->getId();     // grab the shape
                 isDragging_Selection = true;        // dragging with selection
                 last_Mousepos = event->position(); 
                 drag_StartPos = event->position();
@@ -54,10 +52,11 @@ void Canvas::mousePressEvent(QMouseEvent *event) {
 void Canvas::mouseMoveEvent(QMouseEvent *event) {
     // handle Selection Dragging 
     if (currentMode == ToolType::Select) {
-        if (isDragging_Selection && selected_Object) {
+        GraphicsObject* selected = selectedShape();
+        if (isDragging_Selection && selected) {
             double dx = event->position().x() - last_Mousepos.x();
             double dy = event->position().y() - last_Mousepos.y();
-            selected_Object->move(dx, dy);
+            selected->move(dx, dy);
             last_Mousepos = event->position();
             update();
         }
@@ -106,14 +105,14 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
 void Canvas::mouseReleaseEvent(QMouseEvent *event) {
     // handle selection mode
     if (currentMode == ToolType::Select) {
-        if (isDragging_Selection && selected_Object) {
+        GraphicsObject* selected = selectedShape();
+        if (isDragging_Selection && selected) {
             double total_dx = event->position().x() - drag_StartPos.x();
             double total_dy = event->position().y() - drag_StartPos.y();
 
             if (std::abs(total_dx) > 0.01 || std::abs(total_dy) > 0.01) {
-                selected_Object->move(-total_dx, -total_dy);
-                auto cmd = std::make_unique<MoveCommand>(&diagram, selected_Object->getId(), total_dx, total_dy);
-                commandStack.execute(std::move(cmd));
+                selected->move(-total_dx, -total_dy);
+                run(vec::Move{selected_Id, total_dx, total_dy});
                 // std::cout << "Move saved to Undo stack." << std::endl;                      //Debug
             }
         }
@@ -141,8 +140,7 @@ void Canvas::mouseReleaseEvent(QMouseEvent *event) {
 
     // add diagram to the history
     if (newShape) {
-        auto cmd = std::make_unique<AddCommand>(&diagram, std::move(newShape));
-        commandStack.execute(std::move(cmd));
+        run(vec::AddShape{newShape->getId(), vec::toShapeData(*newShape), std::nullopt});
     }
     
     current_Shape = nullptr; 

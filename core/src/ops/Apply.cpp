@@ -118,31 +118,6 @@ struct Applier {
     }
 };
 
-// Describes an existing shape as data; the reverse of ShapeBuilder.
-ShapeData toShapeData(const GraphicsObject& shape) {
-    const Style style{shape.getStrokeColor(), shape.getFillColor(), shape.getStrokeWidth()};
-
-    if (const auto* s = dynamic_cast<const RoundedRectangle*>(&shape)) {
-        return {RectGeom{s->getX(), s->getY(), s->getWidth(), s->getHeight(), s->getCornerRadius()}, style};
-    }
-    if (const auto* s = dynamic_cast<const Circle*>(&shape)) {
-        return {CircleGeom{{s->getCenterX(), s->getCenterY()}, s->getRadius()}, style};
-    }
-    if (const auto* s = dynamic_cast<const Line*>(&shape)) {
-        return {LineGeom{{s->getX1(), s->getY1()}, {s->getX2(), s->getY2()}}, style};
-    }
-    if (const auto* s = dynamic_cast<const Hexagon*>(&shape)) {
-        return {HexagonGeom{{s->getCenterX(), s->getCenterY()}, s->getRadius()}, style};
-    }
-    if (const auto* s = dynamic_cast<const FreehandSketch*>(&shape)) {
-        return {FreehandGeom{s->getPoints()}, style};
-    }
-    if (const auto* s = dynamic_cast<const Text*>(&shape)) {
-        return {TextData{{s->getX(), s->getY()}, s->getText(), s->getFontSize()}, style};
-    }
-    return {RectGeom{shape.getX(), shape.getY(), shape.getWidth(), shape.getHeight()}, style};
-}
-
 struct Inverter {
     const Diagram& diagram;
     using InverseResult = tl::expected<Operation, ApplyError>;
@@ -192,6 +167,30 @@ struct Inverter {
 };
 
 }  // namespace
+
+ShapeData toShapeData(const GraphicsObject& shape) {
+    const Style style{shape.getStrokeColor(), shape.getFillColor(), shape.getStrokeWidth()};
+
+    if (const auto* s = dynamic_cast<const RoundedRectangle*>(&shape)) {
+        return {RectGeom{s->getX(), s->getY(), s->getWidth(), s->getHeight(), s->getCornerRadius()}, style};
+    }
+    if (const auto* s = dynamic_cast<const Circle*>(&shape)) {
+        return {CircleGeom{{s->getCenterX(), s->getCenterY()}, s->getRadius()}, style};
+    }
+    if (const auto* s = dynamic_cast<const Line*>(&shape)) {
+        return {LineGeom{{s->getX1(), s->getY1()}, {s->getX2(), s->getY2()}}, style};
+    }
+    if (const auto* s = dynamic_cast<const Hexagon*>(&shape)) {
+        return {HexagonGeom{{s->getCenterX(), s->getCenterY()}, s->getRadius()}, style};
+    }
+    if (const auto* s = dynamic_cast<const FreehandSketch*>(&shape)) {
+        return {FreehandGeom{s->getPoints()}, style};
+    }
+    if (const auto* s = dynamic_cast<const Text*>(&shape)) {
+        return {TextData{{s->getX(), s->getY()}, s->getText(), s->getFontSize()}, style};
+    }
+    return {RectGeom{shape.getX(), shape.getY(), shape.getWidth(), shape.getHeight()}, style};
+}
 
 Result apply(Diagram& diagram, const Operation& op) {
     return std::visit(Applier{diagram}, op);

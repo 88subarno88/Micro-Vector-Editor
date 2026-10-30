@@ -40,16 +40,23 @@ WhatdaShape identifyTag(std::string_view tag) {
     return WhatdaShape::Unknown;
 }
 
-// Sets the stroke colour and width present in the tag; missing ones keep the shape's defaults.
+// False for a value such as stroke='a"b', whose quote would break the file when it's saved.
+bool isSafe(const std::string& value) { return value.find('"') == std::string::npos; }
+
+// Sets the stroke colour and width present in the tag; missing or unsafe ones keep the shape's defaults.
 void applyStroke(GraphicsObject& shape, const SVGParser::Attributes& attrs) {
-    if (const auto it = attrs.find("stroke"); it != attrs.end()) shape.setStrokeColor(it->second);
+    if (const auto it = attrs.find("stroke"); it != attrs.end() && isSafe(it->second)) {
+        shape.setStrokeColor(it->second);
+    }
     if (const auto it = attrs.find("stroke-width"); it != attrs.end()) {
         shape.setStrokeWidth(SVGParser::parseNumber(it->second, shape.getStrokeWidth()));
     }
 }
 
 void applyFill(GraphicsObject& shape, const SVGParser::Attributes& attrs) {
-    if (const auto it = attrs.find("fill"); it != attrs.end()) shape.setFillColor(it->second);
+    if (const auto it = attrs.find("fill"); it != attrs.end() && isSafe(it->second)) {
+        shape.setFillColor(it->second);
+    }
 }
 
 }  // namespace
@@ -69,7 +76,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
     // the shape's generated id stays in those cases.
     const auto add = [&](std::unique_ptr<GraphicsObject> shape) {
         const std::string id = text("id");
-        if (!id.empty() && id.find('"') == std::string::npos && !diagram.find(id)) shape->setId(id);
+        if (!id.empty() && isSafe(id) && !diagram.find(id)) shape->setId(id);
         diagram.addObject(std::move(shape));
     };
 

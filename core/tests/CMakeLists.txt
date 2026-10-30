@@ -3,7 +3,7 @@ include(GoogleTest)
 
 add_executable(vec_core_tests
     ApplyTest.cpp
-    CommandTest.cpp
+    CommandStackTest.cpp
     DiagramTest.cpp
     FixtureTest.cpp
     ParserHelpersTest.cpp

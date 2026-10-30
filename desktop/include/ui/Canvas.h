@@ -7,8 +7,7 @@
 #include "core/Diagram.h"
 #include "parser/SVGParser.h"
 #include "ui/EditorTypes.h" 
-#include "commands/CommandStack.h"
-#include "commands/CreateCommand.h"
+#include "ops/CommandStack.h"
 
 class Canvas : public QWidget {
     Q_OBJECT
@@ -36,9 +35,14 @@ protected:
 
 
 private:
+    // Runs `op` through the undo history and repaints
+    void run(const vec::Operation& op);
+    // The selected shape; nullptr if none, or if it has been deleted or undone
+    GraphicsObject* selectedShape() const { return diagram.find(selected_Id); }
+
     Diagram diagram;
     ToolType currentMode;
-    CommandStack commandStack;
+    vec::CommandStack commandStack;
     std::unique_ptr<GraphicsObject> current_Shape;
     
     // Drawing State Variables
@@ -48,7 +52,7 @@ private:
 
 
 
-    GraphicsObject* selected_Object = nullptr; // Pointer to the shape we are moving
+    ShapeId selected_Id;                       // The selected shape; empty if none
     bool isDragging_Selection = false;         // Are we dragging a shape right now?
     QPointF last_Mousepos;                     // Where the mouse was in the previous frame?
     QPointF drag_StartPos;

@@ -1,15 +1,14 @@
 #include <iostream>
 #include "ui/Canvas.h"
 #include <QKeyEvent>
-#include "commands/DeleteCommand.h"
 
 void Canvas::keyPressEvent(QKeyEvent *event) {
     
     // Copy
     if (event->matches(QKeySequence::Copy)) {
-        if (selected_Object) {
-            clipboard = selected_Object->clone();
-            // std::cout << "Copied " << selected_Object->getType() << " to clipboard via canvas_Key." << std::endl;           //Debug
+        if (const GraphicsObject* selected = selectedShape()) {
+            clipboard = selected->clone();
+            // std::cout << "Copied " << selected->getType() << " to clipboard via canvas_Key." << std::endl;           //Debug
         }
         return;
     }
@@ -19,9 +18,7 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
         if (clipboard) {
             auto newShape = clipboard->clone();
             newShape->move(20, 20);                   // donot make the paste obj overlap on the original obj  by 20px
-            diagram.addObject(std::move(newShape)); 
-            
-            update();
+            run(vec::AddShape{newShape->getId(), vec::toShapeData(*newShape), std::nullopt});
             // std::cout << "Pasted shape from clipboard via canvas_Key ." << std::endl;           //Debug
         }
         return;
@@ -29,13 +26,10 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
 
     // Cut
     if (event->matches(QKeySequence::Cut)) {
-        if (selected_Object) {
-            clipboard = selected_Object->clone();
-            auto cmd = std::make_unique<DeleteCommand>(&diagram, selected_Object->getId());
-            commandStack.execute(std::move(cmd));
-            
-            selected_Object = nullptr;
-            update();
+        if (const GraphicsObject* selected = selectedShape()) {
+            clipboard = selected->clone();
+            run(vec::DeleteShape{selected_Id});
+            selected_Id.clear();
             // std::cout << "Cut shape to clipboard via canvas_Key ." << std::endl;                   //Debug
         }
         return;
@@ -43,14 +37,10 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
 
     // Delete / Backspace
     if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
-        if (selected_Object) {
-            auto cmd = std::make_unique<DeleteCommand>(&diagram, selected_Object->getId());
-            commandStack.execute(std::move(cmd));
-            
-            selected_Object = nullptr;
+        if (selectedShape()) {
+            run(vec::DeleteShape{selected_Id});
+            selected_Id.clear();
             isDragging_Selection = false;
-            
-            update(); 
             // std::cout << "Shape Deleted via Keyboard shortcut via canvas_Key." << std::endl;          //Debug
         }
     }

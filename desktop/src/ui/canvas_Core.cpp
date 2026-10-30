@@ -51,23 +51,29 @@ tl::expected<void, ParseError> Canvas::loadFromFile(const std::string& filename)
     auto loaded = SVGParser::load_SVG(filename);
     if (!loaded) return tl::unexpected(loaded.error());
 
-    clear_new();  // undo history and selection point into the old diagram
+    clear_new();  // undo history and selection belong to the old diagram
     diagram = std::move(*loaded);
     update();
     return {};
 }
 
+void Canvas::run(const vec::Operation& op) {
+
+    if (!commandStack.execute(diagram, op)) std::cerr << "Error: operation rejected" << std::endl;
+    update();
+}
+
 void Canvas::undo() {
 
     // std::cout << "From canvas_Core undo called!" << std::endl;    //Debug
-    commandStack.undo();
+    if (!commandStack.undo(diagram)) std::cerr << "Error: undo failed" << std::endl;
     update(); 
 }
 
 void Canvas::redo() {
 
     // std::cout << "From canvas_Core redo called!" << std::endl;    //Debug
-    commandStack.redo();
+    if (!commandStack.redo(diagram)) std::cerr << "Error: redo failed" << std::endl;
     update();
 }
 
@@ -77,10 +83,10 @@ void Canvas::clear_new() {
     diagram.clearallObjects();
 
     //Clear the undo/redo history
-    commandStack.clear_(); 
+    commandStack.clear();
 
     //reset
-    selected_Object = nullptr;
+    selected_Id.clear();
     isDragging_Selection = false;
     current_Shape = nullptr; // Just in case  something is  being drawm ;safety
 

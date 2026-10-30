@@ -3,10 +3,6 @@
 #include <QContextMenuEvent>
 #include <QInputDialog>
 #include <QColorDialog>
-#include "commands/DeleteCommand.h"
-#include "commands/ResizeCommand.h"
-#include "commands/ChangecolorCommand.h"
-#include "commands/ChangeStrokewidthcommand.h"
 
 void Canvas::contextMenuEvent(QContextMenuEvent *event) {
     // 1. Check if we clicked on a shape
@@ -23,7 +19,7 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
     }
 
     // select the shape
-    selected_Object = clickedShape;
+    selected_Id = clickedShape->getId();
     update(); 
 
     // creating the Menu
@@ -41,20 +37,14 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
     if (selectedItem == setFillAction) {
         QColor color = QColorDialog::getColor(Qt::white, this, "Select Fill Color");
         if (color.isValid()) {
-            std::string colorStr = color.name().toStdString();
-            auto cmd =std::make_unique<ChangeColorCommand>(&diagram, selected_Object->getId(), colorStr, true);
-            commandStack.execute(std::move(cmd));
-            update();
+            run(vec::SetStyle{selected_Id, std::nullopt, color.name().toStdString(), std::nullopt});
         }
     }
     // set stroke color
     else if (selectedItem == setStrokeAction) {
         QColor color = QColorDialog::getColor(Qt::black, this, "Select Stroke Color");
         if (color.isValid()) {
-            std::string colorStr =color.name().toStdString();
-            auto cmd = std::make_unique<ChangeColorCommand>(&diagram, selected_Object->getId(), colorStr, false);
-            commandStack.execute(std::move(cmd));
-            update();
+            run(vec::SetStyle{selected_Id, color.name().toStdString(), std::nullopt, std::nullopt});
         }
     }
     //resize
@@ -64,23 +54,18 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
                             "Enter Scale % (e.g., 200 = Double):", 
                             100.0, 1.0, 1000.0, 1, &ok);
         if (ok) {
-            double factor = percentage / 100.0;
-            auto cmd= std::make_unique<ResizeCommand>(&diagram, selected_Object->getId(), factor);
-            commandStack.execute(std::move(cmd));
-            update();
+            run(vec::Resize{selected_Id, percentage / 100.0});
         }
     }
     //delete
     else if (selectedItem == deleteAction) {
-        auto cmd = std::make_unique<DeleteCommand>(&diagram, selected_Object->getId());
-        commandStack.execute(std::move(cmd));
-        selected_Object = nullptr;
-        update();
+        run(vec::DeleteShape{selected_Id});
+        selected_Id.clear();
     }
     //setwidth
     else if (selectedItem == setWidthAction) {
         bool ok;
-        double currentWidth= selected_Object->getStrokeWidth();
+        double currentWidth= clickedShape->getStrokeWidth();
         double newWidth = QInputDialog::getDouble(
             this, "Stroke Width", 
             "Enter thickness (e.g., 5.0):", 
@@ -88,9 +73,7 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
         );
 
         if (ok && newWidth != currentWidth) {
-            auto cmd= std::make_unique<ChangeStrokeWidthCommand>(&diagram, selected_Object->getId(), newWidth);
-            commandStack.execute(std::move(cmd));
-            update(); 
+            run(vec::SetStyle{selected_Id, std::nullopt, std::nullopt, newWidth});
         }
     }
 }

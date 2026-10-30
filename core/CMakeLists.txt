@@ -11,16 +11,7 @@ add_library(vec_core
     src/parser/SVGParser_Core.cpp
     src/parser/SVGParser_Parse.cpp
     src/ops/Apply.cpp
-    src/commands/Command.cpp
-    src/commands/CommandStack.cpp
-    src/commands/CreateCommand.cpp
-    src/commands/DeleteCommand.cpp
-    src/commands/MoveCommand.cpp
-    src/commands/ModifyCommand.cpp
-    src/commands/ResizeCommand.cpp
-    src/commands/AddCommand.cpp
-    src/commands/ChangecolorCommand.cpp
-    src/commands/ChangeStrokewidthcommand.cpp
+    src/ops/CommandStack.cpp
 )
 
 target_include_directories(vec_core PUBLIC include)
