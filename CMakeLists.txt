@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(BUILD_DESKTOP "Build the Qt desktop app" ON)
 option(BUILD_TESTS "Build the unit tests" ON)
+option(BUILD_FUZZERS "Build the libFuzzer targets (needs clang)" OFF)
 
 if(BUILD_TESTS)
     enable_testing()

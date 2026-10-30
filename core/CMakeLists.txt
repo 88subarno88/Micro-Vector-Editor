@@ -31,3 +31,7 @@ endif()
 if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
+
+if(BUILD_FUZZERS)
+    add_subdirectory(fuzz)
+endif()

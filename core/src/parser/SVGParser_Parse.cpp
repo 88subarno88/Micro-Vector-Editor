@@ -1,5 +1,6 @@
 #include "parser/SVGParser.h"
 #include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -138,8 +139,13 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
                 maxY = std::max(maxY, coords[i + 1]);
             }
 
-            auto shape = std::make_unique<Hexagon>((minX + maxX) / 2.0, (minY + maxY) / 2.0,
-                                                   (maxX - minX) / 2.0);
+            const double centerX = (minX + maxX) / 2.0, centerY = (minY + maxY) / 2.0;
+            const double radius = (maxX - minX) / 2.0;
+            // Vertices this far out overflow to "inf" when saved, and that can't be read back.
+            constexpr double tooFar = 1e300;
+            if (!(std::abs(centerX) + radius < tooFar && std::abs(centerY) + radius < tooFar)) break;
+
+            auto shape = std::make_unique<Hexagon>(centerX, centerY, radius);
             applyStroke(*shape, attrs);
             applyFill(*shape, attrs);
             add(std::move(shape));
