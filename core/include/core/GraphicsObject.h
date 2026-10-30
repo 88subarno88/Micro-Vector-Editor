@@ -8,9 +8,13 @@
 
 class Renderer;
 
+// Identifies one shape for its whole life, across undo/redo and between clients.
+using ShapeId = std::string;
+
 
 class GraphicsObject{
 private:
+    ShapeId id_;         // unique id, assigned on construction
     double x_;           // X coordinate of top-left corner
     double y_;           // Y coordinate of top-left corner
     double width_;       // width of bounding box
@@ -26,6 +30,15 @@ public:
                    double width = 0.0, double height = 0.0);
 
     virtual ~GraphicsObject();
+
+    // a copy would share its id with the original; use clone(), which gets a new id
+    GraphicsObject(const GraphicsObject&) = delete;
+    GraphicsObject& operator=(const GraphicsObject&) = delete;
+
+    // returns a new random id: "s_" + 16 hex digits
+    static ShapeId generateId();
+
+    const ShapeId& getId() const { return id_; }
 
     // draws the shape onto `renderer`
     virtual void draw(Renderer& renderer) const = 0;

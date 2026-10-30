@@ -7,6 +7,7 @@ add_executable(vec_core_tests
     ParserHelpersTest.cpp
     ParserTest.cpp
     RenderTest.cpp
+    ShapeIdTest.cpp
 )
 
 target_link_libraries(vec_core_tests PRIVATE vec_core GTest::gtest_main)
