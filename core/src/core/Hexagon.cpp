@@ -133,4 +133,8 @@ void Hexagon::move(double dx, double dy) {
 //resize
 void Hexagon::scale_factor(double factor) {
     radius_*= factor;
+    // keep the bounding box around the new size
+    setPosition(center_x_ - radius_, center_y_ - radius_);
+    setWidth(radius_ * 2);
+    setHeight(radius_ * 2);
 }

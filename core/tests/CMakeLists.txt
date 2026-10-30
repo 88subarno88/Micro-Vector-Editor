@@ -10,6 +10,7 @@ add_executable(vec_core_tests
     ParserHelpersTest.cpp
     ParserTest.cpp
     RenderTest.cpp
+    ShapeTest.cpp
     ShapeIdTest.cpp
 )
 

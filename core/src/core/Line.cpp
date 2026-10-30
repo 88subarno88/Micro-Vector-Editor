@@ -143,4 +143,5 @@ void Line::scale_factor(double factor) {
     
     x2_=x1_+(dx* factor);
     y2_=y1_ +(dy *factor);
+    updateBoundingBox();
 }

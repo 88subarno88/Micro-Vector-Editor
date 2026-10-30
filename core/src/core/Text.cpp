@@ -62,6 +62,7 @@ std::string Text::toSVG() const {
 //Create the deep copy of the object | used for copy pasting purpose 
 std::unique_ptr<GraphicsObject> Text::clone() const {
     auto copy = std::make_unique<Text>(getX(), getY(),text_ );
+    copy->setFrontSize(font_size_);
     
     // Copy visual properties from base class
     copy->setStrokeColor(getStrokeColor());
