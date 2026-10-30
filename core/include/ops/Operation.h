@@ -47,6 +47,7 @@ struct ShapeData {
 struct AddShape {
     ShapeId id;
     ShapeData shape;
+    std::optional<size_t> position;  // place in drawing order; unset means on top
 };
 
 struct DeleteShape {

@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 
 
@@ -15,6 +16,12 @@ class Diagram{
     public :
         // add a graphics object to the diagram
         void addObject(std::unique_ptr<GraphicsObject> obj);
+
+        // adds a graphics object at `position` in drawing order; position must be <= getObjectCount()
+        void insertObject(std::unique_ptr<GraphicsObject> obj, size_t position);
+
+        // a shape's place in drawing order; nullopt if it isn't in the diagram
+        std::optional<size_t> positionOf(const ShapeId& id) const;
 
         // finds a shape by id; nullptr if it isn't in the diagram
         GraphicsObject* find(const ShapeId& id) const;

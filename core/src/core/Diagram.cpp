@@ -2,8 +2,22 @@
 
 //adds a object like the shapes circle,hexagon etc to the objects_ vector
 void Diagram::addObject(std::unique_ptr<GraphicsObject> obj) {
-    index_[obj->getId()] = objects_.size();
-    objects_.push_back(std::move(obj));
+    insertObject(std::move(obj), objects_.size());
+}
+
+void Diagram::insertObject(std::unique_ptr<GraphicsObject> obj, size_t position) {
+    objects_.insert(objects_.begin() + position, std::move(obj));
+
+    // this shape and every shape after it now sit at a new position
+    for (size_t i = position; i < objects_.size(); ++i) {
+        index_[objects_[i]->getId()] = i;
+    }
+}
+
+std::optional<size_t> Diagram::positionOf(const ShapeId& id) const {
+    const auto it = index_.find(id);
+    if (it == index_.end()) return std::nullopt;
+    return it->second;
 }
 // get number of objects in the  objects_ vector
 int  Diagram::getObjectCount() const {
