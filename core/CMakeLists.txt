@@ -10,6 +10,7 @@ add_library(vec_core
     src/core/Diagram.cpp
     src/parser/SVGParser_Core.cpp
     src/parser/SVGParser_Parse.cpp
+    src/ops/Apply.cpp
     src/commands/Command.cpp
     src/commands/CommandStack.cpp
     src/commands/CreateCommand.cpp

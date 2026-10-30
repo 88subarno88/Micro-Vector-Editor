@@ -2,6 +2,7 @@ find_package(GTest CONFIG REQUIRED)
 include(GoogleTest)
 
 add_executable(vec_core_tests
+    ApplyTest.cpp
     CommandTest.cpp
     DiagramTest.cpp
     FixtureTest.cpp
