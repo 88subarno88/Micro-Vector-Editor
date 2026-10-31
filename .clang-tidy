@@ -1,0 +1,15 @@
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  clang-analyzer-*,
+  performance-*,
+  -performance-enum-size,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-make-unique,
+  misc-unused-using-decls,
+  readability-container-size-empty,
+  readability-redundant-string-init
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/core/include/.*'

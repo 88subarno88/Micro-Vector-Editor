@@ -15,13 +15,13 @@ private:
 public:
     RoundedRectangle(double x, double y, double width, double height, double radius);
 
-    virtual ~RoundedRectangle();
+    ~RoundedRectangle() override;
 
     // Implement pure virtual functions from GraphicsObject
     void draw(Renderer& renderer) const override;
-    virtual std::string toSVG() const override;
-    virtual std::unique_ptr<GraphicsObject> clone() const override;
-    virtual std::string getType() const override;
+    std::string toSVG() const override;
+    std::unique_ptr<GraphicsObject> clone() const override;
+    std::string getType() const override;
     double getCornerRadius() const { return corner_radius_; }
     void setCornerRadius(double radius);
     void move(double dx, double dy) override;

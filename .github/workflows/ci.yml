@@ -36,6 +36,9 @@ jobs:
           - name: ASan + UBSan
             preset: asan
             desktop: OFF
+          - name: Fuzzers (60 s each)
+            preset: fuzz
+            desktop: OFF
     env:
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
     steps:
@@ -52,6 +55,12 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ runner.os }}-${{ matrix.preset }}-desktop-${{ matrix.desktop }}
+
+      - name: Install clang
+        if: matrix.preset == 'fuzz'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
 
       - name: Install Qt
         if: matrix.desktop == 'ON'
@@ -70,8 +79,32 @@ jobs:
       - name: Configure
         run: cmake --preset ${{ matrix.preset }} -DBUILD_DESKTOP=${{ matrix.desktop }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
+      - name: Run clang-tidy
+        if: matrix.name == 'Core only (no Qt)'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy
+          git ls-files -z 'core/src/*.cpp' | xargs -0 -P4 -n1 clang-tidy -p build/dev --quiet
+
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }} --parallel
 
       - name: Test
+        if: matrix.preset != 'fuzz'
         run: ctest --preset ${{ matrix.preset }}
+
+      - name: Fuzz
+        if: matrix.preset == 'fuzz'
+        run: |
+          mkdir -p build/fuzz/artifacts build/fuzz/corpus_parser build/fuzz/corpus_op
+          build/fuzz/core/fuzz/fuzz_parser -max_total_time=60 -dict=core/fuzz/svg.dict \
+            -artifact_prefix=build/fuzz/artifacts/ build/fuzz/corpus_parser core/tests/fixtures
+          build/fuzz/core/fuzz/fuzz_op_json -max_total_time=60 -dict=core/fuzz/op_json.dict \
+            -artifact_prefix=build/fuzz/artifacts/ build/fuzz/corpus_op core/tests/fixtures/ops
+
+      - name: Keep the inputs that crashed
+        if: failure() && matrix.preset == 'fuzz'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes
+          path: build/fuzz/artifacts/

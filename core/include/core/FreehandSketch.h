@@ -16,7 +16,7 @@ private:
 
 public:
     FreehandSketch();
-    virtual ~FreehandSketch();
+    ~FreehandSketch() override;
 
     // implement pure virtual functions from GraphicsObject
     void draw(Renderer& renderer) const override;

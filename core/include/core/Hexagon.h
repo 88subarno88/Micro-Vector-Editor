@@ -19,7 +19,7 @@ private:
 
 public:
     Hexagon(double centerX = 0.0, double centerY = 0.0, double radius = 10.0);
-    virtual ~Hexagon();
+    ~Hexagon() override;
 
     // implement pure virtual functions from GraphicsObject
     void draw(Renderer& renderer) const override;

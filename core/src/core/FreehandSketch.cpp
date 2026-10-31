@@ -72,7 +72,7 @@ void FreehandSketch::clearPoints() {
     setHeight(0);
 }
 // get the total number of points in the freehand sketch
-int FreehandSketch::getPointCount() const { return points_.size(); }
+int FreehandSketch::getPointCount() const { return static_cast<int>(points_.size()); }
 
 // get all points_ in the freehand sketch
 const std::vector<Point>& FreehandSketch::getPoints() const { return points_; }

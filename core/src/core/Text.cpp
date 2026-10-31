@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include "core/Renderer.h"
 
@@ -12,8 +13,8 @@
 Text::Text(double x, double y, std::string content)
     : GraphicsObject(x, y)  // (x, y) = top-left of bounding box
 {
-    text_ = content;  // set the text content
-    font_size_ = 16;  // default size is 16
+    text_ = std::move(content);  // set the text content
+    font_size_ = 16;             // default size is 16
     font_family_ = "Arial";
     updateSize();
 }
@@ -21,7 +22,7 @@ Text::Text(double x, double y, std::string content)
 // Estimates the bounding box without a font library: in Arial, typical text averages
 // about 0.6 x font size per character and a line is about 1.5 x font size tall.
 void Text::updateSize() {
-    setWidth(0.6 * font_size_ * text_.length());
+    setWidth(0.6 * font_size_ * static_cast<double>(text_.length()));
     setHeight(1.5 * font_size_);
 }
 

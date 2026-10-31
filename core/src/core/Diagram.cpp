@@ -1,12 +1,14 @@
 #include "core/Diagram.h"
 
+#include <cstddef>
+
 // adds a object like the shapes circle,hexagon etc to the objects_ vector
 void Diagram::addObject(std::unique_ptr<GraphicsObject> obj) {
     insertObject(std::move(obj), objects_.size());
 }
 
 void Diagram::insertObject(std::unique_ptr<GraphicsObject> obj, size_t position) {
-    objects_.insert(objects_.begin() + position, std::move(obj));
+    objects_.insert(objects_.begin() + static_cast<std::ptrdiff_t>(position), std::move(obj));
 
     // this shape and every shape after it now sit at a new position
     for (size_t i = position; i < objects_.size(); ++i) {
@@ -20,7 +22,7 @@ std::optional<size_t> Diagram::positionOf(const ShapeId& id) const {
     return it->second;
 }
 // get number of objects in the  objects_ vector
-int Diagram::getObjectCount() const { return objects_.size(); }
+int Diagram::getObjectCount() const { return static_cast<int>(objects_.size()); }
 // clear all objects in objects_ vector
 void Diagram::clearallObjects() {
     objects_.clear();
@@ -37,7 +39,7 @@ std::unique_ptr<GraphicsObject> Diagram::removeObject(const ShapeId& id) {
 
     const size_t position = it->second;
     auto shape = std::move(objects_[position]);
-    objects_.erase(objects_.begin() + position);
+    objects_.erase(objects_.begin() + static_cast<std::ptrdiff_t>(position));
     index_.erase(it);
 
     // every shape after the removed one moved down by one

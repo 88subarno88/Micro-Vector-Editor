@@ -19,7 +19,7 @@ private:
 public:
     Text(double x, double y, std::string content);
 
-    virtual ~Text();
+    ~Text() override;
 
     // Implement pure virtual functions from GraphicsObject
     void draw(Renderer& renderer) const override;
