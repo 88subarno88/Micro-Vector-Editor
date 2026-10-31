@@ -14,8 +14,13 @@ jobs:
       matrix:
         include:
           - name: Full build
+            preset: dev
             desktop: ON
           - name: Core only (no Qt)
+            preset: dev
+            desktop: OFF
+          - name: ASan + UBSan
+            preset: asan
             desktop: OFF
     env:
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
@@ -32,7 +37,7 @@ jobs:
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ runner.os }}-desktop-${{ matrix.desktop }}
+          key: ${{ runner.os }}-${{ matrix.preset }}-desktop-${{ matrix.desktop }}
 
       - name: Install Qt
         if: matrix.desktop == 'ON'
@@ -49,10 +54,10 @@ jobs:
           mkdir -p .vcpkg-cache
 
       - name: Configure
-        run: cmake --preset dev -DBUILD_DESKTOP=${{ matrix.desktop }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake --preset ${{ matrix.preset }} -DBUILD_DESKTOP=${{ matrix.desktop }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
-        run: cmake --build --preset dev --parallel
+        run: cmake --build --preset ${{ matrix.preset }} --parallel
 
       - name: Test
-        run: ctest --preset dev
+        run: ctest --preset ${{ matrix.preset }}

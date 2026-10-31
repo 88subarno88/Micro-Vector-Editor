@@ -235,6 +235,14 @@ TEST(ParserTest, InvalidNumberDoesNotThrow) {
     EXPECT_NO_THROW(loadFromString(R"(<circle cx="abc" cy="5" r="10" stroke-width="1"/>)", diagram));
 }
 
+TEST(ParserTest, SkipsShapesOutOfLimits) {
+    const auto result = SVGParser::parse_SVG(
+        R"(<rect x="1e308"/><circle r="1e308"/><line x2="-1e308"/><path d="M 1e308 0"/><text font-size="1e308">Hi</text>)");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->getObjectCount(), 0);
+}
+
 TEST(ParserTest, SkipsAPolygonTooFarOutToSave) {
     for (const char* doc : {R"(<polygon points="1e308,0 -1e308,1"/>)", R"(<polygon points="1e308,0 1e308,1"/>)",
                             R"(<polygon points="0,1e308 1,1e308"/>)"}) {

@@ -1,6 +1,5 @@
 #include "parser/SVGParser.h"
 #include <algorithm>
-#include <cmath>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -13,6 +12,7 @@
 #include "core/RoundedRectangle.h"
 #include "core/Text.h"
 #include "core/FreehandSketch.h"
+#include "ops/Apply.h"
 
 enum class WhatdaShape {
     Rect,
@@ -75,7 +75,9 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
     const auto number = [&](const char* key) { return parseNumber(text(key), 0.0); };
     // Keeps the file's id, unless it's empty, taken, or would break the quotes when saved;
     // the shape's generated id stays in those cases.
+    // A shape out of limits is skipped, like an unknown tag.
     const auto add = [&](std::unique_ptr<GraphicsObject> shape) {
+        if (!vec::isWithinLimits(*shape)) return;
         const std::string id = text("id");
         if (!id.empty() && isSafe(id) && !diagram.find(id)) shape->setId(id);
         diagram.addObject(std::move(shape));
@@ -139,13 +141,8 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
                 maxY = std::max(maxY, coords[i + 1]);
             }
 
-            const double centerX = (minX + maxX) / 2.0, centerY = (minY + maxY) / 2.0;
-            const double radius = (maxX - minX) / 2.0;
-            // Vertices this far out overflow to "inf" when saved, and that can't be read back.
-            constexpr double tooFar = 1e300;
-            if (!(std::abs(centerX) + radius < tooFar && std::abs(centerY) + radius < tooFar)) break;
-
-            auto shape = std::make_unique<Hexagon>(centerX, centerY, radius);
+            auto shape = std::make_unique<Hexagon>((minX + maxX) / 2.0, (minY + maxY) / 2.0,
+                                                   (maxX - minX) / 2.0);
             applyStroke(*shape, attrs);
             applyFill(*shape, attrs);
             add(std::move(shape));

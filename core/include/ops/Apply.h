@@ -12,11 +12,16 @@ enum class ApplyError {
     ShapeNotFound,  // the op names an id that isn't in the diagram
     DuplicateId,    // AddShape with an id already in the diagram
     InvalidShape,   // AddShape with unusable data, e.g. a font size of 0 or a quote in a colour
-    InvalidValue,   // Move, Resize or SetStyle with a number or colour that can't be used
+    InvalidValue,   // Move, Resize or SetStyle with a number or colour that can't be used, or
+                    // that would take the shape out of limits
 };
 
 // Describes an existing shape as data, for AddShape.
 ShapeData toShapeData(const GraphicsObject& shape);
+
+// False if a shape's numbers are too large to save and undo reliably. apply() and the SVG parser
+// both refuse such shapes, so anything in a diagram can always be deleted and restored.
+bool isWithinLimits(const GraphicsObject& shape);
 
 // Applies `op` to `diagram`. On an error the diagram is left unchanged.
 // Call it as vec::apply: for a non-const Operation, plain apply() can pick std::apply.

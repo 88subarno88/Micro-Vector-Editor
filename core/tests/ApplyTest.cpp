@@ -219,7 +219,8 @@ TEST(ApplyTest, SetStyleWithABadFieldChangesNothing) {
 
     for (const SetStyle& op : {SetStyle{"a", "green", "yellow", -1}, SetStyle{"a", "green", "yellow", nan},
                                SetStyle{"a", "green", "x\" onload=\"y", 2},
-                               SetStyle{"a", "x\"", "yellow", 2}}) {
+                               SetStyle{"a", "x\"", "yellow", 2},
+                               SetStyle{"a", "green", "yellow", 1e308}}) {
         const auto result = apply(diagram, op);
         ASSERT_FALSE(result);
         EXPECT_EQ(result.error(), ApplyError::InvalidValue);
@@ -391,6 +392,39 @@ TEST(ApplyTest, AddAtAPositionOutOfRangeFails) {
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), ApplyError::InvalidShape);
     EXPECT_EQ(diagram.getObjectCount(), 0);
+}
+
+TEST(ApplyTest, AddOutOfLimitsFails) {
+    const double big = 1.7e308;
+    Diagram diagram;
+
+    for (const ShapeData& shape : {ShapeData{RectGeom{big, 0, 1, 1}, {}}, ShapeData{CircleGeom{{0, 0}, big}, {}},
+                                   ShapeData{HexagonGeom{{big, 0}, big}, {}}, ShapeData{LineGeom{{0, 0}, {big, 0}}, {}},
+                                   ShapeData{FreehandGeom{{{0, big}}}, {}}, ShapeData{TextData{{0, 0}, "Hi", big}, {}},
+                                   ShapeData{RectGeom{}, Style{"red", "blue", big}}}) {
+        const auto result = apply(diagram, AddShape{"a", shape, std::nullopt});
+        ASSERT_FALSE(result);
+        EXPECT_EQ(result.error(), ApplyError::InvalidShape);
+    }
+    EXPECT_EQ(diagram.getObjectCount(), 0);
+}
+
+TEST(ApplyTest, MoveOrResizeOutOfLimitsFailsAndChangesNothing) {
+    for (const ShapeData& shape : {ShapeData{RectGeom{1, 2, 3, 4, 1}, {}}, ShapeData{CircleGeom{{1, 2}, 3}, {}},
+                                   ShapeData{LineGeom{{1, 2}, {3, 4}}, {}}, ShapeData{HexagonGeom{{1, 2}, 3}, {}},
+                                   ShapeData{FreehandGeom{{{1, 2}, {3, 4}}}, {}},
+                                   ShapeData{TextData{{1, 2}, "Hi", 20}, {}}}) {
+        Diagram diagram;
+        ASSERT_TRUE(apply(diagram, AddShape{"a", shape, std::nullopt}));
+        const std::string before = diagram.toSVG();
+
+        for (const Operation& op : {Operation{Move{"a", 1.7e308, 0}}, Operation{Resize{"a", 1e308}}}) {
+            const auto result = apply(diagram, op);
+            ASSERT_FALSE(result) << before;
+            EXPECT_EQ(result.error(), ApplyError::InvalidValue);
+        }
+        EXPECT_EQ(diagram.toSVG(), before);
+    }
 }
 
 TEST(ApplyTest, DeleteOfAnUnknownIdFailsAndChangesNothing) {

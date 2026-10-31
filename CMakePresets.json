@@ -12,6 +12,17 @@
       }
     },
     {
+      "name": "asan",
+      "displayName": "Core and tests with ASan and UBSan",
+      "binaryDir": "${sourceDir}/build/asan",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer",
+        "BUILD_DESKTOP": "OFF"
+      }
+    },
+    {
       "name": "fuzz",
       "displayName": "libFuzzer targets with ASan and UBSan",
       "binaryDir": "${sourceDir}/build/fuzz",
@@ -32,6 +43,10 @@
       "configurePreset": "dev"
     },
     {
+      "name": "asan",
+      "configurePreset": "asan"
+    },
+    {
       "name": "fuzz",
       "configurePreset": "fuzz"
     }
@@ -40,6 +55,11 @@
     {
       "name": "dev",
       "configurePreset": "dev",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan",
       "output": { "outputOnFailure": true }
     }
   ]

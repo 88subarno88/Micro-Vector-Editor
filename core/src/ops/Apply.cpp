@@ -24,6 +24,30 @@ bool isSafeAttribute(const std::string& value) {
     return value.find('"') == std::string::npos;
 }
 
+// Beyond this, a shape's points can overflow to "inf" when saved, which can't be read back or undone.
+constexpr double coordinateLimit = 1e300;
+
+bool inLimit(double value) { return std::abs(value) <= coordinateLimit; }  // false for NaN
+bool inLimit(const Point& p) { return inLimit(p.x) && inLimit(p.y); }
+
+// Checks every number of each kind of geometry.
+struct LimitChecker {
+    bool operator()(const RectGeom& g) const {
+        return inLimit(g.x) && inLimit(g.y) && inLimit(g.width) && inLimit(g.height) && inLimit(g.cornerRadius);
+    }
+    bool operator()(const CircleGeom& g) const { return aroundCenter(g.center, g.radius); }
+    bool operator()(const LineGeom& g) const { return inLimit(g.start) && inLimit(g.end); }
+    bool operator()(const HexagonGeom& g) const { return aroundCenter(g.center, g.radius); }
+    bool operator()(const FreehandGeom& g) const {
+        return std::all_of(g.points.begin(), g.points.end(), [](const Point& p) { return inLimit(p); });
+    }
+    bool operator()(const TextData& g) const { return inLimit(g.position) && inLimit(g.fontSize); }
+
+    static bool aroundCenter(const Point& center, double radius) {
+        return inLimit(std::abs(center.x) + std::abs(radius)) && inLimit(std::abs(center.y) + std::abs(radius));
+    }
+};
+
 // Builds the shape described by each kind of geometry.
 struct ShapeBuilder {
     std::unique_ptr<GraphicsObject> operator()(const RectGeom& g) const {
@@ -74,6 +98,7 @@ struct Applier {
         shape->setStrokeColor(op.shape.style.stroke);
         shape->setFillColor(op.shape.style.fill);
         shape->setStrokeWidth(op.shape.style.strokeWidth);
+        if (!isWithinLimits(*shape)) return tl::unexpected(ApplyError::InvalidShape);
         diagram.insertObject(std::move(shape), op.position.value_or(diagram.getObjectCount()));
         return {};
     }
@@ -88,6 +113,11 @@ struct Applier {
 
         GraphicsObject* shape = diagram.find(op.id);
         if (!shape) return tl::unexpected(ApplyError::ShapeNotFound);
+
+        const auto preview = shape->clone();
+        preview->move(op.dx, op.dy);
+        if (!isWithinLimits(*preview)) return tl::unexpected(ApplyError::InvalidValue);
+
         shape->move(op.dx, op.dy);
         return {};
     }
@@ -98,6 +128,11 @@ struct Applier {
 
         GraphicsObject* shape = diagram.find(op.id);
         if (!shape) return tl::unexpected(ApplyError::ShapeNotFound);
+
+        const auto preview = shape->clone();
+        preview->scale_factor(op.factor);
+        if (!isWithinLimits(*preview)) return tl::unexpected(ApplyError::InvalidValue);
+
         shape->scale_factor(op.factor);
         return {};
     }
@@ -105,7 +140,7 @@ struct Applier {
     Result operator()(const SetStyle& op) const {
         // checked first, so a bad field can't leave the others half applied
         if ((op.stroke && !isSafeAttribute(*op.stroke)) || (op.fill && !isSafeAttribute(*op.fill)) ||
-            (op.strokeWidth && (!std::isfinite(*op.strokeWidth) || *op.strokeWidth < 0))) {
+            (op.strokeWidth && (!inLimit(*op.strokeWidth) || *op.strokeWidth < 0))) {
             return tl::unexpected(ApplyError::InvalidValue);
         }
 
@@ -190,6 +225,11 @@ ShapeData toShapeData(const GraphicsObject& shape) {
         return {TextData{{s->getX(), s->getY()}, s->getText(), s->getFontSize()}, style};
     }
     return {RectGeom{shape.getX(), shape.getY(), shape.getWidth(), shape.getHeight()}, style};
+}
+
+bool isWithinLimits(const GraphicsObject& shape) {
+    const ShapeData data = toShapeData(shape);
+    return inLimit(data.style.strokeWidth) && std::visit(LimitChecker{}, data.geometry);
 }
 
 Result apply(Diagram& diagram, const Operation& op) {

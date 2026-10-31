@@ -1,3 +1,5 @@
-add_executable(fuzz_parser fuzz_parser.cpp)
-target_link_libraries(fuzz_parser PRIVATE vec_core)
-target_link_options(fuzz_parser PRIVATE -fsanitize=fuzzer)
+foreach(target fuzz_parser fuzz_op_json)
+    add_executable(${target} ${target}.cpp)
+    target_link_libraries(${target} PRIVATE vec_core)
+    target_link_options(${target} PRIVATE -fsanitize=fuzzer)
+endforeach()
