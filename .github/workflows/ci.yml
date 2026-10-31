@@ -6,6 +6,20 @@ on:
   pull_request:
 
 jobs:
+  format:
+    name: Format check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: Check formatting
+        run: git ls-files -z '*.h' '*.cpp' | xargs -0 clang-format --dry-run --Werror
+
   build-and-test:
     name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
