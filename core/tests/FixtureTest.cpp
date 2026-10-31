@@ -19,9 +19,7 @@ struct Fixture {
 // Lets GoogleTest print the file name instead of raw bytes.
 void PrintTo(const Fixture& fixture, std::ostream* os) { *os << fixture.file; }
 
-std::string fixturePath(const std::string& file) {
-    return std::string(FIXTURE_DIR) + "/" + file;
-}
+std::string fixturePath(const std::string& file) { return std::string(FIXTURE_DIR) + "/" + file; }
 
 // Rounds every number in `svg` to 6 significant digits. A polygon's centre is rebuilt from
 // its rounded vertices, so a save/load may change the last digits without moving anything.

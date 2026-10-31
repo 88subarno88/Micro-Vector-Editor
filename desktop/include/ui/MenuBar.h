@@ -1,8 +1,8 @@
 #ifndef MENUBAR_H
 #define MENUBAR_H
 
-#include <QMenuBar>
 #include <QMainWindow>
+#include <QMenuBar>
 
 class MenuBar {
 public:
@@ -10,4 +10,4 @@ public:
     static void createMenuBar(QMainWindow* mainWindow);
 };
 
-#endif // MENUBAR_H
+#endif  // MENUBAR_H

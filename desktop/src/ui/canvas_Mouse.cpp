@@ -1,40 +1,41 @@
-#include <iostream>
-#include <cmath>
-#include <algorithm>
-#include "ui/Canvas.h"
-#include <QMouseEvent>
 #include <QInputDialog>
-#include "core/Circle.h"
-#include "core/Rectangle.h"
-#include "core/Hexagon.h"
-#include "core/Text.h"
-#include "core/FreehandSketch.h"
-#include "core/Line.h"
-#include "core/RoundedRectangle.h"
+#include <QMouseEvent>
+#include <algorithm>
+#include <cmath>
+#include <iostream>
 
-void Canvas::mousePressEvent(QMouseEvent *event) {
-    // is in select mode 
+#include "core/Circle.h"
+#include "core/FreehandSketch.h"
+#include "core/Hexagon.h"
+#include "core/Line.h"
+#include "core/Rectangle.h"
+#include "core/RoundedRectangle.h"
+#include "core/Text.h"
+#include "ui/Canvas.h"
+
+void Canvas::mousePressEvent(QMouseEvent* event) {
+    // is in select mode
     if (currentMode == ToolType::Select) {
         selected_Id.clear();
         isDragging_Selection = false;
-        
+
         // auto& shapes to modify the actual shapes in the list
         auto& shapes = diagram.getShapes();
         for (auto curr = shapes.rbegin(); curr != shapes.rend(); ++curr) {
             double mouseX = event->position().x();
             double mouseY = event->position().y();
 
-            //Is the click done inside?
+            // Is the click done inside?
             if ((*curr)->contains(mouseX, mouseY)) {
-                selected_Id = (*curr)->getId();     // grab the shape
-                isDragging_Selection = true;        // dragging with selection
-                last_Mousepos = event->position(); 
+                selected_Id = (*curr)->getId();  // grab the shape
+                isDragging_Selection = true;     // dragging with selection
+                last_Mousepos = event->position();
                 drag_StartPos = event->position();
                 update();
                 return;
             }
         }
-    } 
+    }
     // unless in selection mode draw the shape
     else {
         isDrawing = true;
@@ -44,13 +45,13 @@ void Canvas::mousePressEvent(QMouseEvent *event) {
         if (currentMode == ToolType::FreehandSketch) {
             auto sketch = std::make_unique<FreehandSketch>();
             sketch->addPoint(start_Point.x(), start_Point.y());
-            current_Shape = std::move(sketch); 
+            current_Shape = std::move(sketch);
         }
     }
 }
 
-void Canvas::mouseMoveEvent(QMouseEvent *event) {
-    // handle Selection Dragging 
+void Canvas::mouseMoveEvent(QMouseEvent* event) {
+    // handle Selection Dragging
     if (currentMode == ToolType::Select) {
         GraphicsObject* selected = selectedShape();
         if (isDragging_Selection && selected) {
@@ -61,8 +62,8 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
             update();
         }
         return;
-    } 
-    
+    }
+
     // handle Drawing Preview
     else if (isDrawing) {
         curr_Point = event->position();
@@ -70,21 +71,27 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
         if (currentMode == ToolType::FreehandSketch && current_Shape) {
             auto* sketch = dynamic_cast<FreehandSketch*>(current_Shape.get());
             if (sketch) sketch->addPoint(curr_Point.x(), curr_Point.y());
-        }
-        else if (currentMode != ToolType::Text) { 
+        } else if (currentMode != ToolType::Text) {
             double x1 = start_Point.x();
             double y1 = start_Point.y();
             double x2 = curr_Point.x();
             double y2 = curr_Point.y();
             double width = std::abs(x2 - x1);
             double height = std::abs(y2 - y1);
-            double topLeft_X = std::min(x1, x2); 
-            double topLeft_Y = std::min(y1, y2); 
+            double topLeft_X = std::min(x1, x2);
+            double topLeft_Y = std::min(y1, y2);
 
             switch (currentMode) {
-                case ToolType::Line: current_Shape = std::make_unique<Line>(x1, y1, x2, y2); break;
-                case ToolType::Rectangle: current_Shape = std::make_unique<Rectangle>(topLeft_X, topLeft_Y, width, height); break;
-                case ToolType::RoundedRectangle: current_Shape = std::make_unique<RoundedRectangle>(topLeft_X, topLeft_Y, width, height, 20.0); break;
+                case ToolType::Line:
+                    current_Shape = std::make_unique<Line>(x1, y1, x2, y2);
+                    break;
+                case ToolType::Rectangle:
+                    current_Shape = std::make_unique<Rectangle>(topLeft_X, topLeft_Y, width, height);
+                    break;
+                case ToolType::RoundedRectangle:
+                    current_Shape =
+                        std::make_unique<RoundedRectangle>(topLeft_X, topLeft_Y, width, height, 20.0);
+                    break;
                 case ToolType::Circle: {
                     double radius = std::max(width, height) / 2.0;
                     current_Shape = std::make_unique<Circle>(topLeft_X + radius, topLeft_Y + radius, radius);
@@ -92,17 +99,19 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
                 }
                 case ToolType::Hexagon: {
                     double radius = std::min(width, height) / 2.0;
-                    current_Shape = std::make_unique<Hexagon>(topLeft_X + width/2.0, topLeft_Y + height/2.0, radius);
+                    current_Shape =
+                        std::make_unique<Hexagon>(topLeft_X + width / 2.0, topLeft_Y + height / 2.0, radius);
                     break;
                 }
-                default: break;
+                default:
+                    break;
             }
         }
-        update(); 
+        update();
     }
 }
 
-void Canvas::mouseReleaseEvent(QMouseEvent *event) {
+void Canvas::mouseReleaseEvent(QMouseEvent* event) {
     // handle selection mode
     if (currentMode == ToolType::Select) {
         GraphicsObject* selected = selectedShape();
@@ -116,9 +125,9 @@ void Canvas::mouseReleaseEvent(QMouseEvent *event) {
                 // std::cout << "Move saved to Undo stack." << std::endl;                      //Debug
             }
         }
-        isDragging_Selection = false; 
-        update();                     
-        return;                      
+        isDragging_Selection = false;
+        update();
+        return;
     }
 
     // stop drawing
@@ -129,12 +138,13 @@ void Canvas::mouseReleaseEvent(QMouseEvent *event) {
     // make  the shape finalized
     if (currentMode == ToolType::Text) {
         bool ok;
-        QString text = QInputDialog::getText(this, "Add Text", "Enter text:", QLineEdit::Normal, "My Text", &ok);
+        QString text =
+            QInputDialog::getText(this, "Add Text", "Enter text:", QLineEdit::Normal, "My Text", &ok);
         if (ok && !text.isEmpty()) {
-            newShape = std::make_unique<Text>(event->position().x(), event->position().y(), text.toStdString());
+            newShape =
+                std::make_unique<Text>(event->position().x(), event->position().y(), text.toStdString());
         }
-    } 
-    else {
+    } else {
         if (current_Shape) newShape = std::move(current_Shape);
     }
 
@@ -142,7 +152,7 @@ void Canvas::mouseReleaseEvent(QMouseEvent *event) {
     if (newShape) {
         run(vec::AddShape{newShape->getId(), vec::toShapeData(*newShape), std::nullopt});
     }
-    
-    current_Shape = nullptr; 
+
+    current_Shape = nullptr;
     update();
 }

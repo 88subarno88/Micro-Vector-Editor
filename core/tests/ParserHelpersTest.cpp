@@ -8,13 +8,11 @@
 using Attributes = SVGParser::Attributes;
 
 TEST(AttributesTest, ParsesPairs) {
-    EXPECT_EQ(SVGParser::parseAttributes(R"(<rect x="1" y="2"/>)"),
-              (Attributes{{"x", "1"}, {"y", "2"}}));
+    EXPECT_EQ(SVGParser::parseAttributes(R"(<rect x="1" y="2"/>)"), (Attributes{{"x", "1"}, {"y", "2"}}));
 }
 
 TEST(AttributesTest, SimilarNamesAreSeparate) {
-    const auto attrs =
-        SVGParser::parseAttributes(R"(<rect rx="5" x="10" stroke-width="3" width="40">)");
+    const auto attrs = SVGParser::parseAttributes(R"(<rect rx="5" x="10" stroke-width="3" width="40">)");
 
     EXPECT_EQ(attrs.at("x"), "10");
     EXPECT_EQ(attrs.at("rx"), "5");
@@ -28,8 +26,7 @@ TEST(AttributesTest, AcceptsSingleQuotesAndSpacesAroundEquals) {
 }
 
 TEST(AttributesTest, StopsAtEndOfTag) {
-    EXPECT_EQ(SVGParser::parseAttributes(R"(<text x="1">a="b"</text>)"),
-              (Attributes{{"x", "1"}}));
+    EXPECT_EQ(SVGParser::parseAttributes(R"(<text x="1">a="b"</text>)"), (Attributes{{"x", "1"}}));
 }
 
 TEST(AttributesTest, ValueMayContainSpecialCharacters) {
@@ -48,9 +45,7 @@ TEST(ParseNumberTest, ParsesNumbers) {
     EXPECT_DOUBLE_EQ(SVGParser::parseNumber(" +1.5e2", 0), 150.0);
 }
 
-TEST(ParseNumberTest, IgnoresUnitSuffix) {
-    EXPECT_DOUBLE_EQ(SVGParser::parseNumber("10px", 0), 10.0);
-}
+TEST(ParseNumberTest, IgnoresUnitSuffix) { EXPECT_DOUBLE_EQ(SVGParser::parseNumber("10px", 0), 10.0); }
 
 TEST(ParseNumberTest, ReturnsFallbackForBadInput) {
     EXPECT_DOUBLE_EQ(SVGParser::parseNumber("", 7), 7.0);
@@ -62,13 +57,10 @@ TEST(ParseNumberTest, ReturnsFallbackForBadInput) {
 }
 
 TEST(DecodeEntitiesTest, DecodesTheFiveXmlEntities) {
-    EXPECT_EQ(SVGParser::decodeEntities("&lt;a&gt; &amp; &quot;b&quot; &apos;c&apos;"),
-              "<a> & \"b\" 'c'");
+    EXPECT_EQ(SVGParser::decodeEntities("&lt;a&gt; &amp; &quot;b&quot; &apos;c&apos;"), "<a> & \"b\" 'c'");
 }
 
-TEST(DecodeEntitiesTest, DecodesOnlyOnce) {
-    EXPECT_EQ(SVGParser::decodeEntities("&amp;lt;"), "&lt;");
-}
+TEST(DecodeEntitiesTest, DecodesOnlyOnce) { EXPECT_EQ(SVGParser::decodeEntities("&amp;lt;"), "&lt;"); }
 
 TEST(DecodeEntitiesTest, LeavesUnknownOrBrokenEntitiesAsIs) {
     EXPECT_EQ(SVGParser::decodeEntities("a & b &foo; &lt"), "a & b &foo; &lt");
@@ -103,8 +95,7 @@ TEST(NextTagTest, ReturnsTagSpanningLinesWhole) {
 }
 
 TEST(NextTagTest, IgnoresGreaterThanInsideQuotes) {
-    EXPECT_EQ(allTags(R"(<path d="L 3>4"/>)"),
-              (std::vector<std::string_view>{R"(<path d="L 3>4"/>)"}));
+    EXPECT_EQ(allTags(R"(<path d="L 3>4"/>)"), (std::vector<std::string_view>{R"(<path d="L 3>4"/>)"}));
 }
 
 TEST(NextTagTest, LeavesPosAfterTagForTextContent) {

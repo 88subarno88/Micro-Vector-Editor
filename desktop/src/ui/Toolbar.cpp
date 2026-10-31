@@ -1,6 +1,8 @@
 #include "ui/Toolbar.h"
-#include "ui/MainWindow.h" 
+
 #include <QAction>
+
+#include "ui/MainWindow.h"
 
 void Toolbar::createToolbar(QMainWindow* mainWindow) {
     // cast generic QMainWindow to our specific MainWindow to access slots
@@ -17,7 +19,7 @@ void Toolbar::createToolbar(QMainWindow* mainWindow) {
     QAction* roundedRect_Action = toolbar->addAction("Rounded Rectangle");
     QAction* hexagon_Action = toolbar->addAction("Hexagon");
     QAction* line_Action = toolbar->addAction("Line");
-    QAction* txt_Action = toolbar->addAction("Text");   
+    QAction* txt_Action = toolbar->addAction("Text");
     QAction* freehand_Action = toolbar->addAction("Freehand Sketch");
 
     // connect actions to MainWindow slots

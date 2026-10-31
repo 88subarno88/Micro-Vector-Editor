@@ -33,4 +33,4 @@ tl::expected<Operation, ApplyError> invert(const Diagram& diagram, const Operati
 
 }  // namespace vec
 
-#endif // APPLY_H
+#endif  // APPLY_H

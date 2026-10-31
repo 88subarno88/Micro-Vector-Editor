@@ -1,11 +1,13 @@
 #include "core/FreehandSketch.h"
-#include "core/Renderer.h"
-#include <sstream>
-#include <iomanip>
-#include <cmath>
-#include <algorithm>
 
-FreehandSketch::FreehandSketch(): GraphicsObject(0,0,0,0 ){}      // (x,y,width,height)
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+#include <sstream>
+
+#include "core/Renderer.h"
+
+FreehandSketch::FreehandSketch() : GraphicsObject(0, 0, 0, 0) {}  // (x,y,width,height)
 
 FreehandSketch::~FreehandSketch() {}
 
@@ -14,14 +16,16 @@ void FreehandSketch::draw(Renderer& renderer) const {
     if (!points_.empty()) renderer.drawPolyline(points_, false, style());
 }
 
-std::string FreehandSketch::toSVG() const {  
-    if (points_.empty()) { return "";}
+std::string FreehandSketch::toSVG() const {
+    if (points_.empty()) {
+        return "";
+    }
     std::ostringstream svg;
 
     svg << "<path " << idAttribute() << "d=\"";
     svg << "M " << points_[0].x << " " << points_[0].y;
     for (size_t i = 1; i < points_.size(); i++) {
-        svg << " L " << points_[i].x << " " << points_[i].y;    //get all pts
+        svg << " L " << points_[i].x << " " << points_[i].y;  // get all pts
     }
     svg << "\" ";
     svg << "stroke=\"" << getStrokeColor() << "\" ";
@@ -32,26 +36,24 @@ std::string FreehandSketch::toSVG() const {
     return svg.str();
 }
 
-//create the deep copy of the object | used for copy pasting purpose 
+// create the deep copy of the object | used for copy pasting purpose
 std::unique_ptr<GraphicsObject> FreehandSketch::clone() const {
-    auto copy= std::make_unique<FreehandSketch>();
+    auto copy = std::make_unique<FreehandSketch>();
 
     // copy all points
     for (const Point& p : points_) {
         copy->addPoint(p.x, p.y);
     }
-    
+
     // copy visual properties from base class
     copy->setStrokeColor(getStrokeColor());
     copy->setStrokeWidth(getStrokeWidth());
-    
+
     return copy;
 }
 
-//get type,here "FreehandSketch"
-std::string FreehandSketch::getType() const {
-    return "FreehandSketch";
-}
+// get type,here "FreehandSketch"
+std::string FreehandSketch::getType() const { return "FreehandSketch"; }
 
 // add a point to the freehand sketch
 void FreehandSketch::addPoint(double x, double y) {
@@ -70,17 +72,13 @@ void FreehandSketch::clearPoints() {
     setHeight(0);
 }
 // get the total number of points in the freehand sketch
-int FreehandSketch::getPointCount() const {
-    return points_.size();
-}
+int FreehandSketch::getPointCount() const { return points_.size(); }
 
 // get all points_ in the freehand sketch
-const std::vector<Point>& FreehandSketch::getPoints() const {
-    return points_;
-}
-//answers(T/F) if we have (x,y) in our freehand sketch
+const std::vector<Point>& FreehandSketch::getPoints() const { return points_; }
+// answers(T/F) if we have (x,y) in our freehand sketch
 bool FreehandSketch::contains(double x, double y) const {
-    return (x>= getX() && x <= getX() + getWidth() && y >= getY() && y <= getY() + getHeight());
+    return (x >= getX() && x <= getX() + getWidth() && y >= getY() && y <= getY() + getHeight());
 }
 
 void FreehandSketch::updateBoundingBox() {
@@ -88,47 +86,47 @@ void FreehandSketch::updateBoundingBox() {
         return;
     }
 
-    double minX=points_[0].x;
-    double maxX=points_[0].x;
-    double minY=points_[0].y;
-    double maxY=points_[0].y;
+    double minX = points_[0].x;
+    double maxX = points_[0].x;
+    double minY = points_[0].y;
+    double maxY = points_[0].y;
 
     for (const Point& p : points_) {
-        if (p.x<minX) minX=p.x;
-        if (p.x>maxX) maxX=p.x;
-        if (p.y<minY) minY=p.y;
-        if (p.y>maxY) maxY=p.y;
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
     }
 
     setX(minX);
     setY(minY);
-    setWidth(maxX-minX);
-    setHeight(maxY-minY);
+    setWidth(maxX - minX);
+    setHeight(maxY - minY);
 }
 
-//move
+// move
 void FreehandSketch::move(double dx, double dy) {
     for (auto& point : points_) {
-        point.x +=dx; 
-        point.y +=dy; 
+        point.x += dx;
+        point.y += dy;
     }
-    //update the box
-    GraphicsObject::move(dx,dy);
+    // update the box
+    GraphicsObject::move(dx, dy);
 }
-//resize
+// resize
 void FreehandSketch::scale_factor(double factor) {
     if (points_.empty()) return;
 
-    //use first point as pivot
-    double pvt_X =points_[0].x;
-    double pvt_Y =points_[0].y;
+    // use first point as pivot
+    double pvt_X = points_[0].x;
+    double pvt_Y = points_[0].y;
 
     // iter through points
     for (auto& p : points_) {
-        double dx= p.x -pvt_X;
-        double dy = p.y -pvt_Y;
-        p.x = pvt_X +(dx * factor);
-        p.y =pvt_Y + (dy * factor);
+        double dx = p.x - pvt_X;
+        double dy = p.y - pvt_Y;
+        p.x = pvt_X + (dx * factor);
+        p.y = pvt_Y + (dy * factor);
     }
     updateBoundingBox();
 }

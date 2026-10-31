@@ -36,17 +36,11 @@ void expectSameShapeAfterRoundTrip(const ShapeData& shape) {
 
 }  // namespace
 
-TEST(JsonTest, DeleteShape) {
-    expectEncodes(DeleteShape{"a"}, R"({"kind":"deleteShape","id":"a"})");
-}
+TEST(JsonTest, DeleteShape) { expectEncodes(DeleteShape{"a"}, R"({"kind":"deleteShape","id":"a"})"); }
 
-TEST(JsonTest, Move) {
-    expectEncodes(Move{"a", 1.5, -2}, R"({"kind":"move","id":"a","dx":1.5,"dy":-2.0})");
-}
+TEST(JsonTest, Move) { expectEncodes(Move{"a", 1.5, -2}, R"({"kind":"move","id":"a","dx":1.5,"dy":-2.0})"); }
 
-TEST(JsonTest, Resize) {
-    expectEncodes(Resize{"a", 2}, R"({"kind":"resize","id":"a","factor":2.0})");
-}
+TEST(JsonTest, Resize) { expectEncodes(Resize{"a", 2}, R"({"kind":"resize","id":"a","factor":2.0})"); }
 
 TEST(JsonTest, SetStyleLeavesOutUnsetFields) {
     expectEncodes(SetStyle{"a", std::nullopt, "blue", std::nullopt},
@@ -63,8 +57,9 @@ TEST(JsonTest, AddShapeWithAndWithoutAPosition) {
 
     expectEncodes(AddShape{"a", shape, std::nullopt},
                   (R"({"kind":"addShape","id":"a","shape":)" + std::string(shapeJson) + "}").c_str());
-    expectEncodes(AddShape{"a", shape, 4},
-                  (R"({"kind":"addShape","id":"a","position":4,"shape":)" + std::string(shapeJson) + "}").c_str());
+    expectEncodes(
+        AddShape{"a", shape, 4},
+        (R"({"kind":"addShape","id":"a","position":4,"shape":)" + std::string(shapeJson) + "}").c_str());
 }
 
 TEST(JsonTest, EveryKindOfShapeRoundTrips) {
@@ -99,9 +94,7 @@ TEST(DecodeTest, ValidTextDecodes) {
     EXPECT_DOUBLE_EQ(std::get<Move>(*op).dy, 2);
 }
 
-TEST(DecodeTest, ValidAddShapeDecodes) {
-    EXPECT_TRUE(decodeOperation(std::string_view(validAdd)));
-}
+TEST(DecodeTest, ValidAddShapeDecodes) { EXPECT_TRUE(decodeOperation(std::string_view(validAdd))); }
 
 TEST(DecodeTest, FieldsOutsideTheFormatAreIgnored) {
     EXPECT_TRUE(decodeOperation(std::string_view(R"({"kind":"deleteShape","id":"a","extra":1})")));
@@ -109,29 +102,25 @@ TEST(DecodeTest, FieldsOutsideTheFormatAreIgnored) {
 
 TEST(DecodeTest, BadInputIsAnErrorWithAMessage) {
     const char* const badInputs[] = {
-        "",
-        "not json",
-        "null",
-        "[]",
-        "42",
-        R"({})",
-        R"({"id":"a"})",                                         // no kind
-        R"({"kind":"deleteShape"})",                             // no id
-        R"({"kind":"explode","id":"a"})",                        // unknown kind
-        R"({"kind":7,"id":"a"})",                                // kind isn't a string
-        R"({"kind":"deleteShape","id":7})",                      // id isn't a string
-        R"({"kind":"deleteShape","id":""})",                     // empty id
-        R"({"kind":"move","id":"a","dx":1})",                    // no dy
-        R"({"kind":"move","id":"a","dx":"1","dy":2})",           // number as a string
-        R"({"kind":"move","id":"a","dx":true,"dy":2})",          // bool as a number
-        R"({"kind":"move","id":"a","dx":null,"dy":2})",          // what NaN encodes to
-        R"({"kind":"move","id":"a","dx":1e999,"dy":2})",         // too big for a double
-        R"({"kind":"resize","id":"a"})",                         // no factor
-        R"({"kind":"setStyle","id":"a","fill":7})",              // colour isn't a string
-        R"({"kind":"setStyle","id":"a","strokeWidth":"wide"})",  // width isn't a number
-        R"({"kind":"addShape","id":"a"})",                       // no shape
+        "", "not json", "null", "[]", "42", R"({})",
+        R"({"id":"a"})",                                            // no kind
+        R"({"kind":"deleteShape"})",                                // no id
+        R"({"kind":"explode","id":"a"})",                           // unknown kind
+        R"({"kind":7,"id":"a"})",                                   // kind isn't a string
+        R"({"kind":"deleteShape","id":7})",                         // id isn't a string
+        R"({"kind":"deleteShape","id":""})",                        // empty id
+        R"({"kind":"move","id":"a","dx":1})",                       // no dy
+        R"({"kind":"move","id":"a","dx":"1","dy":2})",              // number as a string
+        R"({"kind":"move","id":"a","dx":true,"dy":2})",             // bool as a number
+        R"({"kind":"move","id":"a","dx":null,"dy":2})",             // what NaN encodes to
+        R"({"kind":"move","id":"a","dx":1e999,"dy":2})",            // too big for a double
+        R"({"kind":"resize","id":"a"})",                            // no factor
+        R"({"kind":"setStyle","id":"a","fill":7})",                 // colour isn't a string
+        R"({"kind":"setStyle","id":"a","strokeWidth":"wide"})",     // width isn't a number
+        R"({"kind":"addShape","id":"a"})",                          // no shape
         R"({"kind":"addShape","id":"a","shape":{"kind":"blob"}})",  // unknown shape kind
-        R"({"kind":"addShape","id":"a","shape":{"kind":"circle","center":{"x":1,"y":2},"radius":3}})",  // no style
+        R"({"kind":"addShape","id":"a","shape":{"kind":"circle","center":{"x":1,"y":2},"radius":3}})",  // no
+                                                                                                        // style
         R"({"kind":"addShape","id":"a","position":-1,"shape":{}})",
         R"({"kind":"addShape","id":"a","position":1.5,"shape":{}})",
         R"({"kind":"addShape","id":"a","position":true,"shape":{}})",
@@ -171,8 +160,8 @@ TEST(SnapshotTest, OneShapeHasAnExactFormat) {
 }
 
 TEST(SnapshotTest, EveryFixtureRoundTripsThroughText) {
-    for (const char* file : {"app-export.svg", "rect.svg", "circle.svg", "line.svg", "text.svg",
-                             "polygon.svg", "path.svg"}) {
+    for (const char* file :
+         {"app-export.svg", "rect.svg", "circle.svg", "line.svg", "text.svg", "polygon.svg", "path.svg"}) {
         const auto original = SVGParser::load_SVG(std::string(FIXTURE_DIR) + "/" + file);
         ASSERT_TRUE(original) << file;
 

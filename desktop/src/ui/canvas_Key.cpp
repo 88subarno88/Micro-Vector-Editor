@@ -1,14 +1,15 @@
-#include <iostream>
-#include "ui/Canvas.h"
 #include <QKeyEvent>
+#include <iostream>
 
-void Canvas::keyPressEvent(QKeyEvent *event) {
-    
+#include "ui/Canvas.h"
+
+void Canvas::keyPressEvent(QKeyEvent* event) {
     // Copy
     if (event->matches(QKeySequence::Copy)) {
         if (const GraphicsObject* selected = selectedShape()) {
             clipboard = selected->clone();
-            // std::cout << "Copied " << selected->getType() << " to clipboard via canvas_Key." << std::endl;           //Debug
+            // std::cout << "Copied " << selected->getType() << " to clipboard via canvas_Key." << std::endl;
+            // //Debug
         }
         return;
     }
@@ -17,7 +18,7 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
     if (event->matches(QKeySequence::Paste)) {
         if (clipboard) {
             auto newShape = clipboard->clone();
-            newShape->move(20, 20);                   // donot make the paste obj overlap on the original obj  by 20px
+            newShape->move(20, 20);  // donot make the paste obj overlap on the original obj  by 20px
             run(vec::AddShape{newShape->getId(), vec::toShapeData(*newShape), std::nullopt});
             // std::cout << "Pasted shape from clipboard via canvas_Key ." << std::endl;           //Debug
         }
@@ -41,7 +42,7 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
             run(vec::DeleteShape{selected_Id});
             selected_Id.clear();
             isDragging_Selection = false;
-            // std::cout << "Shape Deleted via Keyboard shortcut via canvas_Key." << std::endl;          //Debug
+            // std::cout << "Shape Deleted via Keyboard shortcut via canvas_Key." << std::endl; //Debug
         }
     }
 }

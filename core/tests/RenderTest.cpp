@@ -101,7 +101,7 @@ TEST(RenderTest, HexagonDrawsClosedPolylineOfSixCorners) {
     ASSERT_EQ(renderer.points.size(), 6u);
     EXPECT_DOUBLE_EQ(renderer.points[0].x, 110);  // rightmost corner
     EXPECT_DOUBLE_EQ(renderer.points[0].y, 50);
-    EXPECT_DOUBLE_EQ(renderer.points[3].x, 90);   // leftmost corner
+    EXPECT_DOUBLE_EQ(renderer.points[3].x, 90);  // leftmost corner
 }
 
 TEST(RenderTest, FreehandDrawsOpenPolylineThroughItsPoints) {

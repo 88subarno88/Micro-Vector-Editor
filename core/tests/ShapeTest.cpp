@@ -90,7 +90,7 @@ TEST(ShapeTest, LineContainsPointsWithinItsTolerance) {
     EXPECT_TRUE(shape.contains(50, 0));
     EXPECT_TRUE(shape.contains(50, 25));
     EXPECT_FALSE(shape.contains(50, 26));
-    EXPECT_TRUE(shape.contains(125, 0));   // past the end, within tolerance
+    EXPECT_TRUE(shape.contains(125, 0));  // past the end, within tolerance
     EXPECT_FALSE(shape.contains(126, 0));
 }
 
@@ -114,9 +114,7 @@ TEST(ShapeTest, FreehandSketchContainsItsBoundingBox) {
     EXPECT_FALSE(shape->contains(20, 61));
 }
 
-TEST(ShapeTest, EmptyFreehandSketchHasNothingToSave) {
-    EXPECT_EQ(FreehandSketch().toSVG(), "");
-}
+TEST(ShapeTest, EmptyFreehandSketchHasNothingToSave) { EXPECT_EQ(FreehandSketch().toSVG(), ""); }
 
 TEST(ShapeTest, TextContainsItsEstimatedBox) {
     const Text shape(10, 20, "Hi");  // 0.6 * 16 * 2 wide, 1.5 * 16 tall
@@ -228,24 +226,30 @@ TEST(ShapeTest, ToSvgWritesEachShape) {
     };
 
     Rectangle rect(1, 2, 3, 4);
-    expectSvg(rect, R"(<rect id="a" x="1" y="2" width="3" height="4" stroke="black" stroke-width="1" fill="white" />)");
+    expectSvg(
+        rect,
+        R"(<rect id="a" x="1" y="2" width="3" height="4" stroke="black" stroke-width="1" fill="white" />)");
 
     RoundedRectangle rounded(1, 2, 30, 40, 5);
-    expectSvg(rounded,
-              R"(<rect id="a" x="1" y="2" width="30" height="40" rx="5" ry="5" stroke="black" stroke-width="1" fill="white" />)");
+    expectSvg(
+        rounded,
+        R"(<rect id="a" x="1" y="2" width="30" height="40" rx="5" ry="5" stroke="black" stroke-width="1" fill="white" />)");
 
     Circle circle(1, 2, 3);
-    expectSvg(circle, R"(<circle id="a" cx="1" cy="2" r="3" stroke="black" stroke-width="1" fill="white" />)");
+    expectSvg(circle,
+              R"(<circle id="a" cx="1" cy="2" r="3" stroke="black" stroke-width="1" fill="white" />)");
 
     Line line(1, 2, 3, 4);
     expectSvg(line, R"(<line id="a" x1="1" y1="2" x2="3" y2="4" stroke="black" stroke-width="1" />)");
 
     const auto freehand = sketch();
-    expectSvg(*freehand, R"(<path id="a" d="M 10 20 L 30 60" stroke="black" stroke-width="1" fill="none" />)");
+    expectSvg(*freehand,
+              R"(<path id="a" d="M 10 20 L 30 60" stroke="black" stroke-width="1" fill="none" />)");
 
     Text text(1, 2, "a<b");
-    expectSvg(text,
-              R"(<text id="a" x="1" y="2" font-size="16" font-family="Arial" fill="white" stroke="black" stroke-width="1">a&lt;b</text>)");
+    expectSvg(
+        text,
+        R"(<text id="a" x="1" y="2" font-size="16" font-family="Arial" fill="white" stroke="black" stroke-width="1">a&lt;b</text>)");
 }
 
 TEST(ShapeTest, ToSvgWritesAHexagonsSixPoints) {

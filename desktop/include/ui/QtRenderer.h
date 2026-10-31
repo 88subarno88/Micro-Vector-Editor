@@ -19,4 +19,4 @@ private:
     QPainter& painter_;
 };
 
-#endif // QTRENDERER_H
+#endif  // QTRENDERER_H

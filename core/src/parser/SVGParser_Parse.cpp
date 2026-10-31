@@ -1,37 +1,29 @@
-#include "parser/SVGParser.h"
 #include <algorithm>
 #include <sstream>
 #include <utility>
 #include <vector>
 
-//include all shapes
+#include "parser/SVGParser.h"
+
+// include all shapes
 #include "core/Circle.h"
-#include "core/Rectangle.h"
-#include "core/Line.h"
+#include "core/FreehandSketch.h"
 #include "core/Hexagon.h"
+#include "core/Line.h"
+#include "core/Rectangle.h"
 #include "core/RoundedRectangle.h"
 #include "core/Text.h"
-#include "core/FreehandSketch.h"
 #include "ops/Apply.h"
 
-enum class WhatdaShape {
-    Rect,
-    Circle,
-    Line,
-    Text,
-    Hexagon,
-    Freehand,
-    Unknown
-};
+enum class WhatdaShape { Rect, Circle, Line, Text, Hexagon, Freehand, Unknown };
 
 namespace {
 
 // Maps a tag such as "<rect x=..."/> to its shape kind by exact tag name.
 WhatdaShape identifyTag(std::string_view tag) {
     static const std::pair<std::string_view, WhatdaShape> tags[] = {
-        {"rect", WhatdaShape::Rect},       {"circle", WhatdaShape::Circle},
-        {"line", WhatdaShape::Line},       {"text", WhatdaShape::Text},
-        {"polygon", WhatdaShape::Hexagon}, {"path", WhatdaShape::Freehand},
+        {"rect", WhatdaShape::Rect}, {"circle", WhatdaShape::Circle},   {"line", WhatdaShape::Line},
+        {"text", WhatdaShape::Text}, {"polygon", WhatdaShape::Hexagon}, {"path", WhatdaShape::Freehand},
     };
     tag.remove_prefix(1);  // '<'
     const std::string_view name = tag.substr(0, tag.find_first_of(" \t\r\n/>"));
@@ -62,7 +54,7 @@ void applyFill(GraphicsObject& shape, const SVGParser::Attributes& attrs) {
 
 }  // namespace
 
-//parse shapes
+// parse shapes
 void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Diagram& diagram) {
     const WhatdaShape tag = identifyTag(tagText);
     if (tag == WhatdaShape::Unknown) return;
@@ -87,11 +79,13 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
         case WhatdaShape::Rect: {
             const double x = number("x"), y = number("y");
             const double w = number("width"), h = number("height");
-            const double rx = number("rx");   // rx > 0 means a rounded rectangle
+            const double rx = number("rx");  // rx > 0 means a rounded rectangle
 
             std::unique_ptr<GraphicsObject> shape;
-            if (rx > 0) shape = std::make_unique<RoundedRectangle>(x, y, w, h, rx);
-            else        shape = std::make_unique<Rectangle>(x, y, w, h);
+            if (rx > 0)
+                shape = std::make_unique<RoundedRectangle>(x, y, w, h, rx);
+            else
+                shape = std::make_unique<Rectangle>(x, y, w, h);
             applyStroke(*shape, attrs);
             applyFill(*shape, attrs);
             add(std::move(shape));
@@ -113,7 +107,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
             break;
         }
 
-        case WhatdaShape::Text:{
+        case WhatdaShape::Text: {
             if (!content.empty()) {
                 auto shape = std::make_unique<Text>(number("x"), number("y"), decodeEntities(content));
                 if (const double size = number("font-size"); size > 0) shape->setFrontSize(size);
@@ -141,8 +135,8 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
                 maxY = std::max(maxY, coords[i + 1]);
             }
 
-            auto shape = std::make_unique<Hexagon>((minX + maxX) / 2.0, (minY + maxY) / 2.0,
-                                                   (maxX - minX) / 2.0);
+            auto shape =
+                std::make_unique<Hexagon>((minX + maxX) / 2.0, (minY + maxY) / 2.0, (maxX - minX) / 2.0);
             applyStroke(*shape, attrs);
             applyFill(*shape, attrs);
             add(std::move(shape));

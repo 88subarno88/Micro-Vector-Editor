@@ -1,22 +1,22 @@
 #ifndef ROUNDED_RECTANGLE_H
 #define ROUNDED_RECTANGLE_H
 
-#include "core/GraphicsObject.h"
-#include <string>
 #include <memory>
+#include <string>
 
-//Rounded Rectangle
-//a rounded rectangle is defined by top-left corner(x, y) , width and height
+#include "core/GraphicsObject.h"
+
+// Rounded Rectangle
+// a rounded rectangle is defined by top-left corner(x, y) , width and height
 class RoundedRectangle : public GraphicsObject {
 private:
     double corner_radius_;  // How curved the corners are
-    
+
 public:
-    RoundedRectangle(double x, double y, double width, double height, 
-                     double radius);
-    
+    RoundedRectangle(double x, double y, double width, double height, double radius);
+
     virtual ~RoundedRectangle();
-    
+
     // Implement pure virtual functions from GraphicsObject
     void draw(Renderer& renderer) const override;
     virtual std::string toSVG() const override;

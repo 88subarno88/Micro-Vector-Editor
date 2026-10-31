@@ -20,9 +20,7 @@ namespace {
 using Result = tl::expected<void, ApplyError>;
 
 // Shapes write these values inside "..." in toSVG, so a quote would end the attribute early.
-bool isSafeAttribute(const std::string& value) {
-    return value.find('"') == std::string::npos;
-}
+bool isSafeAttribute(const std::string& value) { return value.find('"') == std::string::npos; }
 
 // Beyond this, a shape's points can overflow to "inf" when saved, which can't be read back or undone.
 constexpr double coordinateLimit = 1e300;
@@ -33,7 +31,8 @@ bool inLimit(const Point& p) { return inLimit(p.x) && inLimit(p.y); }
 // Checks every number of each kind of geometry.
 struct LimitChecker {
     bool operator()(const RectGeom& g) const {
-        return inLimit(g.x) && inLimit(g.y) && inLimit(g.width) && inLimit(g.height) && inLimit(g.cornerRadius);
+        return inLimit(g.x) && inLimit(g.y) && inLimit(g.width) && inLimit(g.height) &&
+               inLimit(g.cornerRadius);
     }
     bool operator()(const CircleGeom& g) const { return aroundCenter(g.center, g.radius); }
     bool operator()(const LineGeom& g) const { return inLimit(g.start) && inLimit(g.end); }
@@ -44,7 +43,8 @@ struct LimitChecker {
     bool operator()(const TextData& g) const { return inLimit(g.position) && inLimit(g.fontSize); }
 
     static bool aroundCenter(const Point& center, double radius) {
-        return inLimit(std::abs(center.x) + std::abs(radius)) && inLimit(std::abs(center.y) + std::abs(radius));
+        return inLimit(std::abs(center.x) + std::abs(radius)) &&
+               inLimit(std::abs(center.y) + std::abs(radius));
     }
 };
 
@@ -232,9 +232,7 @@ bool isWithinLimits(const GraphicsObject& shape) {
     return inLimit(data.style.strokeWidth) && std::visit(LimitChecker{}, data.geometry);
 }
 
-Result apply(Diagram& diagram, const Operation& op) {
-    return std::visit(Applier{diagram}, op);
-}
+Result apply(Diagram& diagram, const Operation& op) { return std::visit(Applier{diagram}, op); }
 
 tl::expected<Operation, ApplyError> invert(const Diagram& diagram, const Operation& op) {
     return std::visit(Inverter{diagram}, op);

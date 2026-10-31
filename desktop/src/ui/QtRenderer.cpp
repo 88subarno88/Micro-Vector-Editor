@@ -10,9 +10,7 @@
 
 namespace {
 
-QColor toQColor(const std::string& color) {
-    return QColor(QString::fromStdString(color));
-}
+QColor toQColor(const std::string& color) { return QColor(QString::fromStdString(color)); }
 
 // Sharp (mitred) corners, so thick outlines keep the shape's corners square.
 QPen toPen(const Style& style) {

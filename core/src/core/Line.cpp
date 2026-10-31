@@ -1,22 +1,21 @@
 #include "core/Line.h"
-#include "core/Renderer.h"
-#include <sstream>
+
+#include <algorithm>
 #include <cmath>
 #include <iostream>
-#include <algorithm>
+#include <sstream>
 
+#include "core/Renderer.h"
 
-//Line class
-//a line is defined by a start point (x1, y1) and end point (x2, y2)
-Line::Line(double x1, double y1, double x2, double y2): 
-    GraphicsObject(0,0,0,0), x1_(x1),y1_(y1),x2_(x2),y2_(y2) {
-   updateBoundingBox();   
+// Line class
+// a line is defined by a start point (x1, y1) and end point (x2, y2)
+Line::Line(double x1, double y1, double x2, double y2)
+    : GraphicsObject(0, 0, 0, 0), x1_(x1), y1_(y1), x2_(x2), y2_(y2) {
+    updateBoundingBox();
 }
 
 Line::~Line() {}
-void Line::draw(Renderer& renderer) const {
-    renderer.drawPolyline({{x1_, y1_}, {x2_, y2_}}, false, style());
-}
+void Line::draw(Renderer& renderer) const { renderer.drawPolyline({{x1_, y1_}, {x2_, y2_}}, false, style()); }
 
 /**
  * Convert line to SVG format. It returns <line x1="..." y1="..." x2="..." y2="..." stroke="..." />
@@ -30,54 +29,54 @@ std::string Line::toSVG() const {
     svg << "x2=\"" << x2_ << "\" ";
     svg << "y2=\"" << y2_ << "\" ";
     svg << "stroke=\"" << getStrokeColor() << "\" ";
-    svg << "stroke-width=\"" << getStrokeWidth() << "\""; 
-    svg << " />"; 
+    svg << "stroke-width=\"" << getStrokeWidth() << "\"";
+    svg << " />";
 
     return svg.str();
 }
 
 // Create the deep copy of the line | used for copy pasting purpose
 std::unique_ptr<GraphicsObject> Line::clone() const {
-    auto copy = std::make_unique<Line>(x1_, y1_,x2_, y2_);
+    auto copy = std::make_unique<Line>(x1_, y1_, x2_, y2_);
 
     // Copy visual properties from base class
-    copy->setStrokeColor(getStrokeColor()); 
-    copy->setStrokeWidth(getStrokeWidth()); 
+    copy->setStrokeColor(getStrokeColor());
+    copy->setStrokeWidth(getStrokeWidth());
 
     return copy;
 }
 // get type, here "Line"
-std::string Line::getType() const {
-    return "Line";
-}
+std::string Line::getType() const { return "Line"; }
 // set x coordinate of start point
 void Line::setX1(double x) {
-    x1_ =x; 
+    x1_ = x;
     updateBoundingBox();
 }
 // set y coordinate of start point
 void Line::setY1(double y) {
-    y1_ =y;
+    y1_ = y;
     updateBoundingBox();
 }
 // set x coordinate of end point
 void Line::setX2(double x) {
-    x2_ =x; 
+    x2_ = x;
     updateBoundingBox();
 }
 // set y coordinate of end point
 void Line::setY2(double y) {
-    y2_ =y; 
+    y2_ = y;
     updateBoundingBox();
 }
 // set both coordinates of start point
 void Line::setStartPoint(double x, double y) {
-    x1_ =x;y1_ =y; 
+    x1_ = x;
+    y1_ = y;
     updateBoundingBox();
 }
 // set both coordinates of end point
 void Line::setEndPoint(double x, double y) {
-    x2_ =x; y2_ =y; 
+    x2_ = x;
+    y2_ = y;
     updateBoundingBox();
 }
 /**
@@ -85,48 +84,47 @@ void Line::setEndPoint(double x, double y) {
  * find it by using distance from point to line segment formula.
  */
 bool Line::contains(double x, double y) const {
+    const double tolerance = 25.0;  // lets assume max fault tolerance is 25px
+    double lengthSquared =
+        (x2_ - x1_) * (x2_ - x1_) + (y2_ - y1_) * (y2_ - y1_);  // Squared length of line segment
 
-    const double tolerance =25.0;                                           //lets assume max fault tolerance is 25px
-    double lengthSquared = (x2_- x1_)*(x2_- x1_)+(y2_-y1_)*(y2_-y1_);       //Squared length of line segment
-    
-    if (lengthSquared ==0.0) {                                              //if lengthSquared is zero it is a point
-        double distance = std::sqrt((x -x1_)* (x-x1_)+(y- y1_)*(y -y1_));
+    if (lengthSquared == 0.0) {  // if lengthSquared is zero it is a point
+        double distance = std::sqrt((x - x1_) * (x - x1_) + (y - y1_) * (y - y1_));
         return distance <= tolerance;
     }
 
-    double t = ((x -x1_) *(x2_-x1_) + (y -y1_)*(y2_-y1_)) / lengthSquared;    // Calculate projection of point onto line ;
-                                                                              // Clamp t to [0, 1] to keep the closest point on the segment
-    t = std::max(0.0, std::min(1.0, t));                                      // t represents where the closest point is 
-                                                                              // on the line segment -->t=0 means start point, 
-                                                                              //                     --> t=1 means end point
-    double closestX = x1_+ t*(x2_- x1_);                                      // Find the closest point on the line segment
-    double closestY = y1_ + t*(y2_-y1_);
-    double distX= x-closestX;                                                 // Calculate distance from input point to closest point
-    double distY= y-closestY;
-    double distance =std::sqrt(distX * distX + distY * distY);
-    return distance <=tolerance;
+    double t = ((x - x1_) * (x2_ - x1_) + (y - y1_) * (y2_ - y1_)) /
+               lengthSquared;                 // Calculate projection of point onto line ;
+                                              // Clamp t to [0, 1] to keep the closest point on the segment
+    t = std::max(0.0, std::min(1.0, t));      // t represents where the closest point is
+                                              // on the line segment -->t=0 means start point,
+                                              //                     --> t=1 means end point
+    double closestX = x1_ + t * (x2_ - x1_);  // Find the closest point on the line segment
+    double closestY = y1_ + t * (y2_ - y1_);
+    double distX = x - closestX;  // Calculate distance from input point to closest point
+    double distY = y - closestY;
+    double distance = std::sqrt(distX * distX + distY * distY);
+    return distance <= tolerance;
 }
 
-//update bounding box from line endpoints.
-//the bounding box is the smallest rectangle that contains the line.
+// update bounding box from line endpoints.
+// the bounding box is the smallest rectangle that contains the line.
 void Line::updateBoundingBox() {
-
     // find min and max coordinates for both x and y
-    double minX =std::min(x1_,x2_);
-    double minY = std::min(y1_,y2_); 
-    double maxX = std::max(x1_,x2_);
-    double maxY = std::max(y1_,y2_);
-    
-    //set bounding box
-    setX(minX); 
-    setY(minY); 
-    setWidth(maxX -minX); 
-    setHeight(maxY -minY);
+    double minX = std::min(x1_, x2_);
+    double minY = std::min(y1_, y2_);
+    double maxX = std::max(x1_, x2_);
+    double maxY = std::max(y1_, y2_);
+
+    // set bounding box
+    setX(minX);
+    setY(minY);
+    setWidth(maxX - minX);
+    setHeight(maxY - minY);
 }
 
-//move
+// move
 void Line::move(double dx, double dy) {
-
     // std::cout << "Line is Moving! dx=" << dx << " dy=" << dy << std::endl;    //Debug
 
     x1_ += dx;
@@ -136,12 +134,12 @@ void Line::move(double dx, double dy) {
     GraphicsObject::move(dx, dy);
 }
 
-//resize
+// resize
 void Line::scale_factor(double factor) {
     double dx = x2_ - x1_;
     double dy = y2_ - y1_;
-    
-    x2_=x1_+(dx* factor);
-    y2_=y1_ +(dy *factor);
+
+    x2_ = x1_ + (dx * factor);
+    y2_ = y1_ + (dy * factor);
     updateBoundingBox();
 }

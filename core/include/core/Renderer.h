@@ -2,6 +2,7 @@
 #define RENDERER_H
 
 #include <vector>
+
 #include "core/Geometry.h"
 
 // What shapes draw onto. The desktop app implements it with QPainter; a web build can
@@ -18,4 +19,4 @@ public:
     virtual void drawText(const TextGeom& text, const Style& style) = 0;
 };
 
-#endif // RENDERER_H
+#endif  // RENDERER_H

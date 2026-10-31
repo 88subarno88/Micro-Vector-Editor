@@ -93,9 +93,7 @@ TEST(ShapeIdTest, EveryShapeKeepsItsIdThroughSaveAndLoad) {
     }
 }
 
-TEST(ShapeIdTest, KeepsAnIdFromAnotherEditor) {
-    EXPECT_EQ(loadedId(R"(<rect id="rect42"/>)"), "rect42");
-}
+TEST(ShapeIdTest, KeepsAnIdFromAnotherEditor) { EXPECT_EQ(loadedId(R"(<rect id="rect42"/>)"), "rect42"); }
 
 TEST(ShapeIdTest, GeneratesAnIdWhenMissingOrEmpty) {
     EXPECT_TRUE(std::regex_match(loadedId("<rect/>"), generatedId));

@@ -77,4 +77,4 @@ using Operation = std::variant<AddShape, DeleteShape, Move, Resize, SetStyle>;
 
 }  // namespace vec
 
-#endif // OPERATION_H
+#endif  // OPERATION_H

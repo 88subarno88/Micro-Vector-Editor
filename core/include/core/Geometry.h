@@ -38,4 +38,4 @@ struct TextGeom {
     double fontSize = 16.0;
 };
 
-#endif // GEOMETRY_H
+#endif  // GEOMETRY_H

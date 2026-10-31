@@ -1,15 +1,16 @@
-#include "ui/Canvas.h"
-#include <QMenu>
+#include <QColorDialog>
 #include <QContextMenuEvent>
 #include <QInputDialog>
-#include <QColorDialog>
+#include <QMenu>
 
-void Canvas::contextMenuEvent(QContextMenuEvent *event) {
+#include "ui/Canvas.h"
+
+void Canvas::contextMenuEvent(QContextMenuEvent* event) {
     // 1. Check if we clicked on a shape
     GraphicsObject* clickedShape = nullptr;
     for (auto it = diagram.getShapes().rbegin(); it != diagram.getShapes().rend(); ++it) {
         if ((*it)->contains(event->x(), event->y())) {
-            clickedShape =it->get();
+            clickedShape = it->get();
             break;
         }
     }
@@ -20,18 +21,18 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
 
     // select the shape
     selected_Id = clickedShape->getId();
-    update(); 
+    update();
 
     // creating the Menu
     QMenu menu(this);
-    QAction* setFillAction =menu.addAction("Set Fill Color");
-    QAction* setStrokeAction =menu.addAction("Set Stroke Color");
-    QAction* setWidthAction =menu.addAction("Set Stroke Width");
-    QAction* resizeAction =menu.addAction("Resize");
-    QAction* deleteAction =menu.addAction("Delete");
+    QAction* setFillAction = menu.addAction("Set Fill Color");
+    QAction* setStrokeAction = menu.addAction("Set Stroke Color");
+    QAction* setWidthAction = menu.addAction("Set Stroke Width");
+    QAction* resizeAction = menu.addAction("Resize");
+    QAction* deleteAction = menu.addAction("Delete");
 
     // show Menu and wait to click
-    QAction* selectedItem =menu.exec(event->globalPos());
+    QAction* selectedItem = menu.exec(event->globalPos());
 
     // set the fill color
     if (selectedItem == setFillAction) {
@@ -47,30 +48,26 @@ void Canvas::contextMenuEvent(QContextMenuEvent *event) {
             run(vec::SetStyle{selected_Id, color.name().toStdString(), std::nullopt, std::nullopt});
         }
     }
-    //resize
+    // resize
     else if (selectedItem == resizeAction) {
         bool ok;
-        double percentage= QInputDialog::getDouble(this, "Resize", 
-                            "Enter Scale % (e.g., 200 = Double):", 
-                            100.0, 1.0, 1000.0, 1, &ok);
+        double percentage = QInputDialog::getDouble(
+            this, "Resize", "Enter Scale % (e.g., 200 = Double):", 100.0, 1.0, 1000.0, 1, &ok);
         if (ok) {
             run(vec::Resize{selected_Id, percentage / 100.0});
         }
     }
-    //delete
+    // delete
     else if (selectedItem == deleteAction) {
         run(vec::DeleteShape{selected_Id});
         selected_Id.clear();
     }
-    //setwidth
+    // setwidth
     else if (selectedItem == setWidthAction) {
         bool ok;
-        double currentWidth= clickedShape->getStrokeWidth();
+        double currentWidth = clickedShape->getStrokeWidth();
         double newWidth = QInputDialog::getDouble(
-            this, "Stroke Width", 
-            "Enter thickness (e.g., 5.0):", 
-            currentWidth, 0.0, 100.0, 1, &ok
-        );
+            this, "Stroke Width", "Enter thickness (e.g., 5.0):", currentWidth, 0.0, 100.0, 1, &ok);
 
         if (ok && newWidth != currentWidth) {
             run(vec::SetStyle{selected_Id, std::nullopt, std::nullopt, newWidth});

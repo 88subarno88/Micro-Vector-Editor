@@ -1,8 +1,8 @@
 #ifndef TOOLBAR_H
 #define TOOLBAR_H
 
-#include <QToolBar>
 #include <QMainWindow>
+#include <QToolBar>
 
 class Toolbar {
 public:
@@ -11,4 +11,4 @@ public:
     static void createToolbar(QMainWindow* mainWindow);
 };
 
-#endif // TOOLBAR_H
+#endif  // TOOLBAR_H

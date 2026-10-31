@@ -1,27 +1,26 @@
 #include "core/Hexagon.h"
-#include "core/Renderer.h"
-#include <sstream>
-#include <iomanip>
+
 #include <cmath>
+#include <iomanip>
+#include <sstream>
 
+#include "core/Renderer.h"
 
-//Hexagon class 
-// a hexagon is defined by centrepoint(centerX, centerY) and radius
+// Hexagon class
+//  a hexagon is defined by centrepoint(centerX, centerY) and radius
 
-const double PI=3.14159265358979323846;     //pretty accurate
+const double PI = 3.14159265358979323846;  // pretty accurate
 
 Hexagon::Hexagon(double centerX, double centerY, double radius)
-    : GraphicsObject(
-        centerX - radius,           // x (top-left of bounding box)
-        centerY - radius,           // y (top-left of bounding box)
-        radius * 2,                 // width (diameter)
-        radius * 2                  // height (diameter)
-      ),
+    : GraphicsObject(centerX - radius,  // x (top-left of bounding box)
+                     centerY - radius,  // y (top-left of bounding box)
+                     radius * 2,        // width (diameter)
+                     radius * 2         // height (diameter)
+                     ),
 
       center_x_(centerX),
       center_y_(centerY),
       radius_(radius) {}
-
 
 Hexagon::~Hexagon() {}
 
@@ -34,15 +33,13 @@ std::vector<Point> Hexagon::vertices() const {
     return points;
 }
 
-void Hexagon::draw(Renderer& renderer) const {
-    renderer.drawPolyline(vertices(), true, style());
-}
+void Hexagon::draw(Renderer& renderer) const { renderer.drawPolyline(vertices(), true, style()); }
 /**
  * Convert hexagon to SVG format.
  * Returns: <polygon points="x1,y1 x2,y2 x3,y3 x4,y4 x5,y5 x6,y6" ... />
  */
 std::string Hexagon::toSVG() const {
-    std::ostringstream svg;  
+    std::ostringstream svg;
     svg << "<polygon " << idAttribute() << "points=\"";
     // The parser rebuilds the centre from these points; 10 digits keeps the drift per save tiny.
     svg << std::setprecision(10);
@@ -60,50 +57,48 @@ std::string Hexagon::toSVG() const {
     return svg.str();
 }
 
-//Create the deep copy of the object | used for copy pasting purpose 
+// Create the deep copy of the object | used for copy pasting purpose
 std::unique_ptr<GraphicsObject> Hexagon::clone() const {
     auto copy = std::make_unique<Hexagon>(center_x_, center_y_, radius_);
-    
+
     // Copy visual properties from base class
     copy->setStrokeColor(getStrokeColor());
     copy->setFillColor(getFillColor());
     copy->setStrokeWidth(getStrokeWidth());
-    
+
     return copy;
 }
 
-//get type,here "Hexagon"
-std::string Hexagon::getType() const {
-    return "Hexagon";
-}
+// get type,here "Hexagon"
+std::string Hexagon::getType() const { return "Hexagon"; }
 
-//set x cordinate of the center of the hexagon
+// set x cordinate of the center of the hexagon
 void Hexagon::setCenterX(double x) {
-    center_x_ =x;
-    setX(x-radius_);  // update bounding box
+    center_x_ = x;
+    setX(x - radius_);  // update bounding box
 }
 
-//set y cordinate of the center of the hexagon
+// set y cordinate of the center of the hexagon
 void Hexagon::setCenterY(double y) {
-    center_y_ =y;
-    setY(y-radius_);  // update bounding box
+    center_y_ = y;
+    setY(y - radius_);  // update bounding box
 }
 
-//set radius of the hexagon and accordingly updating boundry
+// set radius of the hexagon and accordingly updating boundry
 void Hexagon::setRadius(double r) {
-    radius_ =r;
-    setX(center_x_ -r);        // Update bounding box x
-    setY(center_y_ -r);        // Update bounding box y
-    setWidth(r*2);            // Update width
-    setHeight(r*2);           // Update height
+    radius_ = r;
+    setX(center_x_ - r);  // Update bounding box x
+    setY(center_y_ - r);  // Update bounding box y
+    setWidth(r * 2);      // Update width
+    setHeight(r * 2);     // Update height
 }
 
-//set centre of hexagon(x,y)
+// set centre of hexagon(x,y)
 void Hexagon::setCenter(double x, double y) {
-    center_x_ =x;
-    center_y_ =y;
-    setX(x -radius_);
-    setY(y -radius_);
+    center_x_ = x;
+    center_y_ = y;
+    setX(x - radius_);
+    setY(y - radius_);
 }
 /**
  * check if the point(x,y) is inside the hexagon
@@ -112,27 +107,27 @@ void Hexagon::setCenter(double x, double y) {
  * inside the hexagon if (x - center_x_)^2+ (y - center_y_)^2<=radius^2
  */
 bool Hexagon::contains(double x, double y) const {
-    double dx =x - center_x_;
-    double dy =y - center_y_;
+    double dx = x - center_x_;
+    double dy = y - center_y_;
     double distance_squared = dx * dx + dy * dy;
-    double radius_squared = radius_ *radius_;
-    
+    double radius_squared = radius_ * radius_;
+
     return distance_squared <= radius_squared;
 }
 
-//move
+// move
 void Hexagon::move(double dx, double dy) {
     // 1. Move the center
-    center_x_+=dx;
-    center_y_+=dy;
+    center_x_ += dx;
+    center_y_ += dy;
 
     // 2. Update the bounding box
     GraphicsObject::move(dx, dy);
 }
 
-//resize
+// resize
 void Hexagon::scale_factor(double factor) {
-    radius_*= factor;
+    radius_ *= factor;
     // keep the bounding box around the new size
     setPosition(center_x_ - radius_, center_y_ - radius_);
     setWidth(radius_ * 2);

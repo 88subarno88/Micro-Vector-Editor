@@ -1,10 +1,11 @@
-#include "parser/SVGParser.h"
 #include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <cmath>
 #include <fstream>
 #include <iterator>
+
+#include "parser/SVGParser.h"
 
 namespace {
 
@@ -46,7 +47,9 @@ SVGParser::Attributes SVGParser::parseAttributes(std::string_view tag) {
     Attributes attributes;
     const auto isSpace = [](char c) { return std::isspace(static_cast<unsigned char>(c)) != 0; };
     size_t i = 0;
-    const auto skipSpaces = [&] { while (i < tag.size() && isSpace(tag[i])) ++i; };
+    const auto skipSpaces = [&] {
+        while (i < tag.size() && isSpace(tag[i])) ++i;
+    };
 
     // Skip '<' and the tag name.
     while (i < tag.size() && tag[i] == '<') ++i;

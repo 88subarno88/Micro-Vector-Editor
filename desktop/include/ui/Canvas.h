@@ -1,25 +1,26 @@
 #ifndef CANVAS_H
 #define CANVAS_H
 
-#include <QWidget>
 #include <QMouseEvent>
 #include <QPointF>
+#include <QWidget>
+
 #include "core/Diagram.h"
-#include "parser/SVGParser.h"
-#include "ui/EditorTypes.h" 
 #include "ops/CommandStack.h"
+#include "parser/SVGParser.h"
+#include "ui/EditorTypes.h"
 
 class Canvas : public QWidget {
     Q_OBJECT
 
 public:
     explicit Canvas(QWidget *parent = nullptr);
-    
+
     // Called by MainWindow to change the tool
     void setTool(ToolType tool);
-    void saveToFile(const std::string& filename);
+    void saveToFile(const std::string &filename);
     // Replaces the drawing with the file's contents; on error the drawing is left unchanged.
-    tl::expected<void, ParseError> loadFromFile(const std::string& filename);
+    tl::expected<void, ParseError> loadFromFile(const std::string &filename);
     void undo();
     void redo();
     void clear_new();
@@ -33,30 +34,27 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
 
-
 private:
     // Runs `op` through the undo history and repaints
-    void run(const vec::Operation& op);
+    void run(const vec::Operation &op);
     // The selected shape; nullptr if none, or if it has been deleted or undone
-    GraphicsObject* selectedShape() const { return diagram.find(selected_Id); }
+    GraphicsObject *selectedShape() const { return diagram.find(selected_Id); }
 
     Diagram diagram;
     ToolType currentMode;
     vec::CommandStack commandStack;
     std::unique_ptr<GraphicsObject> current_Shape;
-    
+
     // Drawing State Variables
     bool isDrawing;
     QPointF start_Point;
     QPointF curr_Point;
 
-
-
-    ShapeId selected_Id;                       // The selected shape; empty if none
-    bool isDragging_Selection = false;         // Are we dragging a shape right now?
-    QPointF last_Mousepos;                     // Where the mouse was in the previous frame?
+    ShapeId selected_Id;                // The selected shape; empty if none
+    bool isDragging_Selection = false;  // Are we dragging a shape right now?
+    QPointF last_Mousepos;              // Where the mouse was in the previous frame?
     QPointF drag_StartPos;
     std::unique_ptr<GraphicsObject> clipboard;
 };
 
-#endif // CANVAS_H
+#endif  // CANVAS_H

@@ -1,7 +1,5 @@
 #include "ops/Json.h"
 
-#include "ops/Apply.h"
-
 #include <exception>
 #include <optional>
 #include <stdexcept>
@@ -9,25 +7,23 @@
 #include <utility>
 #include <vector>
 
+#include "ops/Apply.h"
+
 using nlohmann::json;
 
 namespace vec {
 
 namespace {
 
-json pointToJson(const Point& p) {
-    return {{"x", p.x}, {"y", p.y}};
-}
+json pointToJson(const Point& p) { return {{"x", p.x}, {"y", p.y}}; }
 
-Point pointFromJson(const json& j) {
-    return {j.at("x").get<double>(), j.at("y").get<double>()};
-}
+Point pointFromJson(const json& j) { return {j.at("x").get<double>(), j.at("y").get<double>()}; }
 
 // Each kind of geometry as the JSON fields of its shape.
 struct GeometryEncoder {
     json operator()(const RectGeom& g) const {
-        return {{"kind", "rect"}, {"x", g.x}, {"y", g.y}, {"width", g.width},
-                {"height", g.height}, {"cornerRadius", g.cornerRadius}};
+        return {{"kind", "rect"},   {"x", g.x},           {"y", g.y},
+                {"width", g.width}, {"height", g.height}, {"cornerRadius", g.cornerRadius}};
     }
     json operator()(const CircleGeom& g) const {
         return {{"kind", "circle"}, {"center", pointToJson(g.center)}, {"radius", g.radius}};
@@ -44,7 +40,9 @@ struct GeometryEncoder {
         return {{"kind", "freehand"}, {"points", points}};
     }
     json operator()(const TextData& g) const {
-        return {{"kind", "text"}, {"position", pointToJson(g.position)}, {"text", g.text},
+        return {{"kind", "text"},
+                {"position", pointToJson(g.position)},
+                {"text", g.text},
                 {"fontSize", g.fontSize}};
     }
 };
@@ -55,9 +53,7 @@ struct OperationEncoder {
         if (op.position) j["position"] = *op.position;
         return j;
     }
-    json operator()(const DeleteShape& op) const {
-        return {{"kind", "deleteShape"}, {"id", op.id}};
-    }
+    json operator()(const DeleteShape& op) const { return {{"kind", "deleteShape"}, {"id", op.id}}; }
     json operator()(const Move& op) const {
         return {{"kind", "move"}, {"id", op.id}, {"dx", op.dx}, {"dy", op.dy}};
     }
@@ -87,17 +83,16 @@ std::optional<T> optionalField(const json& j, const char* key) {
 
 void to_json(json& j, const ShapeData& shape) {
     j = std::visit(GeometryEncoder{}, shape.geometry);
-    j["style"] = {{"stroke", shape.style.stroke},
-                  {"fill", shape.style.fill},
-                  {"strokeWidth", shape.style.strokeWidth}};
+    j["style"] = {
+        {"stroke", shape.style.stroke}, {"fill", shape.style.fill}, {"strokeWidth", shape.style.strokeWidth}};
 }
 
 void from_json(const json& j, ShapeData& shape) {
     const std::string kind = j.at("kind").get<std::string>();
     if (kind == "rect") {
-        shape.geometry = RectGeom{j.at("x").get<double>(), j.at("y").get<double>(),
-                                  j.at("width").get<double>(), j.at("height").get<double>(),
-                                  j.at("cornerRadius").get<double>()};
+        shape.geometry =
+            RectGeom{j.at("x").get<double>(), j.at("y").get<double>(), j.at("width").get<double>(),
+                     j.at("height").get<double>(), j.at("cornerRadius").get<double>()};
     } else if (kind == "circle") {
         shape.geometry = CircleGeom{pointFromJson(j.at("center")), j.at("radius").get<double>()};
     } else if (kind == "line") {
@@ -121,9 +116,7 @@ void from_json(const json& j, ShapeData& shape) {
                    style.at("strokeWidth").get<double>()};
 }
 
-void to_json(json& j, const Operation& op) {
-    j = std::visit(OperationEncoder{}, op);
-}
+void to_json(json& j, const Operation& op) { j = std::visit(OperationEncoder{}, op); }
 
 void from_json(const json& j, Operation& op) {
     const std::string kind = j.at("kind").get<std::string>();

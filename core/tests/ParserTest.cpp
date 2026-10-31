@@ -70,10 +70,11 @@ TEST(ParserTest, ReadsIndentedTags) {
 
 TEST(ParserTest, ReadsTagSpanningMultipleLines) {
     Diagram diagram;
-    loadFromString("<rect x=\"10\" y=\"20\"\n"
-                   "      width=\"30\" height=\"40\"\n"
-                   "      stroke=\"red\"/>\n",
-                   diagram);
+    loadFromString(
+        "<rect x=\"10\" y=\"20\"\n"
+        "      width=\"30\" height=\"40\"\n"
+        "      stroke=\"red\"/>\n",
+        diagram);
 
     ASSERT_EQ(diagram.getObjectCount(), 1);
     const auto& shape = *diagram.getShapes()[0];
@@ -84,8 +85,7 @@ TEST(ParserTest, ReadsTagSpanningMultipleLines) {
 
 TEST(ParserTest, MatchesExactTagNames) {
     Diagram diagram;
-    loadFromString(R"(<linearGradient id="g"/><pathology/><line x1="0" y1="0" x2="1" y2="1"/>)",
-                   diagram);
+    loadFromString(R"(<linearGradient id="g"/><pathology/><line x1="0" y1="0" x2="1" y2="1"/>)", diagram);
 
     ASSERT_EQ(diagram.getObjectCount(), 1);
     EXPECT_EQ(diagram.getShapes()[0]->getType(), "Line");
@@ -128,8 +128,7 @@ TEST(ParserTest, PolygonWithoutPointsAddsNoShape) {
 
 TEST(ParserTest, TextColorsMapToFillAndStroke) {
     Diagram diagram;
-    loadFromString(R"(<text x="0" y="0" fill="red" stroke="blue" stroke-width="2">Hi</text>)",
-                   diagram);
+    loadFromString(R"(<text x="0" y="0" fill="red" stroke="blue" stroke-width="2">Hi</text>)", diagram);
 
     ASSERT_EQ(diagram.getObjectCount(), 1);
     const auto& shape = *diagram.getShapes()[0];
@@ -244,8 +243,9 @@ TEST(ParserTest, SkipsShapesOutOfLimits) {
 }
 
 TEST(ParserTest, SkipsAPolygonTooFarOutToSave) {
-    for (const char* doc : {R"(<polygon points="1e308,0 -1e308,1"/>)", R"(<polygon points="1e308,0 1e308,1"/>)",
-                            R"(<polygon points="0,1e308 1,1e308"/>)"}) {
+    for (const char* doc :
+         {R"(<polygon points="1e308,0 -1e308,1"/>)", R"(<polygon points="1e308,0 1e308,1"/>)",
+          R"(<polygon points="0,1e308 1,1e308"/>)"}) {
         const auto result = SVGParser::parse_SVG(doc);
         ASSERT_TRUE(result) << doc;
         EXPECT_EQ(result->getObjectCount(), 0) << doc;

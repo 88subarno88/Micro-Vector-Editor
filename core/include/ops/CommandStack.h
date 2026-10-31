@@ -39,4 +39,4 @@ private:
 
 }  // namespace vec
 
-#endif // COMMANDSTACK_H
+#endif  // COMMANDSTACK_H

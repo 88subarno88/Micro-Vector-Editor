@@ -3,8 +3,9 @@
 
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <tl/expected.hpp>
+#include <unordered_map>
+
 #include "core/Diagram.h"
 
 // Why loading failed. line and column are 1-based; both are 0 when the error is not

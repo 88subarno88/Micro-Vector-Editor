@@ -1,18 +1,19 @@
 
 #include "core/RoundedRectangle.h"
-#include "core/Renderer.h"
-#include <sstream>
+
 #include <algorithm>
+#include <sstream>
 
+#include "core/Renderer.h"
 
-//Rounded Rectangle
-//a rounded rectangle is defined by top-left corner(x, y) , width and height
+// Rounded Rectangle
+// a rounded rectangle is defined by top-left corner(x, y) , width and height
 RoundedRectangle::RoundedRectangle(double x, double y, double width, double height, double radius)
     : GraphicsObject(x, y, width, height), corner_radius_(radius) {
-     double max_radius = std::min(width, height) / 2.0;
+    double max_radius = std::min(width, height) / 2.0;
 
-    if (corner_radius_> max_radius) {
-        corner_radius_= max_radius;
+    if (corner_radius_ > max_radius) {
+        corner_radius_ = max_radius;
     }
 }
 
@@ -51,11 +52,9 @@ std::unique_ptr<GraphicsObject> RoundedRectangle::clone() const {
 }
 
 // get type, here "RoundedRectangle"
-std::string RoundedRectangle::getType() const {
-    return "RoundedRectangle";
-}
+std::string RoundedRectangle::getType() const { return "RoundedRectangle"; }
 
-//handling impossible corner radius
+// handling impossible corner radius
 void RoundedRectangle::setCornerRadius(double radius) {
     double max_radius = std::min(getWidth(), getHeight()) / 2.0;
     if (radius > max_radius) {
@@ -66,13 +65,11 @@ void RoundedRectangle::setCornerRadius(double radius) {
         corner_radius_ = radius;
     }
 }
-//move
-void RoundedRectangle::move(double dx, double dy) {
-    GraphicsObject::move(dx, dy); 
-}
-//resize
+// move
+void RoundedRectangle::move(double dx, double dy) { GraphicsObject::move(dx, dy); }
+// resize
 void RoundedRectangle::scale_factor(double factor) {
     setWidth(getWidth() * factor);
     setHeight(getHeight() * factor);
-    corner_radius_*= factor;
+    corner_radius_ *= factor;
 }

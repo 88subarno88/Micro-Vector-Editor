@@ -36,7 +36,8 @@ void expectAddsLike(GraphicsObject& expected, const Geometry& geometry) {
     EXPECT_EQ(diagram.find("a")->toSVG(), expected.toSVG());
 }
 
-// Adds a default-styled shape with `geometry` as "a", applies `op`, and checks it saves the same as `expected`.
+// Adds a default-styled shape with `geometry` as "a", applies `op`, and checks it saves the same as
+// `expected`.
 template <typename Geometry>
 void expectAfter(const Geometry& geometry, const Operation& op, std::unique_ptr<GraphicsObject> expected) {
     expected->setId("a");
@@ -171,9 +172,9 @@ TEST(ApplyTest, BadNumbersFailAndChangeNothing) {
     ASSERT_TRUE(apply(diagram, AddShape{"a", {RectGeom{1, 2, 3, 4}, {}}}));
     const std::string before = diagram.toSVG();
 
-    for (const Operation& op : {Operation{Move{"a", nan, 0}}, Operation{Move{"a", 0, infinity}},
-                                Operation{Resize{"a", 0}}, Operation{Resize{"a", -2}},
-                                Operation{Resize{"a", nan}}, Operation{Resize{"a", infinity}}}) {
+    for (const Operation& op :
+         {Operation{Move{"a", nan, 0}}, Operation{Move{"a", 0, infinity}}, Operation{Resize{"a", 0}},
+          Operation{Resize{"a", -2}}, Operation{Resize{"a", nan}}, Operation{Resize{"a", infinity}}}) {
         const auto result = apply(diagram, op);
         ASSERT_FALSE(result);
         EXPECT_EQ(result.error(), ApplyError::InvalidValue);
@@ -218,8 +219,7 @@ TEST(ApplyTest, SetStyleWithABadFieldChangesNothing) {
     const std::string before = diagram.toSVG();
 
     for (const SetStyle& op : {SetStyle{"a", "green", "yellow", -1}, SetStyle{"a", "green", "yellow", nan},
-                               SetStyle{"a", "green", "x\" onload=\"y", 2},
-                               SetStyle{"a", "x\"", "yellow", 2},
+                               SetStyle{"a", "green", "x\" onload=\"y", 2}, SetStyle{"a", "x\"", "yellow", 2},
                                SetStyle{"a", "green", "yellow", 1e308}}) {
         const auto result = apply(diagram, op);
         ASSERT_FALSE(result);
@@ -231,9 +231,9 @@ TEST(ApplyTest, SetStyleWithABadFieldChangesNothing) {
 TEST(ApplyTest, AddWithAQuoteInAnIdOrColourFails) {
     Diagram diagram;
 
-    for (const AddShape& op : {AddShape{"a\"", {RectGeom{}, {}}},
-                               AddShape{"a", {RectGeom{}, Style{"x\"", "white", 1}}},
-                               AddShape{"a", {RectGeom{}, Style{"black", "x\"", 1}}}}) {
+    for (const AddShape& op :
+         {AddShape{"a\"", {RectGeom{}, {}}}, AddShape{"a", {RectGeom{}, Style{"x\"", "white", 1}}},
+          AddShape{"a", {RectGeom{}, Style{"black", "x\"", 1}}}}) {
         const auto result = apply(diagram, op);
         ASSERT_FALSE(result);
         EXPECT_EQ(result.error(), ApplyError::InvalidShape);
@@ -248,12 +248,9 @@ Diagram oneOfEachShape() {
     Diagram diagram;
     const Style style{"red", "blue", 3};
     const std::vector<AddShape> shapes = {
-        {"rect", {RectGeom{1, 2, 30, 40}, style}},
-        {"rounded", {RectGeom{1, 2, 30, 40, 5}, style}},
-        {"circle", {CircleGeom{{1, 2}, 3}, style}},
-        {"line", {LineGeom{{1, 2}, {3, 4}}, style}},
-        {"hexagon", {HexagonGeom{{1, 2}, 3}, style}},
-        {"sketch", {FreehandGeom{{{1, 2}, {3, 4}}}, style}},
+        {"rect", {RectGeom{1, 2, 30, 40}, style}},     {"rounded", {RectGeom{1, 2, 30, 40, 5}, style}},
+        {"circle", {CircleGeom{{1, 2}, 3}, style}},    {"line", {LineGeom{{1, 2}, {3, 4}}, style}},
+        {"hexagon", {HexagonGeom{{1, 2}, 3}, style}},  {"sketch", {FreehandGeom{{{1, 2}, {3, 4}}}, style}},
         {"text", {TextData{{1, 2}, "Hi", 20}, style}},
     };
     for (const AddShape& op : shapes) EXPECT_TRUE(apply(diagram, op));
@@ -356,9 +353,9 @@ TEST(InvertTest, InvertingADeleteTwiceDeletesAgain) {
 TEST(InvertTest, UnknownIdsFail) {
     const Diagram diagram;
 
-    for (const Operation& op : {Operation{DeleteShape{"nope"}}, Operation{Move{"nope", 1, 1}},
-                                Operation{Resize{"nope", 2}},
-                                Operation{SetStyle{"nope", "red", std::nullopt, std::nullopt}}}) {
+    for (const Operation& op :
+         {Operation{DeleteShape{"nope"}}, Operation{Move{"nope", 1, 1}}, Operation{Resize{"nope", 2}},
+          Operation{SetStyle{"nope", "red", std::nullopt, std::nullopt}}}) {
         const auto inverse = invert(diagram, op);
         ASSERT_FALSE(inverse);
         EXPECT_EQ(inverse.error(), ApplyError::ShapeNotFound);
@@ -398,10 +395,11 @@ TEST(ApplyTest, AddOutOfLimitsFails) {
     const double big = 1.7e308;
     Diagram diagram;
 
-    for (const ShapeData& shape : {ShapeData{RectGeom{big, 0, 1, 1}, {}}, ShapeData{CircleGeom{{0, 0}, big}, {}},
-                                   ShapeData{HexagonGeom{{big, 0}, big}, {}}, ShapeData{LineGeom{{0, 0}, {big, 0}}, {}},
-                                   ShapeData{FreehandGeom{{{0, big}}}, {}}, ShapeData{TextData{{0, 0}, "Hi", big}, {}},
-                                   ShapeData{RectGeom{}, Style{"red", "blue", big}}}) {
+    for (const ShapeData& shape :
+         {ShapeData{RectGeom{big, 0, 1, 1}, {}}, ShapeData{CircleGeom{{0, 0}, big}, {}},
+          ShapeData{HexagonGeom{{big, 0}, big}, {}}, ShapeData{LineGeom{{0, 0}, {big, 0}}, {}},
+          ShapeData{FreehandGeom{{{0, big}}}, {}}, ShapeData{TextData{{0, 0}, "Hi", big}, {}},
+          ShapeData{RectGeom{}, Style{"red", "blue", big}}}) {
         const auto result = apply(diagram, AddShape{"a", shape, std::nullopt});
         ASSERT_FALSE(result);
         EXPECT_EQ(result.error(), ApplyError::InvalidShape);
@@ -410,10 +408,10 @@ TEST(ApplyTest, AddOutOfLimitsFails) {
 }
 
 TEST(ApplyTest, MoveOrResizeOutOfLimitsFailsAndChangesNothing) {
-    for (const ShapeData& shape : {ShapeData{RectGeom{1, 2, 3, 4, 1}, {}}, ShapeData{CircleGeom{{1, 2}, 3}, {}},
-                                   ShapeData{LineGeom{{1, 2}, {3, 4}}, {}}, ShapeData{HexagonGeom{{1, 2}, 3}, {}},
-                                   ShapeData{FreehandGeom{{{1, 2}, {3, 4}}}, {}},
-                                   ShapeData{TextData{{1, 2}, "Hi", 20}, {}}}) {
+    for (const ShapeData& shape :
+         {ShapeData{RectGeom{1, 2, 3, 4, 1}, {}}, ShapeData{CircleGeom{{1, 2}, 3}, {}},
+          ShapeData{LineGeom{{1, 2}, {3, 4}}, {}}, ShapeData{HexagonGeom{{1, 2}, 3}, {}},
+          ShapeData{FreehandGeom{{{1, 2}, {3, 4}}}, {}}, ShapeData{TextData{{1, 2}, "Hi", 20}, {}}}) {
         Diagram diagram;
         ASSERT_TRUE(apply(diagram, AddShape{"a", shape, std::nullopt}));
         const std::string before = diagram.toSVG();

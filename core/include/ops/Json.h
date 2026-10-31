@@ -41,4 +41,4 @@ tl::expected<Diagram, DecodeError> decodeDiagram(std::string_view text);
 
 }  // namespace vec
 
-#endif // OPS_JSON_H
+#endif  // OPS_JSON_H
