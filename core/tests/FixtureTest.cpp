@@ -41,18 +41,18 @@ class FixtureTest : public ::testing::TestWithParam<Fixture> {};
 }  // namespace
 
 TEST_P(FixtureTest, LoadsWithExpectedShapeCount) {
-    const auto result = SVGParser::load_SVG(fixturePath(GetParam().file));
+    const auto result = SVGParser::loadSVG(fixturePath(GetParam().file));
 
     ASSERT_TRUE(result) << "line " << result.error().line << ": " << result.error().message;
     EXPECT_EQ(result->getObjectCount(), GetParam().shapes);
 }
 
 TEST_P(FixtureTest, SurvivesSaveAndLoad) {
-    const auto loaded = SVGParser::load_SVG(fixturePath(GetParam().file));
+    const auto loaded = SVGParser::loadSVG(fixturePath(GetParam().file));
     ASSERT_TRUE(loaded);
 
     const std::string saved = loaded->toSVG();
-    const auto reloaded = SVGParser::parse_SVG(saved);
+    const auto reloaded = SVGParser::parseSVG(saved);
     ASSERT_TRUE(reloaded) << reloaded.error().message;
     EXPECT_EQ(roundNumbers(reloaded->toSVG()), roundNumbers(saved));
 }
@@ -69,7 +69,7 @@ INSTANTIATE_TEST_SUITE_P(Fixtures, FixtureTest,
                          });
 
 TEST(FixtureTest, MalformedFileReportsWhere) {
-    const auto result = SVGParser::load_SVG(fixturePath("malformed.svg"));
+    const auto result = SVGParser::loadSVG(fixturePath("malformed.svg"));
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().line, 6);

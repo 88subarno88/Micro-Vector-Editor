@@ -56,7 +56,7 @@ std::unique_ptr<GraphicsObject> sketch(const std::vector<Point>& points) {
 
 std::unique_ptr<GraphicsObject> text(double x, double y, double fontSize) {
     auto shape = std::make_unique<Text>(x, y, "Hi");
-    shape->setFrontSize(fontSize);
+    shape->setFontSize(fontSize);
     return shape;
 }
 
@@ -96,7 +96,7 @@ TEST(ApplyTest, AddsAFreehandSketch) {
 
 TEST(ApplyTest, AddsText) {
     Text expected(1, 2, "Hi");
-    expected.setFrontSize(30);
+    expected.setFontSize(30);
     expectAddsLike(expected, TextData{{1, 2}, "Hi", 30});
 }
 

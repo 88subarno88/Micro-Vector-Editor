@@ -20,21 +20,21 @@ ParseError errorAt(std::string_view doc, size_t offset, std::string message) {
 
 }  // namespace
 
-tl::expected<Diagram, ParseError> SVGParser::load_SVG(const std::string& filename) {
+tl::expected<Diagram, ParseError> SVGParser::loadSVG(const std::string& filename) {
     std::ifstream file(filename);
     if (!file.is_open()) return tl::unexpected(ParseError{0, 0, "cannot open " + filename});
 
     const std::string doc{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
-    return parse_SVG(doc);
+    return parseSVG(doc);
 }
 
-tl::expected<Diagram, ParseError> SVGParser::parse_SVG(std::string_view doc) {
+tl::expected<Diagram, ParseError> SVGParser::parseSVG(std::string_view doc) {
     Diagram diagram;
     size_t pos = 0;
     for (auto tag = nextTag(doc, pos); !tag.empty(); tag = nextTag(doc, pos)) {
         // Text between this tag and the next one, e.g. the "Hi" of <text>Hi</text>.
         const auto content = doc.substr(pos, doc.find('<', pos) - pos);
-        parse_Tag(tag, content, diagram);
+        parseTag(tag, content, diagram);
     }
     if (pos < doc.size()) {
         const bool comment = doc.compare(pos, 4, "<!--") == 0;

@@ -22,7 +22,7 @@ void MenuBar::createMenuBar(QMainWindow* mainWindow) {
     QAction* openAction = fileMenu->addAction("Open");
 
     if (mw) {
-        QObject::connect(openAction, &QAction::triggered, mw, &MainWindow::onLoad_Trigger);
+        QObject::connect(openAction, &QAction::triggered, mw, &MainWindow::onLoadTrigger);
     }
 
     // New Action
@@ -36,14 +36,14 @@ void MenuBar::createMenuBar(QMainWindow* mainWindow) {
     QAction* saveAction = fileMenu->addAction("Save");
     saveAction->setShortcut(QKeySequence::Save);  // ctrl+s
     if (mw) {
-        QObject::connect(saveAction, &QAction::triggered, mw, &MainWindow::onSave_Trigger);
+        QObject::connect(saveAction, &QAction::triggered, mw, &MainWindow::onSaveTrigger);
     }
 
     // Save as Action
     QAction* saveAsAction = fileMenu->addAction("Save As");
     saveAsAction->setShortcut(QKeySequence::SaveAs);  // Ctrl+Shift+S
     if (mw) {
-        QObject::connect(saveAsAction, &QAction::triggered, mw, &MainWindow::onSave_As);
+        QObject::connect(saveAsAction, &QAction::triggered, mw, &MainWindow::onSaveAs);
     }
 
     // Exit Action

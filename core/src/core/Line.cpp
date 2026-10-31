@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <sstream>
 
 #include "core/Renderer.h"
@@ -14,7 +13,6 @@ Line::Line(double x1, double y1, double x2, double y2)
     updateBoundingBox();
 }
 
-Line::~Line() {}
 void Line::draw(Renderer& renderer) const { renderer.drawPolyline({{x1_, y1_}, {x2_, y2_}}, false, style()); }
 
 /**
@@ -47,38 +45,6 @@ std::unique_ptr<GraphicsObject> Line::clone() const {
 }
 // get type, here "Line"
 std::string Line::getType() const { return "Line"; }
-// set x coordinate of start point
-void Line::setX1(double x) {
-    x1_ = x;
-    updateBoundingBox();
-}
-// set y coordinate of start point
-void Line::setY1(double y) {
-    y1_ = y;
-    updateBoundingBox();
-}
-// set x coordinate of end point
-void Line::setX2(double x) {
-    x2_ = x;
-    updateBoundingBox();
-}
-// set y coordinate of end point
-void Line::setY2(double y) {
-    y2_ = y;
-    updateBoundingBox();
-}
-// set both coordinates of start point
-void Line::setStartPoint(double x, double y) {
-    x1_ = x;
-    y1_ = y;
-    updateBoundingBox();
-}
-// set both coordinates of end point
-void Line::setEndPoint(double x, double y) {
-    x2_ = x;
-    y2_ = y;
-    updateBoundingBox();
-}
 /**
  * check if a point is near the line basically within tolerance.
  * find it by using distance from point to line segment formula.
@@ -125,8 +91,6 @@ void Line::updateBoundingBox() {
 
 // move
 void Line::move(double dx, double dy) {
-    // std::cout << "Line is Moving! dx=" << dx << " dy=" << dy << std::endl;    //Debug
-
     x1_ += dx;
     y1_ += dy;
     x2_ += dx;
@@ -135,7 +99,7 @@ void Line::move(double dx, double dy) {
 }
 
 // resize
-void Line::scale_factor(double factor) {
+void Line::scaleBy(double factor) {
     double dx = x2_ - x1_;
     double dy = y2_ - y1_;
 

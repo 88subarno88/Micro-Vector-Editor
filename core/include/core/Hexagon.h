@@ -19,7 +19,6 @@ private:
 
 public:
     Hexagon(double centerX = 0.0, double centerY = 0.0, double radius = 10.0);
-    ~Hexagon() override;
 
     // implement pure virtual functions from GraphicsObject
     void draw(Renderer& renderer) const override;
@@ -27,11 +26,6 @@ public:
     std::unique_ptr<GraphicsObject> clone() const override;
     std::string getType() const override;
 
-    // setters
-    void setCenterX(double x);
-    void setCenterY(double y);
-    void setRadius(double r);
-    void setCenter(double x, double y);
     void move(double dx, double dy) override;
 
     // getters
@@ -42,7 +36,7 @@ public:
     // do (x,y) inside or on the hexagon?(roughly assuming hexagon as a circle)
     bool contains(double x, double y) const override;
     // resize
-    void scale_factor(double factor) override;
+    void scaleBy(double factor) override;
 };
 
 #endif  // HEXAGON_H

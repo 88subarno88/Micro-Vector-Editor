@@ -20,7 +20,7 @@ void Canvas::contextMenuEvent(QContextMenuEvent* event) {
     }
 
     // select the shape
-    selected_Id = clickedShape->getId();
+    selectedId = clickedShape->getId();
     update();
 
     // creating the Menu
@@ -38,14 +38,14 @@ void Canvas::contextMenuEvent(QContextMenuEvent* event) {
     if (selectedItem == setFillAction) {
         QColor color = QColorDialog::getColor(Qt::white, this, "Select Fill Color");
         if (color.isValid()) {
-            run(vec::SetStyle{selected_Id, std::nullopt, color.name().toStdString(), std::nullopt});
+            run(vec::SetStyle{selectedId, std::nullopt, color.name().toStdString(), std::nullopt});
         }
     }
     // set stroke color
     else if (selectedItem == setStrokeAction) {
         QColor color = QColorDialog::getColor(Qt::black, this, "Select Stroke Color");
         if (color.isValid()) {
-            run(vec::SetStyle{selected_Id, color.name().toStdString(), std::nullopt, std::nullopt});
+            run(vec::SetStyle{selectedId, color.name().toStdString(), std::nullopt, std::nullopt});
         }
     }
     // resize
@@ -54,13 +54,13 @@ void Canvas::contextMenuEvent(QContextMenuEvent* event) {
         double percentage = QInputDialog::getDouble(
             this, "Resize", "Enter Scale % (e.g., 200 = Double):", 100.0, 1.0, 1000.0, 1, &ok);
         if (ok) {
-            run(vec::Resize{selected_Id, percentage / 100.0});
+            run(vec::Resize{selectedId, percentage / 100.0});
         }
     }
     // delete
     else if (selectedItem == deleteAction) {
-        run(vec::DeleteShape{selected_Id});
-        selected_Id.clear();
+        run(vec::DeleteShape{selectedId});
+        selectedId.clear();
     }
     // setwidth
     else if (selectedItem == setWidthAction) {
@@ -70,7 +70,7 @@ void Canvas::contextMenuEvent(QContextMenuEvent* event) {
             this, "Stroke Width", "Enter thickness (e.g., 5.0):", currentWidth, 0.0, 100.0, 1, &ok);
 
         if (ok && newWidth != currentWidth) {
-            run(vec::SetStyle{selected_Id, std::nullopt, std::nullopt, newWidth});
+            run(vec::SetStyle{selectedId, std::nullopt, std::nullopt, newWidth});
         }
     }
 }

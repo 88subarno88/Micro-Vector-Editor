@@ -18,7 +18,7 @@ namespace {
 
 // Parses `svg` into `diagram`; fails the test if parsing returns an error.
 void loadFromString(const std::string& svg, Diagram& diagram) {
-    auto result = SVGParser::parse_SVG(svg);
+    auto result = SVGParser::parseSVG(svg);
     ASSERT_TRUE(result) << result.error().message;
     diagram = std::move(*result);
 }
@@ -182,7 +182,7 @@ TEST(ParserTest, EveryShapeSurvivesSaveAndLoad) {
     sketch->addPoint(7.5, 8.25);
     original.addObject(std::move(sketch));
     auto text = std::make_unique<Text>(15, 25, "Tom & Jerry <3");
-    text->setFrontSize(32);
+    text->setFontSize(32);
     original.addObject(std::move(text));
     for (const auto& shape : original.getShapes()) {
         shape->setStrokeColor("#123456");
@@ -205,7 +205,7 @@ TEST(ParserTest, MissingColorsKeepDefaults) {
 }
 
 TEST(ParserTest, MissingFileIsAnError) {
-    const auto result = SVGParser::load_SVG("/no/such/dir/drawing.svg");
+    const auto result = SVGParser::loadSVG("/no/such/dir/drawing.svg");
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().line, 0);
@@ -213,7 +213,7 @@ TEST(ParserTest, MissingFileIsAnError) {
 }
 
 TEST(ParserTest, UnclosedTagReportsLineAndColumn) {
-    const auto result = SVGParser::parse_SVG("<svg>\n  <rect x=\"1\"/>\n  <circle r=\"2\"");
+    const auto result = SVGParser::parseSVG("<svg>\n  <rect x=\"1\"/>\n  <circle r=\"2\"");
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().line, 3);
@@ -222,7 +222,7 @@ TEST(ParserTest, UnclosedTagReportsLineAndColumn) {
 }
 
 TEST(ParserTest, UnclosedCommentIsAnError) {
-    const auto result = SVGParser::parse_SVG("<svg><!-- <rect/>");
+    const auto result = SVGParser::parseSVG("<svg><!-- <rect/>");
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().column, 6);
@@ -235,7 +235,7 @@ TEST(ParserTest, InvalidNumberDoesNotThrow) {
 }
 
 TEST(ParserTest, SkipsShapesOutOfLimits) {
-    const auto result = SVGParser::parse_SVG(
+    const auto result = SVGParser::parseSVG(
         R"(<rect x="1e308"/><circle r="1e308"/><line x2="-1e308"/><path d="M 1e308 0"/><text font-size="1e308">Hi</text>)");
 
     ASSERT_TRUE(result);
@@ -246,7 +246,7 @@ TEST(ParserTest, SkipsAPolygonTooFarOutToSave) {
     for (const char* doc :
          {R"(<polygon points="1e308,0 -1e308,1"/>)", R"(<polygon points="1e308,0 1e308,1"/>)",
           R"(<polygon points="0,1e308 1,1e308"/>)"}) {
-        const auto result = SVGParser::parse_SVG(doc);
+        const auto result = SVGParser::parseSVG(doc);
         ASSERT_TRUE(result) << doc;
         EXPECT_EQ(result->getObjectCount(), 0) << doc;
     }

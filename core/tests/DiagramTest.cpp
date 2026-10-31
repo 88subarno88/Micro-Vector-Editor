@@ -21,7 +21,7 @@ TEST(DiagramTest, AddAndClear) {
 
     EXPECT_EQ(diagram.getObjectCount(), 2);
 
-    diagram.clearallObjects();
+    diagram.clear();
     EXPECT_EQ(diagram.getObjectCount(), 0);
 }
 
@@ -100,7 +100,7 @@ TEST(DiagramTest, ClearForgetsIds) {
     Diagram diagram;
     const ShapeId id = addRect(diagram);
 
-    diagram.clearallObjects();
+    diagram.clear();
 
     EXPECT_EQ(diagram.find(id), nullptr);
 }

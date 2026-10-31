@@ -15,22 +15,22 @@
 #include "core/Text.h"
 #include "ops/Apply.h"
 
-enum class WhatdaShape { Rect, Circle, Line, Text, Hexagon, Freehand, Unknown };
+enum class ShapeKind { Rect, Circle, Line, Text, Hexagon, Freehand, Unknown };
 
 namespace {
 
 // Maps a tag such as "<rect x=..."/> to its shape kind by exact tag name.
-WhatdaShape identifyTag(std::string_view tag) {
-    static const std::pair<std::string_view, WhatdaShape> tags[] = {
-        {"rect", WhatdaShape::Rect}, {"circle", WhatdaShape::Circle},   {"line", WhatdaShape::Line},
-        {"text", WhatdaShape::Text}, {"polygon", WhatdaShape::Hexagon}, {"path", WhatdaShape::Freehand},
+ShapeKind identifyTag(std::string_view tag) {
+    static const std::pair<std::string_view, ShapeKind> tags[] = {
+        {"rect", ShapeKind::Rect}, {"circle", ShapeKind::Circle},   {"line", ShapeKind::Line},
+        {"text", ShapeKind::Text}, {"polygon", ShapeKind::Hexagon}, {"path", ShapeKind::Freehand},
     };
     tag.remove_prefix(1);  // '<'
     const std::string_view name = tag.substr(0, tag.find_first_of(" \t\r\n/>"));
     for (const auto& [tagName, kind] : tags) {
         if (name == tagName) return kind;
     }
-    return WhatdaShape::Unknown;
+    return ShapeKind::Unknown;
 }
 
 // False for a value such as stroke='a"b', whose quote would break the file when it's saved.
@@ -55,9 +55,9 @@ void applyFill(GraphicsObject& shape, const SVGParser::Attributes& attrs) {
 }  // namespace
 
 // parse shapes
-void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Diagram& diagram) {
-    const WhatdaShape tag = identifyTag(tagText);
-    if (tag == WhatdaShape::Unknown) return;
+void SVGParser::parseTag(std::string_view tagText, std::string_view content, Diagram& diagram) {
+    const ShapeKind tag = identifyTag(tagText);
+    if (tag == ShapeKind::Unknown) return;
 
     const Attributes attrs = parseAttributes(tagText);
     const auto text = [&](const char* key) {
@@ -76,7 +76,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
     };
 
     switch (tag) {
-        case WhatdaShape::Rect: {
+        case ShapeKind::Rect: {
             const double x = number("x"), y = number("y");
             const double w = number("width"), h = number("height");
             const double rx = number("rx");  // rx > 0 means a rounded rectangle
@@ -92,7 +92,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
             break;
         }
 
-        case WhatdaShape::Circle: {
+        case ShapeKind::Circle: {
             auto shape = std::make_unique<Circle>(number("cx"), number("cy"), number("r"));
             applyStroke(*shape, attrs);
             applyFill(*shape, attrs);
@@ -100,17 +100,17 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
             break;
         }
 
-        case WhatdaShape::Line: {
+        case ShapeKind::Line: {
             auto shape = std::make_unique<Line>(number("x1"), number("y1"), number("x2"), number("y2"));
             applyStroke(*shape, attrs);
             add(std::move(shape));
             break;
         }
 
-        case WhatdaShape::Text: {
+        case ShapeKind::Text: {
             if (!content.empty()) {
                 auto shape = std::make_unique<Text>(number("x"), number("y"), decodeEntities(content));
-                if (const double size = number("font-size"); size > 0) shape->setFrontSize(size);
+                if (const double size = number("font-size"); size > 0) shape->setFontSize(size);
                 applyStroke(*shape, attrs);
                 applyFill(*shape, attrs);
                 add(std::move(shape));
@@ -118,7 +118,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
             break;
         }
 
-        case WhatdaShape::Hexagon: {
+        case ShapeKind::Hexagon: {
             // "x1,y1 x2,y2 ..." with any mix of commas and whitespace.
             std::string points = text("points");
             std::replace(points.begin(), points.end(), ',', ' ');
@@ -143,7 +143,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
             break;
         }
 
-        case WhatdaShape::Freehand: {
+        case ShapeKind::Freehand: {
             auto sketch = std::make_unique<FreehandSketch>();
             std::stringstream ss(text("d"));
             char cmd;
@@ -161,7 +161,7 @@ void SVGParser::parse_Tag(std::string_view tagText, std::string_view content, Di
             break;
         }
 
-        case WhatdaShape::Unknown:
+        case ShapeKind::Unknown:
             break;
     }
 }

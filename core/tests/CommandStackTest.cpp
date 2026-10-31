@@ -177,7 +177,7 @@ TEST_F(CommandStackTest, ClearForgetsTheHistoryButNotTheDiagram) {
 }
 
 TEST(CommandStackImportTest, DeleteOfAnImportedShapeCanBeUndone) {
-    auto diagram = SVGParser::parse_SVG(R"(<rect id="a" stroke='x"y' fill='x"y'/>)");
+    auto diagram = SVGParser::parseSVG(R"(<rect id="a" stroke='x"y' fill='x"y'/>)");
     ASSERT_TRUE(diagram);
     CommandStack stack;
 

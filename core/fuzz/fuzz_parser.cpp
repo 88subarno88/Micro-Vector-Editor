@@ -11,7 +11,7 @@
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     const std::string_view doc(reinterpret_cast<const char*>(data), size);
 
-    const auto diagram = SVGParser::parse_SVG(doc);
+    const auto diagram = SVGParser::parseSVG(doc);
     if (!diagram) return 0;
 
     int written = 0;  // a sketch with no points writes nothing
@@ -19,7 +19,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
         if (!shape->toSVG().empty()) ++written;
     }
 
-    const auto reloaded = SVGParser::parse_SVG(diagram->toSVG());
+    const auto reloaded = SVGParser::parseSVG(diagram->toSVG());
     if (!reloaded || reloaded->getObjectCount() != written) std::abort();
     return 0;
 }

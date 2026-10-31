@@ -1,175 +1,93 @@
-# Micro-Vector Editor (SVG)
+# Micro-Vector Editor
 
-## Overview
-This project is a small vector graphics editor, inspired by tools like Inkscape. Built entirely in C++, it features a graphical user interface (GUI) developed using the Qt community version. The application is designed to read a restricted subset of SVG files, display the vector diagrams on a drawing canvas, allow user modifications, and write the updated diagram back to an SVG output file. 
+[![CI](https://github.com/88subarno88/Micro-Vector-Editor/actions/workflows/ci.yml/badge.svg)](https://github.com/88subarno88/Micro-Vector-Editor/actions/workflows/ci.yml)
 
-To ensure clean design and correctness, this editor utilizes a custom-built XML/SVG parser rather than relying on third-party parsing libraries.
+A small vector graphics editor in C++17 with a Qt 6 desktop app. Its core, which holds the shapes, the SVG parser and the edit history, has no Qt dependency, so the same code can later run on a server and in the browser.
 
----
+**Status:** the desktop editor and core work today. A collaborative C++ backend and a web client are planned but not built yet.
 
 ## Features
 
-### Supported Shapes
-The editor allows users to create and modify the following vector graphic elements:
-* Rectangle 
-* Rounded rectangle 
-* Circle 
-* Line 
-* Hexagon 
-* Freehand sketch
-* Text 
+- **Shapes:** rectangle, rounded rectangle, circle, line, hexagon, freehand sketch and text
+- **Editing:** draw, drag to move, and right-click to set fill, stroke, stroke width or size, or to delete
+- **Keyboard:** undo (`Ctrl+Z`), redo (`Ctrl+Y`), copy, cut, paste and delete
+- **Files:** new, open, save and save as, using SVG. Shape IDs are kept across saves
+- **SVG parser:** hand-written, with no XML library. A malformed file reports the line and column of the error
 
-### Graphical User Interface (GUI)
-The UI consists of a menu bar, a toolbar, and a drawing canvas. Any modifications made through the editor are immediately reflected on the canvas and preserved when saving.
-* **Shape Properties:** Users can modify the colors for both the boundary (stroke) and the interior (fill).
-* **Transformations:** Users can create, move, and resize shapes on the canvas.
-* **File Operations:** The menu bar supports New, Open SVG file, Save, Save As, and Close.
-* **Edit Operations:** Includes Cut, copy, and paste functionalities.
-* **History:** Fully supports Undo and Redo actions utilizing custom stacks.
-
----
-
-## Software Architecture & Design
-
-### 1. System Overview
-The Micro-Vector Editor is designed using a modular architecture that separates the mathematical data models (Core), the user interface (UI), the file I/O operations (Parser), and the action history (Commands). This separation of concerns ensures that the application is robust, scalable, and easy to test. 
-
-### 2. Core Module (The Data Model)
-The `core` directory contains the purely mathematical and logical representation of the vector graphics. It is completely decoupled from Qt's windowing system.
-* **`GraphicsObject` (Abstract Base Class):** Every shape inherits from this base class. It defines the common properties shared by all vector graphics, such as bounding box coordinates (`x`, `y`, `width`, `height`), `stroke` color, `fill` color, and `stroke-width`. 
-* **Polymorphism:** `GraphicsObject` enforces pure virtual functions that every derived shape must implement:
-  * `draw(QPainter* painter)`: How the shape renders itself.
-  * `toSVG()`: How the shape serializes itself into an XML string.
-  * `contains(double x, double y)`: Hit-testing logic to check if a mouse click landed inside the shape.
-  * `clone()`: Returns a deep copy of the shape (used heavily for Copy/Paste operations).
-* **`Diagram`:** Acts as the centralized state of the canvas. It holds a `std::vector<std::unique_ptr<GraphicsObject>>` representing all active shapes on the screen.
-
-### 3. Operations (Undo / Redo System)
-Every edit to the canvas is an **operation**: plain data that can be stored, sent elsewhere and inverted.
-* **`Operation`:** A `std::variant` of `AddShape`, `DeleteShape`, `Move`, `Resize` and `SetStyle`.
-* **`apply` / `invert`:** `apply` changes a `Diagram` and returns an error instead of crashing on a bad operation. `invert` returns the operation that undoes another one.
-* **`CommandStack`:** Stores each applied operation with its inverse, which is all undo and redo need.
-
-### 4. UI System (View & Controllers)
-The graphical user interface is built using **Qt6**.
-* **`MainWindow`:** Sets up the application frame, docks the `MenuBar` and `Toolbar`, and sets the central widget.
-* **`Canvas` (The Controller):** The most complex UI component. It catches Qt events (mouse clicks, drags, key presses, context menus) and translates them into operations.
-* ***File Split Architecture:*** To adhere to assignment constraints, the implementation of `Canvas.cpp` was modularized into specific behavioral files (`canvas_Core.cpp`, `canvas_Mouse.cpp`, `canvas_Menu.cpp`, `canvas_Key.cpp`) without breaking the class definition.
-
-### 5. Custom SVG Parser
-No third-party XML or SVG parsing libraries were used. The `parser` module implements a custom string-processing engine.
-* **Reading (`SVGParser::load_SVG`):** Reads the file line-by-line and uses standard `std::string` operations to locate specific XML tags. 
-* **Factory Logic:** Based on the detected tag, the parser converts attributes to `double` via `std::stod`, constructs the appropriate `unique_ptr<GraphicsObject>`, and pushes it directly into the `Diagram`.
-* **Writing:** Handled natively by the Core objects. The `Canvas` iterates through the `Diagram`, calling `toSVG()` on each object, and writes the output wrapped in standard `<svg>` tags.
-
----
-
-## Code Quality & Constraints Adherence
-The codebase utilizes structured, readable, and robust design principles:
-* **File Length Limits:** The codebase was explicitly refactored to ensure no single `.cpp` or `.h` file exceeds 100 lines. Complex classes have their implementations split across multiple source files.
-* **Headers:** Header files (`.h`) strictly contain class definitions, variables, and function signatures. All implementation logic is deferred to the `.cpp` files.
-* **Memory Management:** Raw pointers are only used when explicitly required by Qt's object tree (e.g., `QPainter*`, `QWidget*`). All internal data structures (Shapes) are managed exclusively via `std::unique_ptr` and `std::move` semantics to prevent memory leaks.
-* **Style:** The codebase is extensively commented and follows the Google C++ Style Guide conventions for naming, indentation, and standard library usage.
-
----
-
-## Directory Structure
-
+## How it works
 
 ```text
-project
-├── build
-├── CMakeLists.txt
-├── include
-│   ├── commands
-│   │   ├── AddCommand.h
-│   │   ├── ChangecolorCommand.h
-│   │   ├── ChangeStrokewidthcommand.h
-│   │   ├── Command.h
-│   │   ├── CommandStack.h
-│   │   ├── CreateCommand.h
-│   │   ├── DeleteCommand.h
-│   │   ├── ModifyCommand.h
-│   │   ├── MoveCommand.h
-│   │   └── ResizeCommand.h
-│   ├── core
-│   │   ├── Circle.h
-│   │   ├── Diagram.h
-│   │   ├── FreehandSketch.h
-│   │   ├── GraphicsObject.h
-│   │   ├── Hexagon.h
-│   │   ├── Line.h
-│   │   ├── Rectangle.h
-│   │   ├── RoundedRectangle.h
-│   │   └── Text.h
-│   ├── parser
-│   │   └── SVGParser.h
-│   └── ui
-│       ├── Canvas.h
-│       ├── EditorTypes.h
-│       ├── MainWindow.h
-│       ├── MenuBar.h
-│       └── Toolbar.h
-├── README.md
-├── src
-│   ├── commands
-│   │   ├── AddCommand.cpp
-│   │   ├── ChangecolorCommand.cpp
-│   │   ├── ChangeStrokewidthcommand.cpp
-│   │   ├── Command.cpp
-│   │   ├── CommandStack.cpp
-│   │   ├── CreateCommand.cpp
-│   │   ├── DeleteCommand.cpp
-│   │   ├── ModifyCommand.cpp
-│   │   ├── MoveCommand.cpp
-│   │   └── ResizeCommand.cpp
-│   ├── core
-│   │   ├── Circle.cpp
-│   │   ├── Diagram.cpp
-│   │   ├── FreehandSketch.cpp
-│   │   ├── GraphicsObject.cpp
-│   │   ├── Hexagon.cpp
-│   │   ├── Line.cpp
-│   │   ├── Rectangle.cpp
-│   │   ├── RoundedRectangle.cpp
-│   │   └── Text.cpp
-│   ├── main.cpp
-│   ├── parser
-│   │   ├── SVGParse_Core.cpp
-│   │   └── SVGParse_Parse.cpp
-│   └── ui
-│       ├── canvas_Core.cpp
-│       ├── canvas_Key.cpp
-│       ├── canvas_Menu.cpp
-│       ├── canvas_Mouse.cpp
-│       ├── MainWindow.cpp
-│       ├── MenuBar.cpp
-│       └── Toolbar.cpp
-└── test
-    ├── combined_tests.cpp
-    └── purpose_of_combined.txt
+desktop/  Qt app: window, toolbar, canvas, QtRenderer
+   │ builds operations, draws through the Renderer interface
+   ▼
+core/     no Qt
+   ├── core/    shapes (GraphicsObject), Diagram, Renderer interface
+   ├── ops/     Operation, apply, invert, CommandStack, JSON
+   └── parser/  SVG parser
+```
 
----
+- **Every edit is an operation.** An `Operation` is a `std::variant` of plain data: `AddShape`, `DeleteShape`, `Move`, `Resize` or `SetStyle`.
+- **`apply` returns errors instead of crashing.** Bad input, such as an unknown ID, NaN or a number too large to save, gives an `ApplyError` and leaves the diagram unchanged.
+- **Undo stores operations, not shapes.** `invert` returns the operation that undoes another one, and `CommandStack` keeps each pair. Shapes are referenced by a stable `ShapeId`, never by a pointer.
+- **Operations and diagrams convert to JSON.** The decoders treat input as untrusted and return an error on anything malformed.
+- **Shapes don't know about Qt.** They draw through a small `Renderer` interface, and `QtRenderer` implements it in the desktop app.
 
-## Prerequisites
-* **C++ Compiler:** Modern C++ environment supporting C++ object-oriented features and smart pointers.
-* **CMake:** Required for the build system.
-* **Qt Framework:** Qt community version is required for rendering the GUI. 
+## Build and run
 
-## Compile and Run Instructions
-This project utilizes a CMake-based build system. To compile and run the editor, execute the following commands from the root directory (`project/`):
+Tested on Ubuntu 24.04 with GCC 13 and Qt 6.4. Dependencies other than Qt come from [vcpkg](https://github.com/microsoft/vcpkg).
 
 ```bash
-# 1. go to the build  directory that has already  been created
-cd project
-mkdir build
-cd build
+sudo apt install build-essential cmake git curl zip unzip tar pkg-config qt6-base-dev libgl-dev
 
-# 2. Configure the project using CMake
-cmake ..
+git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
+~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+export VCPKG_ROOT=~/vcpkg
 
-# 3. Compile the application
-make
+cmake --preset dev
+cmake --build --preset dev --parallel
+./build/dev/micro-vector-editor
+```
 
-# 4. Run the editor
-./micro-vector-editor
+To build only the core and tests, without Qt, add `-DBUILD_DESKTOP=OFF` to the `cmake --preset dev` line.
+
+## Testing
+
+```bash
+ctest --preset dev                  # unit tests (GoogleTest)
+
+cmake --preset asan                 # the same tests under ASan and UBSan
+cmake --build --preset asan --parallel
+ctest --preset asan
+```
+
+The fuzz targets cover the SVG parser and the JSON decoders. They need clang:
+
+```bash
+cmake --preset fuzz
+cmake --build --preset fuzz --parallel
+mkdir -p build/fuzz/corpus_parser build/fuzz/corpus_op
+
+build/fuzz/core/fuzz/fuzz_parser -max_total_time=600 -dict=core/fuzz/svg.dict \
+  -artifact_prefix=build/fuzz/ build/fuzz/corpus_parser core/tests/fixtures
+build/fuzz/core/fuzz/fuzz_op_json -max_total_time=600 -dict=core/fuzz/op_json.dict \
+  -artifact_prefix=build/fuzz/ build/fuzz/corpus_op core/tests/fixtures/ops
+```
+
+Each push runs CI on GitHub Actions: the full build, a core-only build with clang-tidy, the tests under sanitizers, a format check, and 60 seconds of each fuzzer.
+
+## Known limitations
+
+The parser reads a subset of SVG, aimed at files this editor saves. Importing a file from another tool can lose detail:
+
+- **Polygons:** any `<polygon>` becomes a regular hexagon that fits its width. Its original shape is lost.
+- **Paths:** only `M` and `L` commands are read, so curves are not. Paths also load unfilled.
+- **Other SVG features:** groups, transforms, gradients, CSS styles and `viewBox` are ignored. Saved files always use an 800×600 canvas.
+- **Text:** the font family isn't imported, and the text box size is an estimate.
+- **Very large numbers:** shapes with coordinates beyond ±1e300 are skipped on load.
+
+In the editor:
+
+- **Clicking:** hexagons are hit-tested as circles, rounded rectangles as plain rectangles, and freehand sketches by their bounding box.
+- **Selection:** there's no visible highlight on the selected shape.
+- **Resize:** resizing uses a percentage dialog. There are no drag handles.
+- **History:** opening a file or starting a new one clears undo history.

@@ -26,8 +26,6 @@ void Text::updateSize() {
     setHeight(1.5 * font_size_);
 }
 
-Text::~Text() {}
-
 void Text::draw(Renderer& renderer) const {
     renderer.drawText({{getX(), getY()}, text_, font_family_, font_size_}, style());
 }
@@ -75,7 +73,7 @@ std::string Text::toSVG() const {
 // Create the deep copy of the object | used for copy pasting purpose
 std::unique_ptr<GraphicsObject> Text::clone() const {
     auto copy = std::make_unique<Text>(getX(), getY(), text_);
-    copy->setFrontSize(font_size_);
+    copy->setFontSize(font_size_);
 
     // Copy visual properties from base class
     copy->setStrokeColor(getStrokeColor());
@@ -89,7 +87,7 @@ std::unique_ptr<GraphicsObject> Text::clone() const {
 std::string Text::getType() const { return "Text"; }
 
 // setters
-void Text::setFrontSize(double size) {
+void Text::setFontSize(double size) {
     if (size <= 0) {
         throw std::invalid_argument("Font size must be positive.");
     } else {
@@ -102,10 +100,8 @@ void Text::setText(const std::string& content) {
     updateSize();
 }
 
-// move
-void Text::move(double dx, double dy) { GraphicsObject::move(dx, dy); }
 // resize
-void Text::scale_factor(double factor) {
+void Text::scaleBy(double factor) {
     font_size_ *= factor;
 
     // Safety check to ensure font size isnot beyond visiblity

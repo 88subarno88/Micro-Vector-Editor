@@ -1,5 +1,5 @@
-#ifndef Diagram_H
-#define Diagram_H
+#ifndef DIAGRAM_H
+#define DIAGRAM_H
 
 #include <core/GraphicsObject.h>
 
@@ -36,10 +36,10 @@ public:
     int getObjectCount() const;
 
     // clear all objects
-    void clearallObjects();
+    void clear();
 
     // the whole drawing as an SVG document
     std::string toSVG() const;
 };
 
-#endif  // Diagram_H
+#endif  // DIAGRAM_H

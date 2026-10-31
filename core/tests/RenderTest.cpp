@@ -127,7 +127,7 @@ TEST(RenderTest, EmptyFreehandDrawsNothing) {
 
 TEST(RenderTest, TextDrawsItsContentAndFont) {
     Text text(5, 6, "Hi");
-    text.setFrontSize(24);
+    text.setFontSize(24);
 
     RecordingRenderer renderer;
     text.draw(renderer);
@@ -146,7 +146,7 @@ TEST(RenderTest, TextBoundingBoxFollowsContentAndFontSize) {
     EXPECT_GT(width, 0);
     EXPECT_GT(text.getHeight(), 0);
 
-    text.scale_factor(2);
+    text.scaleBy(2);
     EXPECT_DOUBLE_EQ(text.getWidth(), 2 * width);
 
     text.setText("Hello Hello");

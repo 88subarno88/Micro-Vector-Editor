@@ -34,7 +34,7 @@ TEST(ShapeIdTest, IdStaysTheSameAfterEdits) {
     const ShapeId id = shape.getId();
 
     shape.move(5, 5);
-    shape.scale_factor(2);
+    shape.scaleBy(2);
     shape.setFillColor("red");
 
     EXPECT_EQ(shape.getId(), id);
@@ -59,7 +59,7 @@ std::vector<std::unique_ptr<GraphicsObject>> oneOfEachShape() {
 
 // The id of the only shape in `svg`.
 ShapeId loadedId(std::string_view svg) {
-    const auto diagram = SVGParser::parse_SVG(svg);
+    const auto diagram = SVGParser::parseSVG(svg);
     EXPECT_TRUE(diagram);
     EXPECT_EQ(diagram->getObjectCount(), 1);
     return diagram->getShapes().front()->getId();
@@ -83,7 +83,7 @@ TEST(ShapeIdTest, EveryShapeKeepsItsIdThroughSaveAndLoad) {
         original.addObject(std::move(shape));
     }
 
-    const auto loaded = SVGParser::parse_SVG(original.toSVG());
+    const auto loaded = SVGParser::parseSVG(original.toSVG());
 
     ASSERT_TRUE(loaded);
     ASSERT_EQ(loaded->getObjectCount(), ids.size());
@@ -105,7 +105,7 @@ TEST(ShapeIdTest, ReplacesAnIdThatWouldBreakTheSavedFile) {
 }
 
 TEST(ShapeIdTest, DuplicateIdInAFileGetsANewId) {
-    const auto loaded = SVGParser::parse_SVG(R"(<rect id="same" x="1"/><rect id="same" x="2"/>)");
+    const auto loaded = SVGParser::parseSVG(R"(<rect id="same" x="1"/><rect id="same" x="2"/>)");
 
     ASSERT_TRUE(loaded);
     ASSERT_EQ(loaded->getObjectCount(), 2);

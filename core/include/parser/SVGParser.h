@@ -20,12 +20,12 @@ class SVGParser {
 public:
     using Attributes = std::unordered_map<std::string, std::string>;
 
-    // Reads `filename` and parses it with parse_SVG.
-    static tl::expected<Diagram, ParseError> load_SVG(const std::string& filename);
+    // Reads `filename` and parses it with parseSVG.
+    static tl::expected<Diagram, ParseError> loadSVG(const std::string& filename);
 
     // Builds a diagram from an SVG document. Unknown tags are skipped; an unclosed tag or
     // comment is an error.
-    static tl::expected<Diagram, ParseError> parse_SVG(std::string_view doc);
+    static tl::expected<Diagram, ParseError> parseSVG(std::string_view doc);
 
     // Parses the name="value" pairs of one opening tag, e.g. <rect x="1" rx='2'/>.
     // Stops at the closing '>'; on malformed input returns the pairs read so far.
@@ -45,7 +45,7 @@ public:
 
 private:
     // Adds the shape described by one tag (if any); `content` is the text following the tag.
-    static void parse_Tag(std::string_view tag, std::string_view content, Diagram& diagram);
+    static void parseTag(std::string_view tag, std::string_view content, Diagram& diagram);
 };
 
 #endif

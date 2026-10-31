@@ -24,7 +24,7 @@ std::optional<size_t> Diagram::positionOf(const ShapeId& id) const {
 // get number of objects in the  objects_ vector
 int Diagram::getObjectCount() const { return static_cast<int>(objects_.size()); }
 // clear all objects in objects_ vector
-void Diagram::clearallObjects() {
+void Diagram::clear() {
     objects_.clear();
     index_.clear();
 }

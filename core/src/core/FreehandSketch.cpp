@@ -9,8 +9,6 @@
 
 FreehandSketch::FreehandSketch() : GraphicsObject(0, 0, 0, 0) {}  // (x,y,width,height)
 
-FreehandSketch::~FreehandSketch() {}
-
 // an open polyline, so it is never filled
 void FreehandSketch::draw(Renderer& renderer) const {
     if (!points_.empty()) renderer.drawPolyline(points_, false, style());
@@ -61,19 +59,6 @@ void FreehandSketch::addPoint(double x, double y) {
     updateBoundingBox();
 }
 
-// clear all points in the freehand sketch
-void FreehandSketch::clearPoints() {
-    points_.clear();
-
-    // Reset bounding box
-    setX(0);
-    setY(0);
-    setWidth(0);
-    setHeight(0);
-}
-// get the total number of points in the freehand sketch
-int FreehandSketch::getPointCount() const { return static_cast<int>(points_.size()); }
-
 // get all points_ in the freehand sketch
 const std::vector<Point>& FreehandSketch::getPoints() const { return points_; }
 // answers(T/F) if we have (x,y) in our freehand sketch
@@ -114,19 +99,19 @@ void FreehandSketch::move(double dx, double dy) {
     GraphicsObject::move(dx, dy);
 }
 // resize
-void FreehandSketch::scale_factor(double factor) {
+void FreehandSketch::scaleBy(double factor) {
     if (points_.empty()) return;
 
     // use first point as pivot
-    double pvt_X = points_[0].x;
-    double pvt_Y = points_[0].y;
+    double pvtX = points_[0].x;
+    double pvtY = points_[0].y;
 
     // iter through points
     for (auto& p : points_) {
-        double dx = p.x - pvt_X;
-        double dy = p.y - pvt_Y;
-        p.x = pvt_X + (dx * factor);
-        p.y = pvt_Y + (dy * factor);
+        double dx = p.x - pvtX;
+        double dy = p.y - pvtY;
+        p.x = pvtX + (dx * factor);
+        p.y = pvtY + (dy * factor);
     }
     updateBoundingBox();
 }

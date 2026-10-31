@@ -34,7 +34,7 @@ void checkSaves(const Diagram& diagram) {
     for (const auto& shape : diagram.getShapes()) {
         if (!shape->toSVG().empty()) ++written;
     }
-    const auto fromSvg = SVGParser::parse_SVG(diagram.toSVG());
+    const auto fromSvg = SVGParser::parseSVG(diagram.toSVG());
     if (!fromSvg || fromSvg->getObjectCount() != written) std::abort();
 
     const std::string text = diagramToJson(diagram).dump();

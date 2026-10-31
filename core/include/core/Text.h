@@ -19,18 +19,15 @@ private:
 public:
     Text(double x, double y, std::string content);
 
-    ~Text() override;
-
     // Implement pure virtual functions from GraphicsObject
     void draw(Renderer& renderer) const override;
-    void move(double dx, double dy) override;
     std::string toSVG() const override;
     std::unique_ptr<GraphicsObject> clone() const override;
     std::string getType() const override;
-    void scale_factor(double factor) override;
+    void scaleBy(double factor) override;
 
     //  setters for text
-    void setFrontSize(double size);
+    void setFontSize(double size);
     void setText(const std::string& content);
     // getters for text
     double getFontSize() const { return font_size_; }

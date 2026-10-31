@@ -23,8 +23,8 @@ void Canvas::paintEvent(QPaintEvent* event) {
     for (const auto& shape : diagram.getShapes()) {
         shape->draw(renderer);
     }
-    if (isDrawing && current_Shape) {
-        current_Shape->draw(renderer);
+    if (isDrawing && currentShape) {
+        currentShape->draw(renderer);
     }
 }
 
@@ -41,10 +41,10 @@ void Canvas::saveToFile(const std::string& filename) {
 }
 
 tl::expected<void, ParseError> Canvas::loadFromFile(const std::string& filename) {
-    auto loaded = SVGParser::load_SVG(filename);
+    auto loaded = SVGParser::loadSVG(filename);
     if (!loaded) return tl::unexpected(loaded.error());
 
-    clear_new();  // undo history and selection belong to the old diagram
+    clearDrawing();  // undo history and selection belong to the old diagram
     diagram = std::move(*loaded);
     update();
     return {};
@@ -56,28 +56,25 @@ void Canvas::run(const vec::Operation& op) {
 }
 
 void Canvas::undo() {
-    // std::cout << "From canvas_Core undo called!" << std::endl;    //Debug
     if (!commandStack.undo(diagram)) std::cerr << "Error: undo failed" << std::endl;
     update();
 }
 
 void Canvas::redo() {
-    // std::cout << "From canvas_Core redo called!" << std::endl;    //Debug
     if (!commandStack.redo(diagram)) std::cerr << "Error: redo failed" << std::endl;
     update();
 }
 
-void Canvas::clear_new() {
-    // std::cout << "Now canvas_Core gonna delete all shapes via new " << std::endl;    //Debug
-    diagram.clearallObjects();
+void Canvas::clearDrawing() {
+    diagram.clear();
 
     // Clear the undo/redo history
     commandStack.clear();
 
     // reset
-    selected_Id.clear();
-    isDragging_Selection = false;
-    current_Shape = nullptr;  // Just in case  something is  being drawm ;safety
+    selectedId.clear();
+    isDraggingSelection = false;
+    currentShape = nullptr;  // Just in case  something is  being drawm ;safety
 
     // refresh screen
     update();

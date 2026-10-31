@@ -1,5 +1,5 @@
-#ifndef FREEHANDSCETCH_H
-#define FREEHANDSCETCH_H
+#ifndef FREEHAND_SKETCH_H
+#define FREEHAND_SKETCH_H
 
 #include <cmath>
 #include <memory>
@@ -16,7 +16,6 @@ private:
 
 public:
     FreehandSketch();
-    ~FreehandSketch() override;
 
     // implement pure virtual functions from GraphicsObject
     void draw(Renderer& renderer) const override;
@@ -26,14 +25,12 @@ public:
     std::string getType() const override;
 
     void addPoint(double x, double y);            // add a point to the path
-    void clearPoints();                           // clear all points
-    int getPointCount() const;                    // how many points?
     const std::vector<Point>& getPoints() const;  // get all points
 
     // do (x,y) in freehandsketch?
     bool contains(double x, double y) const override;
     // resize
-    void scale_factor(double factor) override;
+    void scaleBy(double factor) override;
 };
 
-#endif  // FREEHANDSCETCH_H
+#endif  // FREEHAND_SKETCH_H

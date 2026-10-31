@@ -54,7 +54,7 @@ public:
     virtual std::string getType() const = 0;
 
     // scalefactor
-    virtual void scale_factor(double factor) = 0;
+    virtual void scaleBy(double factor) = 0;
 
     // setters
     void setX(double x) { x_ = x; }

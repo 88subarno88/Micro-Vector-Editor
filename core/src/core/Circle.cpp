@@ -18,8 +18,6 @@ Circle::Circle(double centerX, double centerY, double radius)
       center_y_(centerY),
       radius_(radius) {}
 
-Circle::~Circle() {}
-
 void Circle::draw(Renderer& renderer) const {
     renderer.drawEllipse({{center_x_, center_y_}, radius_, radius_}, style());
 }
@@ -54,31 +52,6 @@ std::unique_ptr<GraphicsObject> Circle::clone() const {
 }
 // Get type,here "Circle"
 std::string Circle::getType() const { return "Circle"; }
-// set x cordinate of the center of the circle
-void Circle::setCenterX(double x) {
-    center_x_ = x;
-    setX(x - radius_);  // Update bounding box
-}
-// set y cordinate of the center of the circle
-void Circle::setCenterY(double y) {
-    center_y_ = y;
-    setY(y - radius_);  // Update bounding box
-}
-// Set radius of the circle and accordingly updating boundry
-void Circle::setRadius(double r) {
-    radius_ = r;
-    setX(center_x_ - r);  // Update bounding box x
-    setY(center_y_ - r);  // Update bounding box y
-    setWidth(r * 2);      // Update width
-    setHeight(r * 2);     // Update height
-}
-// Set the center of the circle (both x and y).
-void Circle::setCenter(double x, double y) {
-    center_x_ = x;
-    center_y_ = y;
-    setX(x - radius_);
-    setY(y - radius_);
-}
 // check if the point(x,y) is inside the circle
 // inside the circle if (x - center_x_)^2+ (y - center_y_)^2<=radius^2
 bool Circle::contains(double x, double y) const {
@@ -100,7 +73,7 @@ void Circle::move(double dx, double dy) {
     setY(getY() + dy);
 }
 // for resize
-void Circle::scale_factor(double factor) {
+void Circle::scaleBy(double factor) {
     radius_ *= factor;
     // keep the bounding box around the new size
     setPosition(center_x_ - radius_, center_y_ - radius_);

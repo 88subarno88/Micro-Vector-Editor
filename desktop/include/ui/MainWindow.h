@@ -21,18 +21,18 @@ public:
 
     // Slots that the Toolbar buttons will call
 public slots:
-    void setMode_Select();
-    void setMode_Line();
-    void setMode_Rect();
-    void setMode_Roundedrect();
-    void setMode_Circle();
-    void setMode_Hexagon();
-    void setMode_Text();
-    void setMode_Freehand();
-    void onSave_Trigger();
-    void onLoad_Trigger();
+    void setModeSelect();
+    void setModeLine();
+    void setModeRect();
+    void setModeRoundedRect();
+    void setModeCircle();
+    void setModeHexagon();
+    void setModeText();
+    void setModeFreehand();
+    void onSaveTrigger();
+    void onLoadTrigger();
     void onNew();
-    void onSave_As();
+    void onSaveAs();
 
 private:
     // Visual Components

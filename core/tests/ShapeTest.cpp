@@ -24,7 +24,7 @@ std::unique_ptr<FreehandSketch> sketch() {
 
 std::unique_ptr<Text> bigText() {
     auto shape = std::make_unique<Text>(10, 20, "Hi");
-    shape->setFrontSize(40);
+    shape->setFontSize(40);
     return shape;
 }
 
@@ -139,24 +139,24 @@ TEST(ShapeTest, MoveShiftsEveryShapeAndItsHitArea) {
 
 TEST(ShapeTest, ScaleResizesRectanglesFromTheirCorner) {
     Rectangle rect(10, 20, 30, 40);
-    rect.scale_factor(2);
+    rect.scaleBy(2);
     expectBox(rect, 10, 20, 60, 80);
 
     RoundedRectangle rounded(10, 20, 30, 40, 5);
-    rounded.scale_factor(2);
+    rounded.scaleBy(2);
     expectBox(rounded, 10, 20, 60, 80);
     EXPECT_DOUBLE_EQ(rounded.getCornerRadius(), 10);
 }
 
 TEST(ShapeTest, ScaleKeepsCircleAndHexagonCentredAndUpdatesTheirBox) {
     Circle circle(10, 20, 30);
-    circle.scale_factor(2);
+    circle.scaleBy(2);
     EXPECT_DOUBLE_EQ(circle.getRadius(), 60);
     EXPECT_TRUE(circle.contains(70, 20));
     expectBox(circle, -50, -40, 120, 120);
 
     Hexagon hexagon(10, 20, 30);
-    hexagon.scale_factor(2);
+    hexagon.scaleBy(2);
     EXPECT_DOUBLE_EQ(hexagon.getRadius(), 60);
     EXPECT_TRUE(hexagon.contains(70, 20));
     expectBox(hexagon, -50, -40, 120, 120);
@@ -164,7 +164,7 @@ TEST(ShapeTest, ScaleKeepsCircleAndHexagonCentredAndUpdatesTheirBox) {
 
 TEST(ShapeTest, ScaleKeepsALinesStartAndUpdatesItsBox) {
     Line line(10, 20, 30, 40);
-    line.scale_factor(2);
+    line.scaleBy(2);
     EXPECT_DOUBLE_EQ(line.getX1(), 10);
     EXPECT_DOUBLE_EQ(line.getX2(), 50);
     EXPECT_DOUBLE_EQ(line.getY2(), 60);
@@ -173,7 +173,7 @@ TEST(ShapeTest, ScaleKeepsALinesStartAndUpdatesItsBox) {
 
 TEST(ShapeTest, ScaleKeepsASketchsFirstPointAndUpdatesItsBox) {
     const auto shape = sketch();
-    shape->scale_factor(2);
+    shape->scaleBy(2);
     EXPECT_DOUBLE_EQ(shape->getPoints()[0].x, 10);
     EXPECT_DOUBLE_EQ(shape->getPoints()[1].x, 50);
     expectBox(*shape, 10, 20, 40, 80);
@@ -181,11 +181,11 @@ TEST(ShapeTest, ScaleKeepsASketchsFirstPointAndUpdatesItsBox) {
 
 TEST(ShapeTest, ScaleChangesATextsFontSizeAndStopsAtOne) {
     Text text(10, 20, "Hi");
-    text.scale_factor(2);
+    text.scaleBy(2);
     EXPECT_DOUBLE_EQ(text.getFontSize(), 32);
     EXPECT_DOUBLE_EQ(text.getWidth(), 0.6 * 32 * 2);
 
-    text.scale_factor(0.001);
+    text.scaleBy(0.001);
     EXPECT_DOUBLE_EQ(text.getFontSize(), 1);
 }
 
@@ -212,7 +212,7 @@ TEST(ShapeTest, EditingACloneLeavesTheOriginalAlone) {
 
         const auto copy = shape.clone();
         copy->move(5, 5);
-        copy->scale_factor(2);
+        copy->scaleBy(2);
         copy->setStrokeColor("green");
 
         EXPECT_EQ(shape.toSVG(), before);

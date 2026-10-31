@@ -8,8 +8,6 @@
 //  a rectangle is defined by top-left corner(x, y),width and height
 Rectangle::Rectangle(double x, double y, double width, double height) : GraphicsObject(x, y, width, height) {}
 
-Rectangle::~Rectangle() {}
-
 void Rectangle::draw(Renderer& renderer) const {
     renderer.drawRect({getX(), getY(), getWidth(), getHeight()}, style());
 }
@@ -48,10 +46,8 @@ std::unique_ptr<GraphicsObject> Rectangle::clone() const {
 
 // Get type, here "Rectangle"
 std::string Rectangle::getType() const { return "Rectangle"; }
-// move
-void Rectangle::move(double dx, double dy) { GraphicsObject::move(dx, dy); }
 // resize
-void Rectangle::scale_factor(double factor) {
+void Rectangle::scaleBy(double factor) {
     setWidth(getWidth() * factor);
     setHeight(getHeight() * factor);
 }

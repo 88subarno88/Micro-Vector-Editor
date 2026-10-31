@@ -16,19 +16,12 @@ private:
 public:
     Circle(double centerX = 0.0, double centerY = 0.0, double radius = 10.0);
 
-    ~Circle() override;
-
     // Implement pure virtual functions from GraphicsObject
     void draw(Renderer& renderer) const override;
     std::string toSVG() const override;
     std::unique_ptr<GraphicsObject> clone() const override;
     std::string getType() const override;
 
-    // setters for circle
-    void setCenterX(double x);
-    void setCenterY(double y);
-    void setRadius(double r);
-    void setCenter(double x, double y);
     void move(double dx, double dy) override;
 
     // getters for circle
@@ -39,7 +32,7 @@ public:
     //  do (x,y) inside/on circle?
     bool contains(double x, double y) const override;
     // resize
-    void scale_factor(double factor) override;
+    void scaleBy(double factor) override;
 };
 
 #endif  // CIRCLE_H

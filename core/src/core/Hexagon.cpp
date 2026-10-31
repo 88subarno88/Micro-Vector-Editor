@@ -22,8 +22,6 @@ Hexagon::Hexagon(double centerX, double centerY, double radius)
       center_y_(centerY),
       radius_(radius) {}
 
-Hexagon::~Hexagon() {}
-
 std::vector<Point> Hexagon::vertices() const {
     std::vector<Point> points;
     for (int i = 0; i < 6; ++i) {
@@ -72,34 +70,6 @@ std::unique_ptr<GraphicsObject> Hexagon::clone() const {
 // get type,here "Hexagon"
 std::string Hexagon::getType() const { return "Hexagon"; }
 
-// set x cordinate of the center of the hexagon
-void Hexagon::setCenterX(double x) {
-    center_x_ = x;
-    setX(x - radius_);  // update bounding box
-}
-
-// set y cordinate of the center of the hexagon
-void Hexagon::setCenterY(double y) {
-    center_y_ = y;
-    setY(y - radius_);  // update bounding box
-}
-
-// set radius of the hexagon and accordingly updating boundry
-void Hexagon::setRadius(double r) {
-    radius_ = r;
-    setX(center_x_ - r);  // Update bounding box x
-    setY(center_y_ - r);  // Update bounding box y
-    setWidth(r * 2);      // Update width
-    setHeight(r * 2);     // Update height
-}
-
-// set centre of hexagon(x,y)
-void Hexagon::setCenter(double x, double y) {
-    center_x_ = x;
-    center_y_ = y;
-    setX(x - radius_);
-    setY(y - radius_);
-}
 /**
  * check if the point(x,y) is inside the hexagon
  * here I am approximating hexagon as circle for hit detection
@@ -126,7 +96,7 @@ void Hexagon::move(double dx, double dy) {
 }
 
 // resize
-void Hexagon::scale_factor(double factor) {
+void Hexagon::scaleBy(double factor) {
     radius_ *= factor;
     // keep the bounding box around the new size
     setPosition(center_x_ - radius_, center_y_ - radius_);

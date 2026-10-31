@@ -47,7 +47,7 @@ void GraphicsObject::move(double dx, double dy) {
     y_ += dy;
 }
 
-void GraphicsObject::scale_factor(double factor) {
+void GraphicsObject::scaleBy(double factor) {
     // avoid negetives and negligible and play safe
     if (factor <= 0.0001) return;
     width_ *= factor;

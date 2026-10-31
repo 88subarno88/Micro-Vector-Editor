@@ -22,46 +22,46 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     MenuBar::createMenuBar(this);
 
     // set default mode
-    setMode_Select();
+    setModeSelect();
 }
 
 MainWindow::~MainWindow() {}
 
 // Implementation of setters for different modes
 // They now forward the command to the Canvas
-void MainWindow::setMode_Select() {
+void MainWindow::setModeSelect() {
     canvas->setTool(ToolType::Select);
     setWindowTitle("Current Tool :- SELECT");
 }
-void MainWindow::setMode_Circle() {
+void MainWindow::setModeCircle() {
     canvas->setTool(ToolType::Circle);
     setWindowTitle("Current Tool :- CIRCLE");
 }
-void MainWindow::setMode_Rect() {
+void MainWindow::setModeRect() {
     canvas->setTool(ToolType::Rectangle);
     setWindowTitle("Current Tool :- RECTANGLE");
 }
-void MainWindow::setMode_Roundedrect() {
+void MainWindow::setModeRoundedRect() {
     canvas->setTool(ToolType::RoundedRectangle);
     setWindowTitle("Current Tool :- ROUNDED RECTANGLE");
 }
-void MainWindow::setMode_Hexagon() {
+void MainWindow::setModeHexagon() {
     canvas->setTool(ToolType::Hexagon);
     setWindowTitle("Current Tool :- HEXAGON");
 }
-void MainWindow::setMode_Line() {
+void MainWindow::setModeLine() {
     canvas->setTool(ToolType::Line);
     setWindowTitle("Current Tool :- LINE");
 }
-void MainWindow::setMode_Text() {
+void MainWindow::setModeText() {
     canvas->setTool(ToolType::Text);
     setWindowTitle("Current Tool :- TEXT");
 }
-void MainWindow::setMode_Freehand() {
+void MainWindow::setModeFreehand() {
     canvas->setTool(ToolType::FreehandSketch);
     setWindowTitle("Current Tool :- FREEHANDSKETCH");
 }
-void MainWindow::onSave_Trigger() {
+void MainWindow::onSaveTrigger() {
     // 1. Open a "Save File" dialog box
     QString fileName = QFileDialog::getSaveFileName(this, "Save Drawing", "", "SVG Files (*.svg)");
 
@@ -83,7 +83,7 @@ void MainWindow::onSave_Trigger() {
     QMessageBox::information(this, "Success", "File saved successfully!");
 }
 
-void MainWindow::onLoad_Trigger() {
+void MainWindow::onLoadTrigger() {
     // 1. Open a "Open File" dialog box
     QString fileName = QFileDialog::getOpenFileName(this, "Open Drawing", "", "SVG Files (*.svg)");
 
@@ -113,11 +113,11 @@ void MainWindow::onNew() {
 
     // Clear the canvas
     if (canvas) {
-        canvas->clear_new();  // Make sure your Canvas.h has a 'clear()' function
+        canvas->clearDrawing();  // Make sure your Canvas.h has a 'clear()' function
     }
 }
 
-void MainWindow::onSave_As() {
+void MainWindow::onSaveAs() {
     QString fileName = QFileDialog::getSaveFileName(this, "Save Drawing As", "", "SVG Files (*.svg)");
 
     // do nothing if file is empty

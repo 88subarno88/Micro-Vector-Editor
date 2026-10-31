@@ -23,7 +23,7 @@ public:
     tl::expected<void, ParseError> loadFromFile(const std::string &filename);
     void undo();
     void redo();
-    void clear_new();
+    void clearDrawing();
 
 protected:
     // Override standard Qt events
@@ -38,22 +38,22 @@ private:
     // Runs `op` through the undo history and repaints
     void run(const vec::Operation &op);
     // The selected shape; nullptr if none, or if it has been deleted or undone
-    GraphicsObject *selectedShape() const { return diagram.find(selected_Id); }
+    GraphicsObject *selectedShape() const { return diagram.find(selectedId); }
 
     Diagram diagram;
     ToolType currentMode;
     vec::CommandStack commandStack;
-    std::unique_ptr<GraphicsObject> current_Shape;
+    std::unique_ptr<GraphicsObject> currentShape;
 
     // Drawing State Variables
     bool isDrawing;
-    QPointF start_Point;
-    QPointF curr_Point;
+    QPointF startPoint;
+    QPointF currentPoint;
 
-    ShapeId selected_Id;                // The selected shape; empty if none
-    bool isDragging_Selection = false;  // Are we dragging a shape right now?
-    QPointF last_Mousepos;              // Where the mouse was in the previous frame?
-    QPointF drag_StartPos;
+    ShapeId selectedId;                // The selected shape; empty if none
+    bool isDraggingSelection = false;  // Are we dragging a shape right now?
+    QPointF lastMousePos;              // Where the mouse was in the previous frame?
+    QPointF dragStartPos;
     std::unique_ptr<GraphicsObject> clipboard;
 };
 

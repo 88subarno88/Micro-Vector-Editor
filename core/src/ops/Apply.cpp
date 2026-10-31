@@ -72,7 +72,7 @@ struct ShapeBuilder {
     }
     std::unique_ptr<GraphicsObject> operator()(const TextData& g) const {
         auto text = std::make_unique<Text>(g.position.x, g.position.y, g.text);
-        text->setFrontSize(g.fontSize);
+        text->setFontSize(g.fontSize);
         return text;
     }
 };
@@ -130,10 +130,10 @@ struct Applier {
         if (!shape) return tl::unexpected(ApplyError::ShapeNotFound);
 
         const auto preview = shape->clone();
-        preview->scale_factor(op.factor);
+        preview->scaleBy(op.factor);
         if (!isWithinLimits(*preview)) return tl::unexpected(ApplyError::InvalidValue);
 
-        shape->scale_factor(op.factor);
+        shape->scaleBy(op.factor);
         return {};
     }
 

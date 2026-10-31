@@ -17,8 +17,6 @@ RoundedRectangle::RoundedRectangle(double x, double y, double width, double heig
     }
 }
 
-RoundedRectangle::~RoundedRectangle() {}
-
 void RoundedRectangle::draw(Renderer& renderer) const {
     renderer.drawRect({getX(), getY(), getWidth(), getHeight(), corner_radius_}, style());
 }
@@ -54,21 +52,8 @@ std::unique_ptr<GraphicsObject> RoundedRectangle::clone() const {
 // get type, here "RoundedRectangle"
 std::string RoundedRectangle::getType() const { return "RoundedRectangle"; }
 
-// handling impossible corner radius
-void RoundedRectangle::setCornerRadius(double radius) {
-    double max_radius = std::min(getWidth(), getHeight()) / 2.0;
-    if (radius > max_radius) {
-        corner_radius_ = max_radius;
-    } else if (radius < 0) {
-        corner_radius_ = 0;
-    } else {
-        corner_radius_ = radius;
-    }
-}
-// move
-void RoundedRectangle::move(double dx, double dy) { GraphicsObject::move(dx, dy); }
 // resize
-void RoundedRectangle::scale_factor(double factor) {
+void RoundedRectangle::scaleBy(double factor) {
     setWidth(getWidth() * factor);
     setHeight(getHeight() * factor);
     corner_radius_ *= factor;

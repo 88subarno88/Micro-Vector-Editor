@@ -162,7 +162,7 @@ TEST(SnapshotTest, OneShapeHasAnExactFormat) {
 TEST(SnapshotTest, EveryFixtureRoundTripsThroughText) {
     for (const char* file :
          {"app-export.svg", "rect.svg", "circle.svg", "line.svg", "text.svg", "polygon.svg", "path.svg"}) {
-        const auto original = SVGParser::load_SVG(std::string(FIXTURE_DIR) + "/" + file);
+        const auto original = SVGParser::loadSVG(std::string(FIXTURE_DIR) + "/" + file);
         ASSERT_TRUE(original) << file;
 
         const std::string text = diagramToJson(*original).dump();
