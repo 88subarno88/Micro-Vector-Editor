@@ -52,6 +52,13 @@ struct OpRow {
     std::string createdAt;
 };
 
+struct SnapshotRow {
+    std::string documentId;
+    int64_t seq = 0;       // the last operation included
+    nlohmann::json state;  // a vec_core Diagram
+    std::string createdAt;
+};
+
 }  // namespace vec
 
 #endif  // SERVER_MODELS_H

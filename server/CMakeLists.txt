@@ -1,6 +1,6 @@
 find_package(Drogon CONFIG REQUIRED)
 
-add_library(vec_server_common common/config/Config.cpp common/db/Models.cpp common/db/DocRepo.cpp common/db/UserRepo.cpp
+add_library(vec_server_common common/config/Config.cpp common/db/Models.cpp common/db/DocRepo.cpp common/db/OpRepo.cpp common/db/UserRepo.cpp
     common/logging/Log.cpp)
 target_include_directories(vec_server_common PUBLIC common)
 find_package(tl-expected CONFIG REQUIRED)
