@@ -12,6 +12,20 @@
       }
     },
     {
+      "name": "server",
+      "displayName": "Backend server and core tests",
+      "binaryDir": "${sourceDir}/build/server",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "VCPKG_MANIFEST_FEATURES": "server",
+        "VCPKG_INSTALLED_DIR": "$env{HOME}/.cache/micro-vector-editor/vcpkg_installed",
+        "BUILD_DESKTOP": "OFF",
+        "BUILD_SERVER": "ON"
+      }
+    },
+    {
       "name": "asan",
       "displayName": "Core and tests with ASan and UBSan",
       "binaryDir": "${sourceDir}/build/asan",
@@ -44,6 +58,10 @@
       "configurePreset": "dev"
     },
     {
+      "name": "server",
+      "configurePreset": "server"
+    },
+    {
       "name": "asan",
       "configurePreset": "asan"
     },
@@ -56,6 +74,11 @@
     {
       "name": "dev",
       "configurePreset": "dev",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "server",
+      "configurePreset": "server",
       "output": { "outputOnFailure": true }
     },
     {

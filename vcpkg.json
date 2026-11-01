@@ -7,5 +7,14 @@
     "nlohmann-json",
     "tl-expected"
   ],
+  "features": {
+    "server": {
+      "description": "Dependencies of the backend server",
+      "dependencies": [
+        { "name": "drogon", "features": ["postgres", "redis"] },
+        "spdlog"
+      ]
+    }
+  },
   "builtin-baseline": "69a1a33b4ba2b21e392c17e215ff637290778a97"
 }

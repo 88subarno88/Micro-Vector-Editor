@@ -40,6 +40,9 @@ ui_*.h
 .cache/
 *.swp
 
+# Created by Drogon in the directory the server starts from
+uploads/
+
 # Local test data
 test_images/
 sample_svgs/

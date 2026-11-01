@@ -33,6 +33,9 @@ jobs:
           - name: Core only (no Qt)
             preset: dev
             desktop: OFF
+          - name: Server
+            preset: server
+            desktop: OFF
           - name: ASan + UBSan
             preset: asan
             desktop: OFF
@@ -61,6 +64,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang
+
+      - name: Install server build tools
+        if: matrix.preset == 'server'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bison flex
 
       - name: Install Qt
         if: matrix.desktop == 'ON'
