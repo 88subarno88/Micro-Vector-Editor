@@ -32,6 +32,7 @@
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_CXX_FLAGS": "-fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=undefined",
         "BUILD_DESKTOP": "OFF",
+        "BUILD_CLI": "OFF",
         "BUILD_TESTS": "OFF",
         "BUILD_FUZZERS": "ON"
       }

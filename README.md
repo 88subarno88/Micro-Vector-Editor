@@ -50,6 +50,17 @@ cmake --build --preset dev --parallel
 
 To build only the core and tests, without Qt, add `-DBUILD_DESKTOP=OFF` to the `cmake --preset dev` line.
 
+## Command-line tool
+
+The build also produces `build/dev/vec`, which doesn't need Qt:
+
+```bash
+vec validate drawing.svg            # exit code 1 and file:line:column on a parse error
+vec convert drawing.svg drawing.json
+vec convert drawing.json drawing.svg
+vec export drawing.json --format png --out drawing.png
+```
+
 ## Testing
 
 ```bash
@@ -82,7 +93,7 @@ The parser reads a subset of SVG, aimed at files this editor saves. Importing a 
 - **Polygons:** any `<polygon>` becomes a regular hexagon that fits its width. Its original shape is lost.
 - **Paths:** only `M` and `L` commands are read, so curves are not. Paths also load unfilled.
 - **Other SVG features:** groups, transforms, gradients, CSS styles and `viewBox` are ignored. Saved files always use an 800×600 canvas.
-- **Text:** the font family isn't imported, and the text box size is an estimate.
+- **Text:** the font family isn't imported, and the text box size is an estimate. Exported PNGs always use Liberation Sans or DejaVu Sans, and text is placed differently from the editor: an SVG `y` is the text baseline, while the editor treats it as the top of the text.
 - **Very large numbers:** shapes with coordinates beyond ±1e300 are skipped on load.
 
 In the editor:
