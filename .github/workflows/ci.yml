@@ -98,9 +98,27 @@ jobs:
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }} --parallel
 
+      - name: Start the database and run migrations
+        if: matrix.preset == 'server'
+        run: |
+          docker compose -f deploy/docker-compose.dev.yml up -d --wait
+          curl -fsSL -o dbmate https://github.com/amacneil/dbmate/releases/download/v2.37.0/dbmate-linux-amd64
+          echo "f855e99a0f0a81322014bf686b1cb820d2b4d8074e4eadafd64b851b80ecb15a  dbmate" | sha256sum -c -
+          chmod +x dbmate
+          grep -E '^[A-Z_]+=' deploy/dev.env >> "$GITHUB_ENV"
+          set -a; source deploy/dev.env; set +a
+          ./dbmate up
+
       - name: Test
         if: matrix.preset != 'fuzz'
         run: ctest --preset ${{ matrix.preset }}
+
+      # A missing setting would otherwise pass quietly, with every database test skipped.
+      - name: Check the database tests ran
+        if: matrix.preset == 'server'
+        run: |
+          build/server/server/tests/vec_server_tests --gtest_filter='UserRepoTest.*:DocRepoTest.*:OpRepoTest.*' | tee tests.log
+          if grep -q SKIPPED tests.log; then exit 1; fi
 
       - name: Fuzz
         if: matrix.preset == 'fuzz'
