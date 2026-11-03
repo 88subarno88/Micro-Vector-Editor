@@ -9,8 +9,8 @@
 
 namespace vec {
 
-// One row of each table, as plain data. IDs are UUIDs and times are timestamps, both as Postgres
-// writes them in text.
+// One row of each table, as plain data. IDs are UUIDs in text, and times are UTC in ISO 8601 with
+// microseconds, e.g. 2026-11-03T19:08:08.458696Z, so they sort as text too.
 
 // Whether `text` is a UUID in Postgres's usual form: 8-4-4-4-12 hex digits.
 bool isUuid(std::string_view text);

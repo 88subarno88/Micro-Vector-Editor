@@ -12,7 +12,9 @@ namespace vec {
 namespace {
 
 constexpr const char* columns =
-    "id::text, owner_id::text, title, head_seq, created_at::text, updated_at::text";
+    "id::text, owner_id::text, title, head_seq, to_char(created_at AT TIME ZONE 'UTC', "
+    "'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'), to_char(updated_at AT TIME ZONE 'UTC', "
+    "'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')";
 
 Document toDocument(const drogon::orm::Row& row) {
     return {row[0].as<std::string>(), row[1].as<std::string>(), row[2].as<std::string>(),

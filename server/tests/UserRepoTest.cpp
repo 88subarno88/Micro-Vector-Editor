@@ -1,3 +1,4 @@
+#include <regex>
 #include <string>
 
 #include "DatabaseTest.h"
@@ -76,4 +77,12 @@ TEST_F(UserRepoTest, EmailsAreParametersNotSql) {
 
     ASSERT_TRUE(drogon::sync_wait(repo.create(email, "hash")));
     EXPECT_TRUE(drogon::sync_wait(repo.findByEmail(email)));
+}
+
+TEST_F(UserRepoTest, TimesAreIso8601InUtc) {
+    const auto user = drogon::sync_wait(UserRepo(database).create(email, "hash"));
+
+    ASSERT_TRUE(user);
+    EXPECT_TRUE(std::regex_match(user->createdAt, std::regex(R"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z)")))
+        << user->createdAt;
 }

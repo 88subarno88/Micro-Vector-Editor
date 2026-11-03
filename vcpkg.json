@@ -12,6 +12,8 @@
       "description": "Dependencies of the backend server",
       "dependencies": [
         { "name": "drogon", "features": ["postgres", "redis"] },
+        { "name": "jwt-cpp", "default-features": false },
+        "libsodium",
         "spdlog"
       ]
     }

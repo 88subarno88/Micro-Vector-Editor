@@ -6,7 +6,9 @@ namespace vec {
 
 namespace {
 
-constexpr const char* columns = "id::text, email, password_hash, created_at::text";
+constexpr const char* columns =
+    "id::text, email, password_hash, to_char(created_at AT TIME ZONE 'UTC', "
+    "'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')";
 
 User toUser(const drogon::orm::Row& row) {
     return {row[0].as<std::string>(), row[1].as<std::string>(), row[2].as<std::string>(),

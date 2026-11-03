@@ -6,11 +6,14 @@
 #include <sys/socket.h>
 #include <trantor/net/InetAddress.h>
 
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <optional>
 #include <string>
 
+#include "ApiResponse.h"
+#include "AuthRoutes.h"
 #include "HealthRoutes.h"
 #include "RequestLogging.h"
 #include "config/Config.h"
@@ -20,6 +23,7 @@ namespace {
 
 constexpr size_t databaseConnections = 4;
 constexpr size_t redisConnections = 2;
+constexpr size_t passwordHashingThreads = 2;
 
 // Drogon's Redis client takes an address, not a hostname.
 std::optional<trantor::InetAddress> resolve(const vec::RedisEndpoint& redis) {
@@ -59,6 +63,19 @@ int main() {
 
     registerRequestLogging();
     registerHealthRoutes(database, redis);
+
+    // Each hash takes about 64 MB and 50 ms, so a few threads bound both memory and CPU.
+    const auto hashing = std::make_shared<trantor::EventLoopThreadPool>(passwordHashingThreads, "hashing");
+    hashing->start();
+    registerAuthRoutes(database, hashing);
+
+    // An exception from a handler, such as a lost database connection: logged, never shown to the client.
+    drogon::app().setExceptionHandler([](const std::exception& e, const drogon::HttpRequestPtr& request,
+                                         std::function<void(const drogon::HttpResponsePtr&)>&& respond) {
+        const std::string id = requestIdOf(request);
+        vec::logError("unhandled exception", id, {{"error", e.what()}});
+        respond(errorResponse(drogon::k500InternalServerError, "internal", "something went wrong"));
+    });
     vec::logInfo("server starting", {}, {{"port", config->port}});
 
     drogon::app().addListener("0.0.0.0", config->port).run();

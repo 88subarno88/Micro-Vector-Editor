@@ -71,7 +71,8 @@ drogon::Task<InsertedOp> OpRepo::insert(const std::shared_ptr<drogon::orm::Trans
 drogon::Task<std::vector<OpRow>> OpRepo::opsAfter(const std::string& documentId, int64_t seq, int limit) {
     if (!isUuid(documentId)) co_return std::vector<OpRow>{};
     const auto result = co_await database_->execSqlCoro(
-        "SELECT document_id::text, seq, user_id::text, client_op_id, payload::text, created_at::text "
+        "SELECT document_id::text, seq, user_id::text, client_op_id, payload::text, to_char(created_at AT "
+        "TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') "
         "FROM operations WHERE document_id = $1::uuid AND seq > $2::bigint ORDER BY seq LIMIT " +
             std::to_string(std::clamp(limit, 1, maxOpsPerRead)),
         documentId, seq);
@@ -89,7 +90,8 @@ drogon::Task<std::vector<OpRow>> OpRepo::opsAfter(const std::string& documentId,
 drogon::Task<std::optional<SnapshotRow>> SnapshotRepo::latest(const std::string& documentId) {
     if (!isUuid(documentId)) co_return std::nullopt;
     const auto result = co_await database_->execSqlCoro(
-        "SELECT document_id::text, seq, state::text, created_at::text FROM snapshots "
+        "SELECT document_id::text, seq, state::text, to_char(created_at AT TIME ZONE 'UTC', "
+        "'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') FROM snapshots "
         "WHERE document_id = $1::uuid ORDER BY seq DESC LIMIT 1",
         documentId);
     if (result.empty()) co_return std::nullopt;
