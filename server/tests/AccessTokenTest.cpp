@@ -108,3 +108,16 @@ TEST(AccessTokenTest, TheTokenDoesNotContainTheSecret) {
     EXPECT_EQ(token.find(secret), std::string::npos);
     EXPECT_EQ(token.find(base64Url(secret)), std::string::npos);
 }
+
+TEST(AccessTokenTest, BearerTokenIsReadFromTheHeader) {
+    EXPECT_EQ(bearerToken("Bearer abc.def.ghi"), "abc.def.ghi");
+    EXPECT_EQ(bearerToken("bearer abc"), "abc");
+    EXPECT_EQ(bearerToken("BEARER  abc "), "abc");
+}
+
+TEST(AccessTokenTest, AnythingElseIsNoBearerToken) {
+    for (const char* header : {"", "Bearer", "Bearer ", "Bearer    ", "Basic dXNlcjpwYXNz", "Bearerabc",
+                               "Token abc", "Bearer a b", "abc"}) {
+        EXPECT_EQ(bearerToken(header), std::nullopt) << header;
+    }
+}

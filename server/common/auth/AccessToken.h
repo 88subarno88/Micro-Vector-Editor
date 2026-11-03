@@ -2,12 +2,18 @@
 #define SERVER_ACCESS_TOKEN_H
 
 #include <chrono>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <tl/expected.hpp>
 
 namespace vec {
 
 enum class TokenError { Invalid, Expired };
+
+// The token from an Authorization header value, "Bearer <token>". The scheme is matched in any case, as
+// HTTP requires. nullopt for any other scheme or an empty token.
+std::optional<std::string_view> bearerToken(std::string_view header);
 
 // Short-lived access tokens: JWTs signed with HS256, whose subject is a user ID.
 class AccessTokens {

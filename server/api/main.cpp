@@ -13,6 +13,7 @@
 #include <string>
 
 #include "ApiResponse.h"
+#include "AuthFilter.h"
 #include "AuthRoutes.h"
 #include "HealthRoutes.h"
 #include "RequestLogging.h"
@@ -67,7 +68,9 @@ int main() {
     // Each hash takes about 64 MB and 50 ms, so a few threads bound both memory and CPU.
     const auto hashing = std::make_shared<trantor::EventLoopThreadPool>(passwordHashingThreads, "hashing");
     hashing->start();
-    registerAuthRoutes(database, hashing);
+    const vec::AccessTokens tokens(config->jwtSecret);
+    drogon::app().registerFilter(std::make_shared<AuthFilter>(tokens));
+    registerAuthRoutes(database, hashing, tokens);
 
     // An exception from a handler, such as a lost database connection: logged, never shown to the client.
     drogon::app().setExceptionHandler([](const std::exception& e, const drogon::HttpRequestPtr& request,

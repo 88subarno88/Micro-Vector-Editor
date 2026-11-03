@@ -18,6 +18,20 @@ struct FixedClock {
 
 }  // namespace
 
+std::optional<std::string_view> bearerToken(std::string_view header) {
+    constexpr std::string_view scheme = "bearer ";
+    if (header.size() <= scheme.size()) return std::nullopt;
+    for (size_t i = 0; i < scheme.size(); ++i) {
+        const char c = header[i];
+        if ((c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c) != scheme[i]) return std::nullopt;
+    }
+    std::string_view token = header.substr(scheme.size());
+    while (!token.empty() && token.front() == ' ') token.remove_prefix(1);
+    while (!token.empty() && token.back() == ' ') token.remove_suffix(1);
+    if (token.empty() || token.find(' ') != std::string_view::npos) return std::nullopt;
+    return token;
+}
+
 std::string AccessTokens::issue(const std::string& userId, std::chrono::system_clock::time_point now) const {
     return jwt::create()
         .set_type("JWT")
