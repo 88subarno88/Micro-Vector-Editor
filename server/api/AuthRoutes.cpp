@@ -111,7 +111,7 @@ void registerAuthRoutes(const drogon::orm::DbClientPtr& database,
                 drogon::k201Created,
                 {{"id", user->id}, {"email", user->email}, {"createdAt", user->createdAt}});
         },
-        {drogon::Post});
+        {drogon::Post, "RateLimitFilter"});
 
     drogon::app().registerHandler(
         "/api/auth/login",
@@ -138,7 +138,7 @@ void registerAuthRoutes(const drogon::orm::DbClientPtr& database,
             co_await vec::RefreshTokenRepo(database).create(user->id, refreshToken.hash, refreshLifetime);
             co_return tokenResponse(tokens, user->id, refreshToken.token);
         },
-        {drogon::Post});
+        {drogon::Post, "RateLimitFilter"});
 
     drogon::app().registerHandler(
         "/api/auth/refresh",
@@ -161,7 +161,7 @@ void registerAuthRoutes(const drogon::orm::DbClientPtr& database,
             }
             co_return tokenResponse(tokens, *userId, next.token);
         },
-        {drogon::Post});
+        {drogon::Post, "RateLimitFilter"});
 
     drogon::app().registerHandler(
         "/api/auth/logout",
@@ -175,7 +175,7 @@ void registerAuthRoutes(const drogon::orm::DbClientPtr& database,
             response->addCookie(refreshCookie("", std::chrono::seconds(0)));
             co_return response;
         },
-        {drogon::Post});
+        {drogon::Post, "RateLimitFilter"});
 
     drogon::app().registerHandler(
         "/api/me",

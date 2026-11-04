@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <trantor/net/InetAddress.h>
 
+#include <chrono>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -16,6 +17,7 @@
 #include "AuthFilter.h"
 #include "AuthRoutes.h"
 #include "HealthRoutes.h"
+#include "RateLimitFilter.h"
 #include "RequestLogging.h"
 #include "config/Config.h"
 #include "logging/Log.h"
@@ -25,6 +27,8 @@ namespace {
 constexpr size_t databaseConnections = 4;
 constexpr size_t redisConnections = 2;
 constexpr size_t passwordHashingThreads = 2;
+constexpr int authRequestsPerMinute = 10;
+constexpr double redisTimeoutSeconds = 1.0;
 
 // Drogon's Redis client takes an address, not a hostname.
 std::optional<trantor::InetAddress> resolve(const vec::RedisEndpoint& redis) {
@@ -61,6 +65,8 @@ int main() {
     const auto database = drogon::orm::DbClient::newPgClient(config->databaseUrl, databaseConnections);
     const auto redis = drogon::nosql::RedisClient::newRedisClient(
         *redisAddress, redisConnections, config->redis.password, config->redis.db, config->redis.username);
+    // Drogon would otherwise queue a command until Redis comes back, and the request with it.
+    redis->setTimeout(redisTimeoutSeconds);
 
     registerRequestLogging();
     registerHealthRoutes(database, redis);
@@ -70,6 +76,9 @@ int main() {
     hashing->start();
     const vec::AccessTokens tokens(config->jwtSecret);
     drogon::app().registerFilter(std::make_shared<AuthFilter>(tokens));
+    // Enough for real use, but too few to guess passwords or flood signups.
+    drogon::app().registerFilter(
+        std::make_shared<RateLimitFilter>(redis, "auth", authRequestsPerMinute, std::chrono::minutes(1)));
     registerAuthRoutes(database, hashing, tokens);
 
     // An exception from a handler, such as a lost database connection: logged, never shown to the client.

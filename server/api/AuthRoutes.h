@@ -8,6 +8,8 @@
 
 #include "auth/AccessToken.h"
 
+// Every /api/auth route is behind RateLimitFilter.
+//
 // POST /api/auth/login {"email", "password"} -> 200 {"accessToken", "tokenType", "expiresIn"} and an
 // httpOnly refresh_token cookie. 401 invalid_credentials for any wrong email or password, taking the
 // same time either way.
