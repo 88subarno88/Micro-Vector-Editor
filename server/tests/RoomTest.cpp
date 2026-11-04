@@ -418,3 +418,27 @@ TEST_F(RoomTest, ARoomWithWorkLeftDoesNotUnload) {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     onLoop([&] { EXPECT_EQ(room->queuedTasks(), 0u); });
 }
+
+TEST_F(RoomTest, ApplyCommittedAdvancesInOrderOnly) {
+    onLoop([&] {
+        Room room("doc", loop());
+        room.finishLoad(Diagram(), 5);
+        const Operation add = AddShape{"a", {RectGeom{0, 0, 1, 1}, {}}, std::nullopt};
+
+        EXPECT_FALSE(room.applyCommitted(add, 7));  // skips 6
+        EXPECT_FALSE(room.applyCommitted(add, 5));  // already applied
+        EXPECT_TRUE(room.applyCommitted(add, 6));
+        EXPECT_EQ(room.lastSeq(), 6);
+        EXPECT_EQ(room.diagram().getObjectCount(), 1);
+    });
+}
+
+TEST_F(RoomTest, ApplyCommittedRefusesAnOpThatDoesNotApply) {
+    onLoop([&] {
+        Room room("doc", loop());
+        room.finishLoad(Diagram(), 0);
+
+        EXPECT_FALSE(room.applyCommitted(Move{"missing", 1, 1}, 1));
+        EXPECT_EQ(room.lastSeq(), 0);
+    });
+}

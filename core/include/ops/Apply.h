@@ -27,6 +27,12 @@ bool isWithinLimits(const GraphicsObject& shape);
 // Call it as vec::apply: for a non-const Operation, plain apply() can pick std::apply.
 tl::expected<void, ApplyError> apply(Diagram& diagram, const Operation& op);
 
+// What apply() would return, without changing anything: the dry run of an op before it's stored.
+tl::expected<void, ApplyError> check(const Diagram& diagram, const Operation& op);
+
+// A stable name for an error, such as "shape_not_found", for messages to clients.
+const char* toString(ApplyError error);
+
 // Returns the op that undoes `op`. Call it before applying `op`, while `diagram` still holds
 // what the inverse has to restore. A resize may come back off by floating-point rounding.
 tl::expected<Operation, ApplyError> invert(const Diagram& diagram, const Operation& op);

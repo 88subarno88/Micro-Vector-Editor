@@ -39,3 +39,54 @@ TEST(MessagesTest, AnUnknownTypeIsReportedAsSuch) {
     ASSERT_FALSE(message);
     EXPECT_EQ(message.error().code, "unknown_type");
 }
+
+TEST(MessagesTest, AnOpDecodes) {
+    const auto message = parseClientMessage(
+        R"({"type":"op","clientOpId":"c1-42","baseSeq":118,"op":{"kind":"move","id":"s_9","dx":4,"dy":-2}})");
+
+    ASSERT_TRUE(message) << message.error().message;
+    const auto& op = std::get<OpMessage>(*message);
+    EXPECT_EQ(op.clientOpId, "c1-42");
+    EXPECT_EQ(op.baseSeq, 118);
+    EXPECT_DOUBLE_EQ(std::get<Move>(op.op).dy, -2);
+}
+
+TEST(MessagesTest, AnOpWithABadClientOpIdOrBaseSeqIsBadMessage) {
+    for (const char* text : {
+             R"({"type":"op","baseSeq":1,"op":{"kind":"deleteShape","id":"a"}})",
+             R"({"type":"op","clientOpId":"","baseSeq":1,"op":{"kind":"deleteShape","id":"a"}})",
+             R"({"type":"op","clientOpId":"has space","baseSeq":1,"op":{"kind":"deleteShape","id":"a"}})",
+             R"({"type":"op","clientOpId":7,"baseSeq":1,"op":{"kind":"deleteShape","id":"a"}})",
+             R"({"type":"op","clientOpId":"c1","op":{"kind":"deleteShape","id":"a"}})",
+             R"({"type":"op","clientOpId":"c1","baseSeq":-1,"op":{"kind":"deleteShape","id":"a"}})",
+         }) {
+        const auto message = parseClientMessage(text);
+        ASSERT_FALSE(message) << text;
+        EXPECT_EQ(message.error().code, "bad_message") << text;
+    }
+    const std::string longId(65, 'a');
+    EXPECT_FALSE(parseClientMessage(R"({"type":"op","clientOpId":")" + longId +
+                                    R"(","baseSeq":1,"op":{"kind":"deleteShape","id":"a"}})"));
+}
+
+TEST(MessagesTest, AnUndecodableOpIsBadOpAndNamesTheOp) {
+    for (const char* text :
+         {R"({"type":"op","clientOpId":"c1","baseSeq":1})",
+          R"({"type":"op","clientOpId":"c1","baseSeq":1,"op":{"kind":"explode","id":"a"}})",
+          R"({"type":"op","clientOpId":"c1","baseSeq":1,"op":{"kind":"move","id":"a","dx":"far"}})",
+          R"({"type":"op","clientOpId":"c1","baseSeq":1,"op":7})"}) {
+        const auto message = parseClientMessage(text);
+        ASSERT_FALSE(message) << text;
+        EXPECT_EQ(message.error().code, "bad_op") << text;
+        EXPECT_EQ(message.error().clientOpId, "c1") << text;
+        EXPECT_FALSE(message.error().message.empty()) << text;
+    }
+}
+
+TEST(MessagesTest, ClientOpIds) {
+    EXPECT_TRUE(isValidClientOpId("c1-42"));
+    EXPECT_TRUE(isValidClientOpId("tab:3.op_9"));
+    EXPECT_TRUE(isValidClientOpId(std::string(64, 'a')));
+    for (const char* id : {"", "a b", "a/b", "a\"b", "caf\xc3\xa9"})
+        EXPECT_FALSE(isValidClientOpId(id)) << id;
+}

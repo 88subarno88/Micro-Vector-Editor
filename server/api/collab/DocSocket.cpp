@@ -13,6 +13,7 @@
 
 #include "collab/LoadDrawing.h"
 #include "collab/Messages.h"
+#include "collab/OpPipeline.h"
 #include "db/DocRepo.h"
 #include "logging/Log.h"
 
@@ -184,6 +185,35 @@ void DocSocket::leaveRoom(const std::shared_ptr<DocSession>& session) {
     });
 }
 
+void DocSocket::handleOp(const WebSocketConnectionPtr& connection, const std::shared_ptr<DocSession>& session,
+                         const vec::OpMessage& op) {
+    const auto reject = [&](const char* reason, const char* message) {
+        sendJson(
+            connection,
+            {{"type", "reject"}, {"clientOpId", op.clientOpId}, {"reason", reason}, {"message", message}});
+    };
+    if (session->role < vec::Role::Editor) return reject("forbidden", "viewers can't edit");
+    const auto room = session->room();
+    room->loop()->queueInLoop([this, room, op, connection, session] {
+        OpSender sender{session->userId, [weak = std::weak_ptr(connection)](const std::string& message) {
+                            if (const auto open = weak.lock()) open->send(message);
+                        }};
+        const bool queued = room->enqueue([this, room, op, sender](std::function<void()> done) {
+            drogon::async_run([this, room, op, sender, done]() -> drogon::Task<> {
+                co_await processOp(database_, room, sender, op);
+                done();
+            });
+        });
+        if (!queued) {
+            sender.send(json{{"type", "reject"},
+                             {"clientOpId", op.clientOpId},
+                             {"reason", "busy"},
+                             {"message", "too many edits waiting; try again shortly"}}
+                            .dump());
+        }
+    });
+}
+
 void DocSocket::handleNewMessage(const WebSocketConnectionPtr& connection, std::string&& message,
                                  const drogon::WebSocketMessageType& type) {
     if (type != drogon::WebSocketMessageType::Text) return;  // pings are answered by Drogon itself
@@ -192,12 +222,19 @@ void DocSocket::handleNewMessage(const WebSocketConnectionPtr& connection, std::
         return sendJson(connection, {{"type", "error"}, {"code", "not_ready"}});
     }
     const auto parsed = vec::parseClientMessage(message);
+    if (!parsed && parsed.error().code == "bad_op") {
+        return sendJson(connection, {{"type", "reject"},
+                                     {"clientOpId", parsed.error().clientOpId},
+                                     {"reason", "bad_op"},
+                                     {"message", parsed.error().message}});
+    }
     if (!parsed) {
         return sendJson(
             connection,
             {{"type", "error"}, {"code", parsed.error().code}, {"message", parsed.error().message}});
     }
     if (std::holds_alternative<vec::PingMessage>(*parsed)) return sendJson(connection, {{"type", "pong"}});
+    if (const auto* op = std::get_if<vec::OpMessage>(&*parsed)) return handleOp(connection, session, *op);
     handleJoin(connection, session);
 }
 

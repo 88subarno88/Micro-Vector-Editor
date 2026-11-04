@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "core/Diagram.h"
+#include "ops/Operation.h"
 
 namespace vec {
 
@@ -62,6 +63,10 @@ public:
     // that the next join tries again.
     void finishLoad(Diagram diagram, int64_t lastSeq);
     void failLoad();
+
+    // Applies an op already committed to the log at `seq`, the next one after lastSeq(), and advances
+    // lastSeq(). False, changing nothing, if `seq` isn't the next one or the op doesn't apply.
+    bool applyCommitted(const Operation& op, int64_t seq);
 
     // One piece of work that must not overlap any other, such as handling an op: it may finish later,
     // on any thread, by calling `done` (once; further calls are ignored).

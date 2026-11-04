@@ -14,6 +14,7 @@
 #include "core/RoundedRectangle.h"
 #include "core/Text.h"
 #include "ops/Apply.h"
+#include "ops/Json.h"
 
 using namespace vec;
 
@@ -434,4 +435,48 @@ TEST(ApplyTest, DeleteOfAnUnknownIdFailsAndChangesNothing) {
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), ApplyError::ShapeNotFound);
     EXPECT_EQ(diagram.getObjectCount(), 1);
+}
+
+using nlohmann::json;
+
+TEST(CheckTest, AgreesWithApplyAndChangesNothing) {
+    const double big = 1e308;
+    const std::vector<Operation> ops = {
+        AddShape{"new", {RectGeom{1, 2, 3, 4}, {}}, std::nullopt},
+        AddShape{"rect", {RectGeom{1, 2, 3, 4}, {}}, std::nullopt},         // duplicate id
+        AddShape{"new", {TextData{{0, 0}, "Hi", 0}, {}}, std::nullopt},     // bad font size
+        AddShape{"new", {RectGeom{big * 1.7, 0, 1, 1}, {}}, std::nullopt},  // out of limits
+        AddShape{"new", {RectGeom{1, 2, 3, 4}, {}}, 99},                    // bad position
+        DeleteShape{"rect"},
+        DeleteShape{"nope"},
+        Move{"circle", 5, 5},
+        Move{"nope", 5, 5},
+        Move{"circle", big * 1.7, 0},
+        Resize{"hexagon", 2},
+        Resize{"hexagon", 0},
+        Resize{"hexagon", big},
+        SetStyle{"line", "red", std::nullopt, 4},
+        SetStyle{"line", "x\"", std::nullopt, std::nullopt},
+        SetStyle{"nope", "red", std::nullopt, std::nullopt},
+    };
+
+    for (const Operation& op : ops) {
+        const Diagram diagram = oneOfEachShape();
+        const std::string before = diagram.toSVG();
+
+        const auto checked = check(diagram, op);
+
+        EXPECT_EQ(diagram.toSVG(), before) << json(op).dump();
+        Diagram applied = oneOfEachShape();
+        const auto result = vec::apply(applied, op);
+        ASSERT_EQ(checked.has_value(), result.has_value()) << json(op).dump();
+        if (!checked) EXPECT_EQ(checked.error(), result.error()) << json(op).dump();
+    }
+}
+
+TEST(CheckTest, ErrorsHaveStableNames) {
+    EXPECT_STREQ(toString(ApplyError::ShapeNotFound), "shape_not_found");
+    EXPECT_STREQ(toString(ApplyError::DuplicateId), "duplicate_id");
+    EXPECT_STREQ(toString(ApplyError::InvalidShape), "invalid_shape");
+    EXPECT_STREQ(toString(ApplyError::InvalidValue), "invalid_value");
 }

@@ -3,6 +3,7 @@
 #include <atomic>
 
 #include "logging/Log.h"
+#include "ops/Apply.h"
 
 namespace vec {
 
@@ -36,6 +37,13 @@ void Room::finishLoad(Diagram diagram, int64_t lastSeq) {
     diagram_ = std::move(diagram);
     lastSeq_ = lastSeq;
     loadState_ = LoadState::Loaded;
+}
+
+bool Room::applyCommitted(const Operation& op, int64_t seq) {
+    assertOnLoop();
+    if (seq != lastSeq_ + 1 || !vec::apply(diagram_, op)) return false;
+    lastSeq_ = seq;
+    return true;
 }
 
 void Room::failLoad() {

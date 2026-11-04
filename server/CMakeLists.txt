@@ -13,7 +13,7 @@ set_target_properties(vec_server_common PROPERTIES CXX_STANDARD 20)
 target_compile_options(vec_server_common PRIVATE -Wall -Wextra -pedantic)
 
 add_executable(vec_api api/main.cpp api/ApiResponse.cpp api/AuthFilter.cpp api/AuthRoutes.cpp api/DocRoutes.cpp api/HealthRoutes.cpp api/RateLimitFilter.cpp api/Routes.cpp
-    api/RequestLogging.cpp api/collab/DocSocket.cpp)
+    api/RequestLogging.cpp api/collab/DocSocket.cpp api/collab/OpPipeline.cpp)
 target_include_directories(vec_api PRIVATE api)
 target_link_libraries(vec_api PRIVATE vec_core vec_server_common Drogon::Drogon)
 set_target_properties(vec_api PROPERTIES

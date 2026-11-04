@@ -77,8 +77,11 @@ struct ShapeBuilder {
     }
 };
 
+// With checkOnly, every check runs but nothing changes: each operator returns just before its first
+// change, so checking and applying can never disagree.
 struct Applier {
     Diagram& diagram;
+    bool checkOnly = false;
 
     Result operator()(const AddShape& op) const {
         if (diagram.find(op.id)) return tl::unexpected(ApplyError::DuplicateId);
@@ -99,12 +102,15 @@ struct Applier {
         shape->setFillColor(op.shape.style.fill);
         shape->setStrokeWidth(op.shape.style.strokeWidth);
         if (!isWithinLimits(*shape)) return tl::unexpected(ApplyError::InvalidShape);
+        if (checkOnly) return {};
         diagram.insertObject(std::move(shape), op.position.value_or(diagram.getObjectCount()));
         return {};
     }
 
     Result operator()(const DeleteShape& op) const {
-        if (!diagram.removeObject(op.id)) return tl::unexpected(ApplyError::ShapeNotFound);
+        if (!diagram.find(op.id)) return tl::unexpected(ApplyError::ShapeNotFound);
+        if (checkOnly) return {};
+        diagram.removeObject(op.id);
         return {};
     }
 
@@ -117,6 +123,7 @@ struct Applier {
         const auto preview = shape->clone();
         preview->move(op.dx, op.dy);
         if (!isWithinLimits(*preview)) return tl::unexpected(ApplyError::InvalidValue);
+        if (checkOnly) return {};
 
         shape->move(op.dx, op.dy);
         return {};
@@ -132,6 +139,7 @@ struct Applier {
         const auto preview = shape->clone();
         preview->scaleBy(op.factor);
         if (!isWithinLimits(*preview)) return tl::unexpected(ApplyError::InvalidValue);
+        if (checkOnly) return {};
 
         shape->scaleBy(op.factor);
         return {};
@@ -146,6 +154,7 @@ struct Applier {
 
         GraphicsObject* shape = diagram.find(op.id);
         if (!shape) return tl::unexpected(ApplyError::ShapeNotFound);
+        if (checkOnly) return {};
         if (op.stroke) shape->setStrokeColor(*op.stroke);
         if (op.fill) shape->setFillColor(*op.fill);
         if (op.strokeWidth) shape->setStrokeWidth(*op.strokeWidth);
@@ -233,6 +242,25 @@ bool isWithinLimits(const GraphicsObject& shape) {
 }
 
 Result apply(Diagram& diagram, const Operation& op) { return std::visit(Applier{diagram}, op); }
+
+Result check(const Diagram& diagram, const Operation& op) {
+    // Safe: with checkOnly, Applier never changes the diagram.
+    return std::visit(Applier{const_cast<Diagram&>(diagram), true}, op);
+}
+
+const char* toString(ApplyError error) {
+    switch (error) {
+        case ApplyError::ShapeNotFound:
+            return "shape_not_found";
+        case ApplyError::DuplicateId:
+            return "duplicate_id";
+        case ApplyError::InvalidShape:
+            return "invalid_shape";
+        case ApplyError::InvalidValue:
+            return "invalid_value";
+    }
+    return "invalid";
+}
 
 tl::expected<Operation, ApplyError> invert(const Diagram& diagram, const Operation& op) {
     return std::visit(Inverter{diagram}, op);

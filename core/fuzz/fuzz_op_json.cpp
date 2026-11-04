@@ -58,6 +58,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     if (!decoded || nlohmann::json(*decoded) != encoded) std::abort();
 
     Diagram diagram = startingDiagram();
+    // The server checks an op before storing it, so a check that disagrees with apply would store bad ops.
+    const auto checked = check(diagram, *op);
+    Diagram applied = startingDiagram();
+    if (checked.has_value() != vec::apply(applied, *op).has_value()) std::abort();
     const auto inverse = invert(diagram, *op);
     if (!inverse) return 0;
     if (!vec::apply(diagram, *op)) return 0;  // a rejected op is fine
