@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "collab/Room.h"
+#include "core/Rectangle.h"
 
 using namespace vec;
 
@@ -96,6 +97,104 @@ TEST(RoomTest, ANewRoomIsEmptyAtTheStartOfTheLog) {
     EXPECT_EQ(room.memberCount(), 0u);
     EXPECT_EQ(room.lastSeq(), 0);
     EXPECT_EQ(room.diagram().getObjectCount(), 0);
+}
+
+TEST(RoomTest, OnlyTheFirstJoinLoads) {
+    Room room("doc", nullptr);
+    Inbox a, b;
+
+    EXPECT_EQ(room.join(1, a.member("ann")), Room::JoinResult::JoinedAndMustLoad);
+    EXPECT_EQ(room.loadState(), Room::LoadState::Loading);
+    EXPECT_EQ(room.join(2, b.member("bob")), Room::JoinResult::Joined);  // while still loading
+}
+
+TEST(RoomTest, FinishLoadInstallsTheDrawing) {
+    Room room("doc", nullptr);
+    Diagram diagram;
+    diagram.addObject(std::make_unique<Rectangle>(1, 2, 3, 4));
+
+    room.finishLoad(std::move(diagram), 42);
+
+    EXPECT_EQ(room.loadState(), Room::LoadState::Loaded);
+    EXPECT_EQ(room.lastSeq(), 42);
+    EXPECT_EQ(room.diagram().getObjectCount(), 1);
+}
+
+TEST(RoomTest, AFailedLoadIsRetriedByTheNextJoin) {
+    Room room("doc", nullptr);
+    Inbox a, b;
+    ASSERT_EQ(room.join(1, a.member("ann")), Room::JoinResult::JoinedAndMustLoad);
+
+    room.failLoad();
+
+    EXPECT_EQ(room.join(2, b.member("bob")), Room::JoinResult::JoinedAndMustLoad);
+}
+
+TEST(RoomTest, LeavingReturnsATokenOnlyWhenTheRoomEmpties) {
+    Room room("doc", nullptr);
+    Inbox a, b;
+    room.join(1, a.member("ann"));
+    room.join(2, b.member("bob"));
+
+    EXPECT_EQ(room.leave(1), std::nullopt);
+    EXPECT_TRUE(room.leave(2));
+    EXPECT_EQ(room.leave(2), std::nullopt);  // already gone
+}
+
+TEST(RoomTest, AnEmptyRoomUnloadsAndRefusesJoins) {
+    Room room("doc", nullptr);
+    Inbox a;
+    room.join(1, a.member("ann"));
+    const auto token = room.leave(1);
+
+    EXPECT_TRUE(room.unloadIfStillEmpty(*token));
+    EXPECT_FALSE(room.unloadIfStillEmpty(*token));
+    EXPECT_EQ(room.join(2, a.member("ann")), Room::JoinResult::Unloaded);
+}
+
+TEST(RoomTest, SomeoneJoiningCancelsAnUnloadThatWasDue) {
+    Room room("doc", nullptr);
+    Inbox a;
+    room.join(1, a.member("ann"));
+    const auto token = room.leave(1);
+    room.join(2, a.member("ann"));
+
+    EXPECT_FALSE(room.unloadIfStillEmpty(*token));
+    EXPECT_EQ(room.memberCount(), 1u);
+}
+
+TEST(RoomTest, OnlyTheLatestEmptyingCanUnload) {
+    // leave, join, leave: the first unload timer fires while the room is empty again, but too early.
+    Room room("doc", nullptr);
+    Inbox a;
+    room.join(1, a.member("ann"));
+    const auto first = room.leave(1);
+    room.join(2, a.member("ann"));
+    const auto second = room.leave(2);
+
+    EXPECT_FALSE(room.unloadIfStillEmpty(*first));
+    EXPECT_TRUE(room.unloadIfStillEmpty(*second));
+}
+
+TEST_F(RoomRegistryTest, RemovingARoomGivesItsDocumentAFreshOne) {
+    RoomRegistry registry(loops.size(), [this](size_t i) { return loops[i]; });
+    const auto old = registry.roomFor("doc");
+
+    registry.remove(old);
+
+    EXPECT_EQ(registry.roomCount(), 0u);
+    EXPECT_NE(registry.roomFor("doc"), old);
+}
+
+TEST_F(RoomRegistryTest, RemovingAStaleRoomLeavesTheCurrentOneAlone) {
+    RoomRegistry registry(loops.size(), [this](size_t i) { return loops[i]; });
+    const auto old = registry.roomFor("doc");
+    registry.remove(old);
+    const auto current = registry.roomFor("doc");
+
+    registry.remove(old);
+
+    EXPECT_EQ(registry.roomFor("doc"), current);
 }
 
 TEST_F(RoomRegistryTest, OneDocumentAlwaysGetsTheSameRoomAndLoop) {

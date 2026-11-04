@@ -34,6 +34,7 @@ constexpr size_t passwordHashingThreads = 2;
 constexpr int authRequestsPerMinute = 10;
 constexpr double redisTimeoutSeconds = 1.0;
 constexpr size_t maxRequestBodyBytes = 1024 * 1024;
+constexpr std::chrono::seconds roomUnloadDelay{60};
 
 // Drogon's Redis client takes an address, not a hostname.
 std::optional<trantor::InetAddress> resolve(const vec::RedisEndpoint& redis) {
@@ -91,7 +92,7 @@ int main() {
     drogon::app().setThreadNum(ioThreads);
     const auto rooms = std::make_shared<vec::RoomRegistry>(
         ioThreads, [](size_t index) { return drogon::app().getIOLoop(index); });
-    drogon::app().registerController(std::make_shared<DocSocket>(tokens, database, rooms));
+    drogon::app().registerController(std::make_shared<DocSocket>(tokens, database, rooms, roomUnloadDelay));
     // The largest body any route accepts, an SVG upload included. Drogon answers bigger ones with 413.
     drogon::app().setClientMaxBodySize(maxRequestBodyBytes);
 

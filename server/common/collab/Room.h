@@ -34,8 +34,27 @@ public:
     const std::string& documentId() const { return documentId_; }
     trantor::EventLoop* loop() const { return loop_; }
 
-    void join(SessionId session, RoomMember member);
-    void leave(SessionId session);
+    enum class JoinResult {
+        Joined,
+        JoinedAndMustLoad,  // the first join: the caller loads the drawing, then calls finishLoad()
+        Unloaded,           // this room was unloaded meanwhile; join the registry's current room instead
+    };
+    JoinResult join(SessionId session, RoomMember member);
+
+    // Returns a token for scheduling an unload if this left the room empty, so that only the most recent
+    // emptying can unload it: someone may join and leave again before the first unload is due.
+    std::optional<uint64_t> leave(SessionId session);
+
+    // Marks the room unloaded if it's still empty since `token`; true if it did. Joins then fail.
+    bool unloadIfStillEmpty(uint64_t token);
+
+    enum class LoadState { NotLoaded, Loading, Loaded, Failed };
+    LoadState loadState() const { return loadState_; }
+
+    // Installs the drawing loaded for the first join, at `lastSeq` in the op log, or records a failure so
+    // that the next join tries again.
+    void finishLoad(Diagram diagram, int64_t lastSeq);
+    void failLoad();
 
     // Sends `message` to every member, except `skip` if given.
     void broadcast(const std::string& message, std::optional<SessionId> skip = std::nullopt) const;
@@ -50,6 +69,9 @@ private:
     Diagram diagram_;
     int64_t lastSeq_ = 0;  // the seq of the last op applied to diagram_
     std::unordered_map<SessionId, RoomMember> members_;
+    LoadState loadState_ = LoadState::NotLoaded;
+    uint64_t emptiedCount_ = 0;  // increases each time the room becomes empty
+    bool unloaded_ = false;
 };
 
 // Finds or creates the room for a document. Rooms are spread over `loopCount` loops by a hash of the
@@ -67,6 +89,9 @@ public:
     trantor::EventLoop* loopFor(const std::string& documentId) const;
 
     size_t roomCount() const;
+
+    // Forgets `room`, if it is still the room for its document.
+    void remove(const std::shared_ptr<Room>& room);
 
 private:
     size_t loopCount_;

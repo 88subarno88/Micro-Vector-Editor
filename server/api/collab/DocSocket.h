@@ -4,8 +4,13 @@
 #include <drogon/WebSocketController.h>
 #include <drogon/orm/DbClient.h>
 
+#include <chrono>
+#include <memory>
+
 #include "auth/AccessToken.h"
 #include "collab/Room.h"
+
+struct DocSession;
 
 // The live connection to one document: /ws/docs/{id}?token=<access token>. Browsers can't set headers on
 // a WebSocket, hence the query parameter (request logs record the path only, never the query).
@@ -13,13 +18,17 @@
 // The token is checked first, then the user's role on the document. On failure the server closes with
 // 4401 (bad or expired token) or 4404 (no such document, or not a member). On success it sends
 // {"type": "ready", "role": ...}; anything the client sends before that gets {"type": "error",
-// "code": "not_ready"}. A ready connection is a member of its document's room until it closes. For now
-// every later message is echoed back.
+// "code": "not_ready"}. A ready connection is a member of its document's room until it closes; the first
+// member's join loads the room's drawing from the database. For now every later message is echoed back.
 class DocSocket : public drogon::WebSocketController<DocSocket, false> {
 public:
+    // A room is unloaded `unloadDelay` after its last member leaves, unless someone joins again first.
     DocSocket(vec::AccessTokens tokens, drogon::orm::DbClientPtr database,
-              std::shared_ptr<vec::RoomRegistry> rooms)
-        : tokens_(std::move(tokens)), database_(std::move(database)), rooms_(std::move(rooms)) {}
+              std::shared_ptr<vec::RoomRegistry> rooms, std::chrono::seconds unloadDelay)
+        : tokens_(std::move(tokens)),
+          database_(std::move(database)),
+          rooms_(std::move(rooms)),
+          unloadDelay_(unloadDelay) {}
 
     void handleNewConnection(const drogon::HttpRequestPtr& request,
                              const drogon::WebSocketConnectionPtr& connection) override;
@@ -32,9 +41,15 @@ public:
     WS_PATH_LIST_END
 
 private:
+    void joinRoom(const drogon::WebSocketConnectionPtr& connection,
+                  const std::shared_ptr<DocSession>& session);
+    void loadRoom(const std::shared_ptr<vec::Room>& room);
+    void leaveRoom(const std::shared_ptr<DocSession>& session);
+
     vec::AccessTokens tokens_;
     drogon::orm::DbClientPtr database_;
     std::shared_ptr<vec::RoomRegistry> rooms_;
+    std::chrono::seconds unloadDelay_;
 };
 
 #endif  // DOC_SOCKET_H
