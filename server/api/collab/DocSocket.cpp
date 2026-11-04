@@ -195,7 +195,8 @@ void DocSocket::handleOp(const WebSocketConnectionPtr& connection, const std::sh
     if (session->role < vec::Role::Editor) return reject("forbidden", "viewers can't edit");
     const auto room = session->room();
     room->loop()->queueInLoop([this, room, op, connection, session] {
-        OpSender sender{session->userId, [weak = std::weak_ptr(connection)](const std::string& message) {
+        OpSender sender{session->id, session->userId,
+                        [weak = std::weak_ptr(connection)](const std::string& message) {
                             if (const auto open = weak.lock()) open->send(message);
                         }};
         const bool queued = room->enqueue([this, room, op, sender](std::function<void()> done) {

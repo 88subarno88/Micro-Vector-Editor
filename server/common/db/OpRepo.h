@@ -47,6 +47,12 @@ public:
                                            const std::string& userId, const std::string& clientOpId,
                                            const nlohmann::json& payload);
 
+    // The seq of the op this client already sent with `clientOpId`, if any: a retry of an op that was
+    // stored, perhaps before the connection dropped, should get its original ack.
+    static drogon::Task<std::optional<int64_t>> seqOf(const drogon::orm::DbClientPtr& client,
+                                                      const std::string& documentId,
+                                                      const std::string& clientOpId);
+
     // Ops with seq > `seq`, oldest first, at most `limit` (clamped to 1..maxOpsPerRead).
     drogon::Task<std::vector<OpRow>> opsAfter(const std::string& documentId, int64_t seq,
                                               int limit = maxOpsPerRead);

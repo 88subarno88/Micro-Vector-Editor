@@ -68,6 +68,17 @@ drogon::Task<InsertedOp> OpRepo::insert(const std::shared_ptr<drogon::orm::Trans
     co_return InsertedOp{seq, false};
 }
 
+drogon::Task<std::optional<int64_t>> OpRepo::seqOf(const drogon::orm::DbClientPtr& client,
+                                                   const std::string& documentId,
+                                                   const std::string& clientOpId) {
+    if (!isUuid(documentId)) co_return std::nullopt;
+    const auto result = co_await client->execSqlCoro(
+        "SELECT seq FROM operations WHERE document_id = $1::uuid AND client_op_id = $2", documentId,
+        clientOpId);
+    if (result.empty()) co_return std::nullopt;
+    co_return result[0][0].as<int64_t>();
+}
+
 drogon::Task<std::vector<OpRow>> OpRepo::opsAfter(const std::string& documentId, int64_t seq, int limit) {
     if (!isUuid(documentId)) co_return std::vector<OpRow>{};
     const auto result = co_await database_->execSqlCoro(

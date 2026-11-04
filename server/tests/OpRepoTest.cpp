@@ -237,3 +237,12 @@ TEST_F(OpRepoTest, ASecondSnapshotAtTheSameSeqChangesNothing) {
 
     EXPECT_EQ(drogon::sync_wait(snapshots.latest(document.id))->state.at("first"), true);
 }
+
+TEST_F(OpRepoTest, SeqOfFindsAStoredClientOpId) {
+    appendNow("a");
+    appendNow("b");
+
+    EXPECT_EQ(drogon::sync_wait(OpRepo::seqOf(database, document.id, "b")), 2);
+    EXPECT_EQ(drogon::sync_wait(OpRepo::seqOf(database, document.id, "never-sent")), std::nullopt);
+    EXPECT_EQ(drogon::sync_wait(OpRepo::seqOf(database, "not-a-uuid", "a")), std::nullopt);
+}
