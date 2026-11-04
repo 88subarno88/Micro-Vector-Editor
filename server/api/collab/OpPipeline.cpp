@@ -5,6 +5,7 @@
 
 #include "db/OpRepo.h"
 #include "logging/Log.h"
+#include "metrics/StageTimer.h"
 #include "ops/Apply.h"
 #include "ops/Json.h"
 
@@ -53,45 +54,68 @@ drogon::Task<bool> catchUp(const drogon::orm::DbClientPtr& database, const std::
 }  // namespace
 
 drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec::Room> room, OpSender sender,
-                         vec::OpMessage op) {
+                         vec::OpMessage op, std::chrono::steady_clock::time_point queuedAt) {
+    // One log line per op, with how long each stage took and how it ended, logged however it ends.
+    struct Timing {
+        vec::StageTimer timer;
+        std::string documentId;
+        std::string outcome = "unknown";
+        ~Timing() {
+            vec::logInfo("op timing", {},
+                         {{"document", documentId}, {"outcome", outcome}, {"us", timer.toJson()}});
+        }
+    } timing{vec::StageTimer(queuedAt), room->documentId()};
+    timing.timer.mark("queued");
+    const auto rejectAs = [&](const char* reason, const std::string& message) {
+        timing.outcome = std::string("reject:") + reason;
+        reject(sender, op, reason, message);
+    };
+
     try {
         auto transaction = co_await database->newTransactionCoro();
         const auto head = co_await vec::OpRepo::lockHead(transaction, room->documentId());
+        timing.timer.mark("lock");
         co_await drogon::switchThreadCoro(room->loop());
         if (!head) {
             transaction->rollback();
-            co_return reject(sender, op, "not_found", "the document no longer exists");
+            co_return rejectAs("not_found", "the document no longer exists");
         }
         // A retry of an op already stored: answer as the first time, without applying it again. Checked
         // before the dry run, which would refuse a repeated addShape as a duplicate.
         if (const auto stored = co_await vec::OpRepo::seqOf(transaction, room->documentId(), op.clientOpId)) {
             transaction->rollback();
+            timing.outcome = "retry";
             co_return ack(sender, op, *stored);
         }
+        timing.timer.mark("retry_check");
         co_await drogon::switchThreadCoro(room->loop());
         if (!co_await catchUp(database, room, *head)) {
             transaction->rollback();
             vec::logError("room catch-up failed", {}, {{"document", room->documentId()}, {"head", *head}});
-            co_return reject(sender, op, "unavailable", "the document can't be edited right now");
+            co_return rejectAs("unavailable", "the document can't be edited right now");
         }
+        timing.timer.mark("catch_up");
 
         // A dry run against the room's drawing, which is now up to date with the log.
         if (const auto checked = vec::check(room->diagram(), op.op); !checked) {
             transaction->rollback();
-            co_return reject(sender, op, vec::toString(checked.error()),
-                             "the edit doesn't apply to the drawing");
+            co_return rejectAs(vec::toString(checked.error()), "the edit doesn't apply to the drawing");
         }
+        timing.timer.mark("check");
 
         // ON CONFLICT DO NOTHING in insert() would also catch a retry that slipped past seqOf(); the row
         // lock makes that impossible, but it keeps the log safe regardless.
         const auto inserted = co_await vec::OpRepo::insert(
             transaction, room->documentId(), *head, sender.userId, op.clientOpId, nlohmann::json(op.op));
-        if (!co_await vec::commit(std::move(transaction))) {
-            co_await drogon::switchThreadCoro(room->loop());
-            co_return reject(sender, op, "unavailable", "the edit couldn't be saved");
-        }
+        timing.timer.mark("insert");
+        const bool committed = co_await vec::commit(std::move(transaction));
+        timing.timer.mark("commit");
         co_await drogon::switchThreadCoro(room->loop());
-        if (inserted.duplicate) co_return ack(sender, op, inserted.seq);
+        if (!committed) co_return rejectAs("unavailable", "the edit couldn't be saved");
+        if (inserted.duplicate) {
+            timing.outcome = "retry";
+            co_return ack(sender, op, inserted.seq);
+        }
 
         // Only now, with the op committed, does the room change and the sender hear back.
         if (!room->applyCommitted(op.op, inserted.seq)) {
@@ -100,8 +124,10 @@ drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec:
         }
         ack(sender, op, inserted.seq);
         room->broadcast(opBroadcast(inserted.seq, sender.userId, op.op), sender.session);
+        timing.timer.mark("apply_and_send");
+        timing.outcome = "ack";
     } catch (const std::exception& e) {
         vec::logError("op failed", {}, {{"document", room->documentId()}, {"error", e.what()}});
-        reject(sender, op, "unavailable", "the document can't be edited right now");
+        rejectAs("unavailable", "the document can't be edited right now");
     }
 }

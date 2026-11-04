@@ -4,6 +4,7 @@
 #include <drogon/orm/DbClient.h>
 #include <drogon/utils/coroutine.h>
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -25,7 +26,9 @@ struct OpSender {
 // so that ops never overlap: each locks the document's row in a transaction, which also keeps ops from
 // other server instances in order, and first applies any ops those instances committed that this room
 // hasn't seen. A retry of a stored op (same clientOpId) gets the original ack. Never throws.
+// Logs "op timing" with the microseconds spent in each stage, from `queuedAt`, when the op entered the
+// room's queue.
 drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec::Room> room, OpSender sender,
-                         vec::OpMessage op);
+                         vec::OpMessage op, std::chrono::steady_clock::time_point queuedAt);
 
 #endif  // OP_PIPELINE_H

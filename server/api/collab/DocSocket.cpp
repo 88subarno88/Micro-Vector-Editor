@@ -199,12 +199,14 @@ void DocSocket::handleOp(const WebSocketConnectionPtr& connection, const std::sh
                         [weak = std::weak_ptr(connection)](const std::string& message) {
                             if (const auto open = weak.lock()) open->send(message);
                         }};
-        const bool queued = room->enqueue([this, room, op, sender](std::function<void()> done) {
-            drogon::async_run([this, room, op, sender, done]() -> drogon::Task<> {
-                co_await processOp(database_, room, sender, op);
-                done();
+        const bool queued =
+            room->enqueue([this, room, op, sender,
+                           queuedAt = std::chrono::steady_clock::now()](std::function<void()> done) {
+                drogon::async_run([this, room, op, sender, queuedAt, done]() -> drogon::Task<> {
+                    co_await processOp(database_, room, sender, op, queuedAt);
+                    done();
+                });
             });
-        });
         if (!queued) {
             sender.send(json{{"type", "reject"},
                              {"clientOpId", op.clientOpId},
