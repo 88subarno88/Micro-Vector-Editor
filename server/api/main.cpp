@@ -6,12 +6,14 @@
 #include <sys/socket.h>
 #include <trantor/net/InetAddress.h>
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 
 #include "ApiResponse.h"
 #include "AuthFilter.h"
@@ -20,6 +22,7 @@
 #include "HealthRoutes.h"
 #include "RateLimitFilter.h"
 #include "RequestLogging.h"
+#include "collab/DocSocket.h"
 #include "config/Config.h"
 #include "logging/Log.h"
 
@@ -83,6 +86,12 @@ int main() {
         std::make_shared<RateLimitFilter>(redis, "auth", authRequestsPerMinute, std::chrono::minutes(1)));
     registerAuthRoutes(database, hashing, tokens);
     registerDocRoutes(database);
+    // One IO thread per core, so that rooms on different documents run in parallel.
+    const size_t ioThreads = std::max(1u, std::thread::hardware_concurrency());
+    drogon::app().setThreadNum(ioThreads);
+    const auto rooms = std::make_shared<vec::RoomRegistry>(
+        ioThreads, [](size_t index) { return drogon::app().getIOLoop(index); });
+    drogon::app().registerController(std::make_shared<DocSocket>(tokens, database, rooms));
     // The largest body any route accepts, an SVG upload included. Drogon answers bigger ones with 413.
     drogon::app().setClientMaxBodySize(maxRequestBodyBytes);
 
