@@ -31,6 +31,17 @@ constexpr auto closeLoadFailed = CloseCode::kUnexpectedCondition;  // 1011, a se
 
 constexpr std::string_view pathPrefix = "/ws/docs/";
 
+// A connection that sends nothing for this long is closed; clients ping well within it.
+constexpr std::chrono::seconds silenceLimit{45};
+constexpr double heartbeatCheckSeconds = 5;
+constexpr auto closeIdle = static_cast<CloseCode>(4408);
+
+int64_t steadyNowMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
 std::atomic<vec::SessionId> nextSessionId = 1;
 
 void sendJson(const WebSocketConnectionPtr& connection, const json& message) {
@@ -48,6 +59,8 @@ struct DocSession {
     vec::Role role = vec::Role::Viewer;  // written before `ready` is set, read only after
     std::atomic<bool> ready = false;     // a member of `room`
     std::atomic<bool> closed = false;
+    std::atomic<int64_t> lastHeardMs = 0;  // steady clock; when the client last sent anything
+    trantor::TimerId heartbeatTimer = 0;   // set and cancelled on the connection's own thread
 
     std::shared_ptr<vec::Room> room() {
         const std::lock_guard lock(mutex);
@@ -76,6 +89,18 @@ void DocSocket::handleNewConnection(const drogon::HttpRequestPtr& request,
     session->userId = *userId;
     session->documentId = request->path().substr(pathPrefix.size());
     connection->setContext(session);
+
+    // Checks for silence from the first moment, so a client that never even joins is closed too.
+    session->lastHeardMs = steadyNowMs();
+    session->heartbeatTimer =
+        drogon::app().getLoop()->runEvery(heartbeatCheckSeconds, [weak = std::weak_ptr(connection), session] {
+            const auto open = weak.lock();
+            if (!open ||
+                steadyNowMs() - session->lastHeardMs < std::chrono::milliseconds(silenceLimit).count()) {
+                return;
+            }
+            open->shutdown(closeIdle, "idle");
+        });
 
     drogon::async_run([this, connection, session]() -> drogon::Task<> {
         const auto role = co_await vec::MemberRepo(database_).roleOf(session->documentId, session->userId);
@@ -234,8 +259,9 @@ void DocSocket::handleOp(const WebSocketConnectionPtr& connection, const std::sh
 
 void DocSocket::handleNewMessage(const WebSocketConnectionPtr& connection, std::string&& message,
                                  const drogon::WebSocketMessageType& type) {
-    if (type != drogon::WebSocketMessageType::Text) return;  // pings are answered by Drogon itself
     const auto session = connection->getContext<DocSession>();
+    if (session) session->lastHeardMs = steadyNowMs();       // any frame counts, protocol pings included
+    if (type != drogon::WebSocketMessageType::Text) return;  // protocol pings are answered by Drogon
     if (!session || !session->ready) {
         return sendJson(connection, {{"type", "error"}, {"code", "not_ready"}});
     }
@@ -259,6 +285,7 @@ void DocSocket::handleNewMessage(const WebSocketConnectionPtr& connection, std::
 void DocSocket::handleConnectionClosed(const WebSocketConnectionPtr& connection) {
     const auto session = connection->getContext<DocSession>();
     if (!session) return;
+    drogon::app().getLoop()->invalidateTimer(session->heartbeatTimer);
     session->closed = true;
     // Not joined yet: the join will see `closed` and leave by itself.
     if (session->ready) leaveRoom(session);

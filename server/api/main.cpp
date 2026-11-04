@@ -3,6 +3,7 @@
 #include <drogon/orm/DbClient.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <trantor/net/InetAddress.h>
 
@@ -35,6 +36,7 @@ constexpr int authRequestsPerMinute = 10;
 constexpr double redisTimeoutSeconds = 1.0;
 constexpr size_t maxRequestBodyBytes = 1024 * 1024;
 constexpr std::chrono::seconds roomUnloadDelay{60};
+constexpr std::chrono::seconds unacknowledgedSendLimit{30};
 
 // Drogon's Redis client takes an address, not a hostname.
 std::optional<trantor::InetAddress> resolve(const vec::RedisEndpoint& redis) {
@@ -95,6 +97,14 @@ int main() {
     drogon::app().registerController(std::make_shared<DocSocket>(tokens, database, rooms, roomUnloadDelay));
     // The largest body any route accepts, an SVG upload included. Drogon answers bigger ones with 413.
     drogon::app().setClientMaxBodySize(maxRequestBodyBytes);
+    // A client that stops reading lets the server's send buffer for it grow with every broadcast. Drogon
+    // doesn't expose that buffer, so the kernel bounds it instead: once sent data has gone unacknowledged
+    // for this long, as it does when the client's receive window stays shut, the connection is dropped.
+    // The buffer then holds at most this long's worth of broadcasts.
+    drogon::app().setAfterAcceptSockOptCallback([](int fd) {
+        const unsigned int timeoutMs = std::chrono::milliseconds(unacknowledgedSendLimit).count();
+        setsockopt(fd, IPPROTO_TCP, TCP_USER_TIMEOUT, &timeoutMs, sizeof(timeoutMs));
+    });
 
     // An exception from a handler, such as a lost database connection: logged, never shown to the client.
     drogon::app().setExceptionHandler([](const std::exception& e, const drogon::HttpRequestPtr& request,

@@ -17,7 +17,8 @@ struct DocSession;
 // a WebSocket, hence the query parameter (request logs record the path only, never the query).
 //
 // The token is checked first, then the user's role on the document. On failure the server closes with
-// 4401 (bad or expired token) or 4404 (no such document, or not a member). On success it sends
+// 4401 (bad or expired token) or 4404 (no such document, or not a member), and at any time with 4408
+// after 45 s in which the client sent nothing. On success it sends
 // {"type": "ready", "role": ...}; anything the client sends before that gets {"type": "error",
 // "code": "not_ready"}. A ready connection is a member of its document's room until it closes; the first
 // member loads the room's drawing from the database.
@@ -29,7 +30,8 @@ struct DocSession;
 //                                     at H. Ops are broadcast to a connection only after this, from H+1.
 //                                     {"type": "error", "code": "load_failed"} and close 1011 if the
 //                                     drawing can't be loaded
-//   {"type": "ping"}               -> {"type": "pong"}
+//   {"type": "ping"}               -> {"type": "pong"}. Send one at least every 45 s (15 s is a good
+//                                     interval): a connection silent for 45 s is closed.
 //   {"type": "op", ...}            -> {"type": "reject", "clientOpId", "reason", "message"}, reason
 //                                     bad_op for an op that can't be decoded, or forbidden for a viewer
 // Anything malformed gets {"type": "error", "code": "bad_message" or "unknown_type", "message": ...}.
