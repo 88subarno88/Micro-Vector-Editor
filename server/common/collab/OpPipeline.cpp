@@ -11,6 +11,8 @@
 
 using nlohmann::json;
 
+namespace vec {
+
 namespace {
 
 void reject(const OpSender& sender, const vec::OpMessage& op, const char* reason,
@@ -31,18 +33,19 @@ void ack(const OpSender& sender, const vec::OpMessage& op, int64_t seq) {
 
 // Brings the room up to `head` with the ops other instances committed. Resumes on the room's loop.
 // False if a stored op couldn't be applied, which would mean the log and the room disagree.
-drogon::Task<bool> catchUp(const drogon::orm::DbClientPtr& database, const std::shared_ptr<vec::Room>& room,
-                           int64_t head) {
+drogon::Task<bool> catchUp(const std::shared_ptr<drogon::orm::Transaction>& transaction,
+                           const std::shared_ptr<vec::Room>& room, int64_t head) {
     while (room->lastSeq() < head) {
         const int64_t from = room->lastSeq();
-        // Committed rows, so reading them outside the transaction is safe; the lock keeps new ones out.
-        const auto rows =
-            co_await vec::OpRepo(database).opsAfter(room->documentId(), from, static_cast<int>(head - from));
+        // On the transaction's own connection: waiting for a second one while holding the first would
+        // deadlock once every connection in the pool is held by an op doing the same.
+        const auto rows = co_await vec::OpRepo(transaction)
+                              .opsAfter(room->documentId(), from, static_cast<int>(head - from));
         co_await drogon::switchThreadCoro(room->loop());
         if (rows.empty()) co_return false;
         for (const vec::OpRow& row : rows) {
             const auto decoded = vec::decodeOperation(row.payload);
-            if (!decoded || !room->applyCommitted(*decoded, row.seq)) co_return false;
+            if (!decoded || !room->applyCommitted(*decoded, row.seq, row.userId)) co_return false;
             room->broadcast(opBroadcast(row.seq, row.userId, *decoded));
         }
         vec::logInfo("room caught up", {},
@@ -89,7 +92,7 @@ drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec:
         }
         timing.timer.mark("retry_check");
         co_await drogon::switchThreadCoro(room->loop());
-        if (!co_await catchUp(database, room, *head)) {
+        if (!co_await catchUp(transaction, room, *head)) {
             transaction->rollback();
             vec::logError("room catch-up failed", {}, {{"document", room->documentId()}, {"head", *head}});
             co_return rejectAs("unavailable", "the document can't be edited right now");
@@ -118,7 +121,7 @@ drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec:
         }
 
         // Only now, with the op committed, does the room change and the sender hear back.
-        if (!room->applyCommitted(op.op, inserted.seq)) {
+        if (!room->applyCommitted(op.op, inserted.seq, sender.userId)) {
             vec::logError("committed op didn't apply to the room", {},
                           {{"document", room->documentId()}, {"seq", inserted.seq}});
         }
@@ -131,3 +134,5 @@ drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec:
         rejectAs("unavailable", "the document can't be edited right now");
     }
 }
+
+}  // namespace vec

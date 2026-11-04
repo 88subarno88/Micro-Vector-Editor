@@ -16,6 +16,7 @@
 #include "collab/OpPipeline.h"
 #include "db/DocRepo.h"
 #include "logging/Log.h"
+#include "ops/Json.h"
 
 using drogon::CloseCode;
 using drogon::WebSocketConnectionPtr;
@@ -150,19 +151,33 @@ void DocSocket::loadRoom(const std::shared_ptr<vec::Room>& room) {
 }
 
 void DocSocket::handleJoin(const WebSocketConnectionPtr& connection,
-                           const std::shared_ptr<DocSession>& session) {
+                           const std::shared_ptr<DocSession>& session, int64_t lastSeq) {
     const auto room = session->room();
-    room->loop()->queueInLoop([connection, room] {
-        const bool queued = room->enqueue([connection, room](std::function<void()> done) {
+    room->loop()->queueInLoop([connection, session, room, lastSeq] {
+        // A room task, so no op is processed between building the reply and marking the member joined.
+        const bool queued = room->enqueue([connection, session, room, lastSeq](std::function<void()> done) {
             // Runs after the load, which is queued ahead of every join.
             if (room->loadState() != vec::Room::LoadState::Loaded) {
                 sendJson(connection, {{"type", "error"},
                                       {"code", "load_failed"},
                                       {"message", "the document can't be opened"}});
                 connection->shutdown(closeLoadFailed, "load_failed");
-            } else {
-                sendJson(connection, {{"type", "joined"}, {"headSeq", room->lastSeq()}});
+                return done();
             }
+
+            json reply = {{"type", "joined"}, {"headSeq", room->lastSeq()}};
+            if (const auto missed = room->opsSince(lastSeq)) {
+                json ops = json::array();
+                for (const vec::RecentOp& recent : *missed) {
+                    ops.push_back({{"seq", recent.seq}, {"userId", recent.userId}, {"op", recent.op}});
+                }
+                reply["ops"] = std::move(ops);
+            } else {
+                // Too far behind, or claiming to be ahead: start over from the whole drawing.
+                reply["snapshot"] = vec::diagramToJson(room->diagram());
+            }
+            sendJson(connection, reply);
+            room->markJoined(session->id);
             done();
         });
         if (!queued)
@@ -195,15 +210,15 @@ void DocSocket::handleOp(const WebSocketConnectionPtr& connection, const std::sh
     if (session->role < vec::Role::Editor) return reject("forbidden", "viewers can't edit");
     const auto room = session->room();
     room->loop()->queueInLoop([this, room, op, connection, session] {
-        OpSender sender{session->id, session->userId,
-                        [weak = std::weak_ptr(connection)](const std::string& message) {
-                            if (const auto open = weak.lock()) open->send(message);
-                        }};
+        vec::OpSender sender{session->id, session->userId,
+                             [weak = std::weak_ptr(connection)](const std::string& message) {
+                                 if (const auto open = weak.lock()) open->send(message);
+                             }};
         const bool queued =
             room->enqueue([this, room, op, sender,
                            queuedAt = std::chrono::steady_clock::now()](std::function<void()> done) {
                 drogon::async_run([this, room, op, sender, queuedAt, done]() -> drogon::Task<> {
-                    co_await processOp(database_, room, sender, op, queuedAt);
+                    co_await vec::processOp(database_, room, sender, op, queuedAt);
                     done();
                 });
             });
@@ -238,7 +253,7 @@ void DocSocket::handleNewMessage(const WebSocketConnectionPtr& connection, std::
     }
     if (std::holds_alternative<vec::PingMessage>(*parsed)) return sendJson(connection, {{"type", "pong"}});
     if (const auto* op = std::get_if<vec::OpMessage>(&*parsed)) return handleOp(connection, session, *op);
-    handleJoin(connection, session);
+    handleJoin(connection, session, std::get<vec::JoinMessage>(*parsed).lastSeq);
 }
 
 void DocSocket::handleConnectionClosed(const WebSocketConnectionPtr& connection) {

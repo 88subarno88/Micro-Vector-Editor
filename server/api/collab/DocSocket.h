@@ -23,8 +23,12 @@ struct DocSession;
 // member loads the room's drawing from the database.
 //
 // Then the client sends messages (see collab/Messages.h):
-//   {"type": "join", "lastSeq": N} -> {"type": "joined", "headSeq": ...} once the drawing is loaded, or
-//                                     {"type": "error", "code": "load_failed"} and close 1011
+//   {"type": "join", "lastSeq": N} -> once the drawing is loaded, {"type": "joined", "headSeq": H} with
+//                                     either "ops": [{"seq", "userId", "op"}] for every op after N, or,
+//                                     when the room no longer has them all, "snapshot": the whole drawing
+//                                     at H. Ops are broadcast to a connection only after this, from H+1.
+//                                     {"type": "error", "code": "load_failed"} and close 1011 if the
+//                                     drawing can't be loaded
 //   {"type": "ping"}               -> {"type": "pong"}
 //   {"type": "op", ...}            -> {"type": "reject", "clientOpId", "reason", "message"}, reason
 //                                     bad_op for an op that can't be decoded, or forbidden for a viewer
@@ -54,7 +58,7 @@ private:
                   const std::shared_ptr<DocSession>& session);
     void loadRoom(const std::shared_ptr<vec::Room>& room);
     void handleJoin(const drogon::WebSocketConnectionPtr& connection,
-                    const std::shared_ptr<DocSession>& session);
+                    const std::shared_ptr<DocSession>& session, int64_t lastSeq);
     void handleOp(const drogon::WebSocketConnectionPtr& connection,
                   const std::shared_ptr<DocSession>& session, const vec::OpMessage& op);
     void leaveRoom(const std::shared_ptr<DocSession>& session);

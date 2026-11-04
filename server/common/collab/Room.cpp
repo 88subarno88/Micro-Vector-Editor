@@ -36,14 +36,35 @@ void Room::finishLoad(Diagram diagram, int64_t lastSeq) {
     assertOnLoop();
     diagram_ = std::move(diagram);
     lastSeq_ = lastSeq;
+    recentOps_.clear();
     loadState_ = LoadState::Loaded;
 }
 
-bool Room::applyCommitted(const Operation& op, int64_t seq) {
+bool Room::applyCommitted(const Operation& op, int64_t seq, const std::string& userId) {
     assertOnLoop();
     if (seq != lastSeq_ + 1 || !vec::apply(diagram_, op)) return false;
     lastSeq_ = seq;
+    recentOps_.push_back({seq, userId, op});
+    if (recentOps_.size() > maxRecentOps) recentOps_.pop_front();
     return true;
+}
+
+std::optional<std::vector<RecentOp>> Room::opsSince(int64_t seq) const {
+    assertOnLoop();
+    if (seq > lastSeq_) return std::nullopt;
+    if (seq == lastSeq_) return std::vector<RecentOp>{};
+    // The oldest remembered op must be the very next one the caller needs.
+    if (recentOps_.empty() || recentOps_.front().seq > seq + 1) return std::nullopt;
+    std::vector<RecentOp> ops;
+    for (const RecentOp& recent : recentOps_) {
+        if (recent.seq > seq) ops.push_back(recent);
+    }
+    return ops;
+}
+
+void Room::markJoined(SessionId session) {
+    assertOnLoop();
+    if (const auto it = members_.find(session); it != members_.end()) it->second.joined = true;
 }
 
 void Room::failLoad() {
@@ -84,7 +105,7 @@ void Room::runNextTask() {
 void Room::broadcast(const std::string& message, std::optional<SessionId> skip) const {
     assertOnLoop();
     for (const auto& [session, member] : members_) {
-        if (session != skip) member.send(message);
+        if (member.joined && session != skip) member.send(message);
     }
 }
 

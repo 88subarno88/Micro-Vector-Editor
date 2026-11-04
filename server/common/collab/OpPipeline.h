@@ -1,5 +1,5 @@
-#ifndef OP_PIPELINE_H
-#define OP_PIPELINE_H
+#ifndef SERVER_OP_PIPELINE_H
+#define SERVER_OP_PIPELINE_H
 
 #include <drogon/orm/DbClient.h>
 #include <drogon/utils/coroutine.h>
@@ -12,9 +12,11 @@
 #include "collab/Messages.h"
 #include "collab/Room.h"
 
+namespace vec {
+
 // Who sent an op, and how to answer them.
 struct OpSender {
-    vec::SessionId session = 0;
+    SessionId session = 0;
     std::string userId;
     std::function<void(const std::string&)> send;
 };
@@ -28,7 +30,9 @@ struct OpSender {
 // hasn't seen. A retry of a stored op (same clientOpId) gets the original ack. Never throws.
 // Logs "op timing" with the microseconds spent in each stage, from `queuedAt`, when the op entered the
 // room's queue.
-drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec::Room> room, OpSender sender,
-                         vec::OpMessage op, std::chrono::steady_clock::time_point queuedAt);
+drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<Room> room, OpSender sender,
+                         OpMessage op, std::chrono::steady_clock::time_point queuedAt);
 
-#endif  // OP_PIPELINE_H
+}  // namespace vec
+
+#endif  // SERVER_OP_PIPELINE_H

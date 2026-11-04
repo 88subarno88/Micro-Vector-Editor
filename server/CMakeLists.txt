@@ -1,6 +1,6 @@
 find_package(Drogon CONFIG REQUIRED)
 
-add_library(vec_server_common common/auth/Access.cpp common/auth/AccessToken.cpp common/auth/Credentials.cpp common/auth/Password.cpp common/auth/RefreshToken.cpp common/collab/LoadDrawing.cpp common/collab/Messages.cpp common/collab/Room.cpp common/config/Config.cpp common/db/Models.cpp common/db/DocRepo.cpp common/db/OpRepo.cpp common/db/RefreshTokenRepo.cpp common/db/UserRepo.cpp common/docs/Title.cpp common/limits/RateWindow.cpp
+add_library(vec_server_common common/auth/Access.cpp common/auth/AccessToken.cpp common/auth/Credentials.cpp common/auth/Password.cpp common/auth/RefreshToken.cpp common/collab/LoadDrawing.cpp common/collab/Messages.cpp common/collab/OpPipeline.cpp common/collab/Room.cpp common/config/Config.cpp common/db/Models.cpp common/db/DocRepo.cpp common/db/OpRepo.cpp common/db/RefreshTokenRepo.cpp common/db/UserRepo.cpp common/docs/Title.cpp common/limits/RateWindow.cpp
     common/logging/Log.cpp)
 target_include_directories(vec_server_common PUBLIC common)
 find_package(tl-expected CONFIG REQUIRED)
@@ -13,7 +13,7 @@ set_target_properties(vec_server_common PROPERTIES CXX_STANDARD 20)
 target_compile_options(vec_server_common PRIVATE -Wall -Wextra -pedantic)
 
 add_executable(vec_api api/main.cpp api/ApiResponse.cpp api/AuthFilter.cpp api/AuthRoutes.cpp api/DocRoutes.cpp api/HealthRoutes.cpp api/RateLimitFilter.cpp api/Routes.cpp
-    api/RequestLogging.cpp api/collab/DocSocket.cpp api/collab/OpPipeline.cpp)
+    api/RequestLogging.cpp api/collab/DocSocket.cpp)
 target_include_directories(vec_api PRIVATE api)
 target_link_libraries(vec_api PRIVATE vec_core vec_server_common Drogon::Drogon)
 set_target_properties(vec_api PROPERTIES

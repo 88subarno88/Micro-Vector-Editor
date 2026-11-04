@@ -71,7 +71,9 @@ TEST_F(RoomTest, BroadcastReachesEveryMember) {
         Room room("doc", loop());
         Inbox a, b;
         room.join(1, a.member("ann"));
+        room.markJoined(1);
         room.join(2, b.member("bob"));
+        room.markJoined(2);
 
         room.broadcast("hello");
 
@@ -85,7 +87,9 @@ TEST_F(RoomTest, BroadcastCanSkipTheSender) {
         Room room("doc", loop());
         Inbox a, b;
         room.join(1, a.member("ann"));
+        room.markJoined(1);
         room.join(2, b.member("bob"));
+        room.markJoined(2);
 
         room.broadcast("from ann", 1);
 
@@ -99,7 +103,9 @@ TEST_F(RoomTest, OneUserCanHaveSeveralSessions) {
         Room room("doc", loop());
         Inbox laptop, phone;
         room.join(1, laptop.member("ann"));
+        room.markJoined(1);
         room.join(2, phone.member("ann"));
+        room.markJoined(2);
 
         room.broadcast("x");
 
@@ -114,7 +120,9 @@ TEST_F(RoomTest, LeftMembersGetNothing) {
         Room room("doc", loop());
         Inbox a, b;
         room.join(1, a.member("ann"));
+        room.markJoined(1);
         room.join(2, b.member("bob"));
+        room.markJoined(2);
 
         room.leave(1);
         room.leave(99);  // unknown: ignored
@@ -178,7 +186,9 @@ TEST_F(RoomTest, LeavingReturnsATokenOnlyWhenTheRoomEmpties) {
         Room room("doc", loop());
         Inbox a, b;
         room.join(1, a.member("ann"));
+        room.markJoined(1);
         room.join(2, b.member("bob"));
+        room.markJoined(2);
 
         EXPECT_EQ(room.leave(1), std::nullopt);
         EXPECT_TRUE(room.leave(2));
@@ -191,6 +201,7 @@ TEST_F(RoomTest, AnEmptyRoomUnloadsAndRefusesJoins) {
         Room room("doc", loop());
         Inbox a;
         room.join(1, a.member("ann"));
+        room.markJoined(1);
         const auto token = room.leave(1);
 
         EXPECT_TRUE(room.unloadIfStillEmpty(*token));
@@ -204,8 +215,10 @@ TEST_F(RoomTest, SomeoneJoiningCancelsAnUnloadThatWasDue) {
         Room room("doc", loop());
         Inbox a;
         room.join(1, a.member("ann"));
+        room.markJoined(1);
         const auto token = room.leave(1);
         room.join(2, a.member("ann"));
+        room.markJoined(2);
 
         EXPECT_FALSE(room.unloadIfStillEmpty(*token));
         EXPECT_EQ(room.memberCount(), 1u);
@@ -218,8 +231,10 @@ TEST_F(RoomTest, OnlyTheLatestEmptyingCanUnload) {
         Room room("doc", loop());
         Inbox a;
         room.join(1, a.member("ann"));
+        room.markJoined(1);
         const auto first = room.leave(1);
         room.join(2, a.member("ann"));
+        room.markJoined(2);
         const auto second = room.leave(2);
 
         EXPECT_FALSE(room.unloadIfStillEmpty(*first));
@@ -425,9 +440,9 @@ TEST_F(RoomTest, ApplyCommittedAdvancesInOrderOnly) {
         room.finishLoad(Diagram(), 5);
         const Operation add = AddShape{"a", {RectGeom{0, 0, 1, 1}, {}}, std::nullopt};
 
-        EXPECT_FALSE(room.applyCommitted(add, 7));  // skips 6
-        EXPECT_FALSE(room.applyCommitted(add, 5));  // already applied
-        EXPECT_TRUE(room.applyCommitted(add, 6));
+        EXPECT_FALSE(room.applyCommitted(add, 7, "u"));  // skips 6
+        EXPECT_FALSE(room.applyCommitted(add, 5, "u"));  // already applied
+        EXPECT_TRUE(room.applyCommitted(add, 6, "u"));
         EXPECT_EQ(room.lastSeq(), 6);
         EXPECT_EQ(room.diagram().getObjectCount(), 1);
     });
@@ -438,7 +453,74 @@ TEST_F(RoomTest, ApplyCommittedRefusesAnOpThatDoesNotApply) {
         Room room("doc", loop());
         room.finishLoad(Diagram(), 0);
 
-        EXPECT_FALSE(room.applyCommitted(Move{"missing", 1, 1}, 1));
+        EXPECT_FALSE(room.applyCommitted(Move{"missing", 1, 1}, 1, "u"));
         EXPECT_EQ(room.lastSeq(), 0);
+    });
+}
+
+namespace {
+
+// A loaded room at seq 0 with one shape, "a", that `moves` ops have each moved by 1.
+void moveRepeatedly(Room& room, int moves) {
+    auto shape = std::make_unique<Rectangle>(0, 0, 1, 1);
+    shape->setId("a");  // before adding: the diagram indexes shapes by id
+    Diagram diagram;
+    diagram.addObject(std::move(shape));
+    room.finishLoad(std::move(diagram), 0);
+    for (int i = 1; i <= moves; ++i) ASSERT_TRUE(room.applyCommitted(Move{"a", 1, 0}, i, "u"));
+}
+
+}  // namespace
+
+TEST_F(RoomTest, OpsSinceReturnsWhatTheCallerMissed) {
+    onLoop([&] {
+        Room room("doc", loop());
+        moveRepeatedly(room, 5);
+
+        const auto missed = room.opsSince(2);
+        ASSERT_TRUE(missed);
+        ASSERT_EQ(missed->size(), 3u);
+        EXPECT_EQ((*missed)[0].seq, 3);
+        EXPECT_EQ((*missed)[2].seq, 5);
+        EXPECT_EQ((*missed)[0].userId, "u");
+        EXPECT_TRUE(room.opsSince(5)->empty());
+        EXPECT_EQ(room.opsSince(0)->size(), 5u);
+    });
+}
+
+TEST_F(RoomTest, OpsSinceGivesUpWhenTooFarBehindOrAhead) {
+    onLoop([&] {
+        Room room("doc", loop());
+        moveRepeatedly(room, static_cast<int>(Room::maxRecentOps) + 10);
+
+        EXPECT_EQ(room.opsSince(5), std::nullopt);  // forgotten
+        EXPECT_EQ(room.opsSince(10)->size(), Room::maxRecentOps);
+        EXPECT_EQ(room.opsSince(room.lastSeq() + 1), std::nullopt);  // ahead of the room
+    });
+}
+
+TEST_F(RoomTest, OpsBeforeTheLoadAreNotRemembered) {
+    onLoop([&] {
+        Room room("doc", loop());
+        room.finishLoad(Diagram(), 50);
+
+        EXPECT_EQ(room.opsSince(40), std::nullopt);
+        EXPECT_TRUE(room.opsSince(50)->empty());
+    });
+}
+
+TEST_F(RoomTest, OnlyJoinedMembersGetBroadcasts) {
+    onLoop([&] {
+        Room room("doc", loop());
+        Inbox a, b;
+        room.join(1, a.member("ann"));
+        room.markJoined(1);
+        room.join(2, b.member("bob"));
+        room.markJoined(1);
+
+        room.broadcast("x");
+
+        EXPECT_EQ(a.messages.size(), 1u);
+        EXPECT_TRUE(b.messages.empty());
     });
 }

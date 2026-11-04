@@ -22,9 +22,17 @@ namespace vec {
 struct RoomMember {
     std::string userId;
     std::function<void(const std::string&)> send;  // thread-safe: Drogon queues it onto the connection
+    bool joined = false;                           // receives broadcasts; see Room::markJoined
 };
 
 using SessionId = uint64_t;
+
+// An op the room applied, kept for members who rejoin a little behind.
+struct RecentOp {
+    int64_t seq = 0;
+    std::string userId;
+    Operation op;
+};
 
 // Everything live about one open document: its drawing, how far into the op log that drawing is, and
 // who is connected. A room is pinned to one event loop, and all of its state is only touched on that
@@ -64,9 +72,15 @@ public:
     void finishLoad(Diagram diagram, int64_t lastSeq);
     void failLoad();
 
-    // Applies an op already committed to the log at `seq`, the next one after lastSeq(), and advances
-    // lastSeq(). False, changing nothing, if `seq` isn't the next one or the op doesn't apply.
-    bool applyCommitted(const Operation& op, int64_t seq);
+    // Applies an op already committed to the log at `seq` by `userId`, the next one after lastSeq(), and
+    // advances lastSeq(). False, changing nothing, if `seq` isn't the next one or the op doesn't apply.
+    bool applyCommitted(const Operation& op, int64_t seq, const std::string& userId);
+
+    // The ops after `seq`, oldest first, if the room still remembers all of them: it keeps the last
+    // maxRecentOps it applied, but none from before it loaded. nullopt otherwise, and for a `seq` ahead of
+    // lastSeq(): send the whole drawing instead.
+    static constexpr size_t maxRecentOps = 200;
+    std::optional<std::vector<RecentOp>> opsSince(int64_t seq) const;
 
     // One piece of work that must not overlap any other, such as handling an op: it may finish later,
     // on any thread, by calling `done` (once; further calls are ignored).
@@ -82,7 +96,11 @@ public:
         return pending_.size();
     }
 
-    // Sends `message` to every member, except `skip` if given.
+    // Marks a member as caught up: from now on broadcasts reach it. Until then it gets none, so that the
+    // replay sent with its join can't overlap or miss an op.
+    void markJoined(SessionId session);
+
+    // Sends `message` to every joined member, except `skip` if given.
     void broadcast(const std::string& message, std::optional<SessionId> skip = std::nullopt) const;
 
     size_t memberCount() const {
@@ -111,6 +129,7 @@ private:
     uint64_t emptiedCount_ = 0;  // increases each time the room becomes empty
     bool unloaded_ = false;
     std::deque<Task> pending_;
+    std::deque<RecentOp> recentOps_;
     bool taskRunning_ = false;
 
     void runNextTask();
