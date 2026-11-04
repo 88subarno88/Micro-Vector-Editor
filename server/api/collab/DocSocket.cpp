@@ -4,12 +4,15 @@
 
 #include <atomic>
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <variant>
 
 #include "collab/LoadDrawing.h"
+#include "collab/Messages.h"
 #include "db/DocRepo.h"
 #include "logging/Log.h"
 
@@ -22,6 +25,7 @@ namespace {
 // Application close codes live in 4000-4999; these echo the HTTP statuses they stand for.
 constexpr auto closeUnauthorized = static_cast<CloseCode>(4401);
 constexpr auto closeNotFound = static_cast<CloseCode>(4404);
+constexpr auto closeLoadFailed = CloseCode::kUnexpectedCondition;  // 1011, a server-side failure
 
 constexpr std::string_view pathPrefix = "/ws/docs/";
 
@@ -100,42 +104,68 @@ void DocSocket::joinRoom(const WebSocketConnectionPtr& connection,
 
         vec::logInfo("joined room", {},
                      {{"document", session->documentId}, {"members", room->memberCount()}});
+        // Queued first, so that every join message waits for the drawing.
         if (result == vec::Room::JoinResult::JoinedAndMustLoad) loadRoom(room);
         sendJson(connection, {{"type", "ready"}, {"role", vec::toString(session->role)}});
     });
 }
 
 void DocSocket::loadRoom(const std::shared_ptr<vec::Room>& room) {
-    drogon::async_run([this, room]() -> drogon::Task<> {
-        const auto started = std::chrono::steady_clock::now();
-        std::shared_ptr<vec::LoadedDrawing> loaded;
-        std::string error;
-        try {
-            auto result = co_await vec::loadDrawing(database_, room->documentId());
-            if (result)
-                loaded = std::make_shared<vec::LoadedDrawing>(std::move(*result));
-            else
-                error = result.error();
-        } catch (const std::exception& e) {
-            error = e.what();
-        }
-        const auto millis =
-            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started)
-                .count();
-
-        room->loop()->queueInLoop([room, loaded, error, millis] {
-            if (!loaded) {
-                room->failLoad();
-                vec::logError("room load failed", {}, {{"document", room->documentId()}, {"error", error}});
-                return;
+    room->enqueue([this, room](std::function<void()> done) {
+        drogon::async_run([this, room, done]() -> drogon::Task<> {
+            const auto started = std::chrono::steady_clock::now();
+            std::shared_ptr<vec::LoadedDrawing> loaded;
+            std::string error;
+            try {
+                auto result = co_await vec::loadDrawing(database_, room->documentId());
+                if (result)
+                    loaded = std::make_shared<vec::LoadedDrawing>(std::move(*result));
+                else
+                    error = result.error();
+            } catch (const std::exception& e) {
+                error = e.what();
             }
-            room->finishLoad(std::move(loaded->diagram), loaded->lastSeq);
-            vec::logInfo("loaded room", {},
-                         {{"document", room->documentId()},
-                          {"lastSeq", room->lastSeq()},
-                          {"shapes", room->diagram().getObjectCount()},
-                          {"ms", millis}});
+            const auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    std::chrono::steady_clock::now() - started)
+                                    .count();
+
+            room->loop()->queueInLoop([room, loaded, error, millis, done] {
+                if (loaded) {
+                    room->finishLoad(std::move(loaded->diagram), loaded->lastSeq);
+                    vec::logInfo("loaded room", {},
+                                 {{"document", room->documentId()},
+                                  {"lastSeq", room->lastSeq()},
+                                  {"shapes", room->diagram().getObjectCount()},
+                                  {"ms", millis}});
+                } else {
+                    room->failLoad();
+                    vec::logError("room load failed", {},
+                                  {{"document", room->documentId()}, {"error", error}});
+                }
+                done();
+            });
         });
+    });
+}
+
+void DocSocket::handleJoin(const WebSocketConnectionPtr& connection,
+                           const std::shared_ptr<DocSession>& session) {
+    const auto room = session->room();
+    room->loop()->queueInLoop([connection, room] {
+        const bool queued = room->enqueue([connection, room](std::function<void()> done) {
+            // Runs after the load, which is queued ahead of every join.
+            if (room->loadState() != vec::Room::LoadState::Loaded) {
+                sendJson(connection, {{"type", "error"},
+                                      {"code", "load_failed"},
+                                      {"message", "the document can't be opened"}});
+                connection->shutdown(closeLoadFailed, "load_failed");
+            } else {
+                sendJson(connection, {{"type", "joined"}, {"headSeq", room->lastSeq()}});
+            }
+            done();
+        });
+        if (!queued)
+            sendJson(connection, {{"type", "error"}, {"code", "busy"}, {"message", "try again shortly"}});
     });
 }
 
@@ -161,7 +191,14 @@ void DocSocket::handleNewMessage(const WebSocketConnectionPtr& connection, std::
     if (!session || !session->ready) {
         return sendJson(connection, {{"type", "error"}, {"code", "not_ready"}});
     }
-    connection->send(message);
+    const auto parsed = vec::parseClientMessage(message);
+    if (!parsed) {
+        return sendJson(
+            connection,
+            {{"type", "error"}, {"code", parsed.error().code}, {"message", parsed.error().message}});
+    }
+    if (std::holds_alternative<vec::PingMessage>(*parsed)) return sendJson(connection, {{"type", "pong"}});
+    handleJoin(connection, session);
 }
 
 void DocSocket::handleConnectionClosed(const WebSocketConnectionPtr& connection) {

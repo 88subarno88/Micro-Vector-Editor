@@ -1,8 +1,13 @@
 #include "collab/Room.h"
 
+#include <atomic>
+
+#include "logging/Log.h"
+
 namespace vec {
 
 Room::JoinResult Room::join(SessionId session, RoomMember member) {
+    assertOnLoop();
     if (unloaded_) return JoinResult::Unloaded;
     members_.insert_or_assign(session, std::move(member));
     if (loadState_ == LoadState::NotLoaded || loadState_ == LoadState::Failed) {
@@ -13,25 +18,63 @@ Room::JoinResult Room::join(SessionId session, RoomMember member) {
 }
 
 std::optional<uint64_t> Room::leave(SessionId session) {
+    assertOnLoop();
     if (members_.erase(session) == 0 || !members_.empty()) return std::nullopt;
     return ++emptiedCount_;
 }
 
 bool Room::unloadIfStillEmpty(uint64_t token) {
-    if (!members_.empty() || token != emptiedCount_ || unloaded_) return false;
+    assertOnLoop();
+    if (!members_.empty() || token != emptiedCount_ || unloaded_ || taskRunning_ || !pending_.empty())
+        return false;
     unloaded_ = true;
     return true;
 }
 
 void Room::finishLoad(Diagram diagram, int64_t lastSeq) {
+    assertOnLoop();
     diagram_ = std::move(diagram);
     lastSeq_ = lastSeq;
     loadState_ = LoadState::Loaded;
 }
 
-void Room::failLoad() { loadState_ = LoadState::Failed; }
+void Room::failLoad() {
+    assertOnLoop();
+    loadState_ = LoadState::Failed;
+}
+
+bool Room::enqueue(Task task) {
+    assertOnLoop();
+    if (pending_.size() >= maxQueuedTasks) return false;
+    pending_.push_back(std::move(task));
+    runNextTask();
+    return true;
+}
+
+void Room::runNextTask() {
+    if (taskRunning_ || pending_.empty()) return;
+    taskRunning_ = true;
+    Task task = std::move(pending_.front());
+    pending_.pop_front();
+
+    auto finished = std::make_shared<std::atomic<bool>>(false);
+    auto done = [self = shared_from_this(), finished] {
+        if (finished->exchange(true)) return;
+        self->loop_->queueInLoop([self] {
+            self->taskRunning_ = false;
+            self->runNextTask();
+        });
+    };
+    try {
+        task(done);
+    } catch (const std::exception& e) {
+        logError("room task threw", {}, {{"document", documentId_}, {"error", e.what()}});
+        done();
+    }
+}
 
 void Room::broadcast(const std::string& message, std::optional<SessionId> skip) const {
+    assertOnLoop();
     for (const auto& [session, member] : members_) {
         if (session != skip) member.send(message);
     }

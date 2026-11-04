@@ -1,6 +1,6 @@
 find_package(Drogon CONFIG REQUIRED)
 
-add_library(vec_server_common common/auth/Access.cpp common/auth/AccessToken.cpp common/auth/Credentials.cpp common/auth/Password.cpp common/auth/RefreshToken.cpp common/collab/LoadDrawing.cpp common/collab/Room.cpp common/config/Config.cpp common/db/Models.cpp common/db/DocRepo.cpp common/db/OpRepo.cpp common/db/RefreshTokenRepo.cpp common/db/UserRepo.cpp common/docs/Title.cpp common/limits/RateWindow.cpp
+add_library(vec_server_common common/auth/Access.cpp common/auth/AccessToken.cpp common/auth/Credentials.cpp common/auth/Password.cpp common/auth/RefreshToken.cpp common/collab/LoadDrawing.cpp common/collab/Messages.cpp common/collab/Room.cpp common/config/Config.cpp common/db/Models.cpp common/db/DocRepo.cpp common/db/OpRepo.cpp common/db/RefreshTokenRepo.cpp common/db/UserRepo.cpp common/docs/Title.cpp common/limits/RateWindow.cpp
     common/logging/Log.cpp)
 target_include_directories(vec_server_common PUBLIC common)
 find_package(tl-expected CONFIG REQUIRED)

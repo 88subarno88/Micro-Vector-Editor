@@ -19,7 +19,13 @@ struct DocSession;
 // 4401 (bad or expired token) or 4404 (no such document, or not a member). On success it sends
 // {"type": "ready", "role": ...}; anything the client sends before that gets {"type": "error",
 // "code": "not_ready"}. A ready connection is a member of its document's room until it closes; the first
-// member's join loads the room's drawing from the database. For now every later message is echoed back.
+// member loads the room's drawing from the database.
+//
+// Then the client sends messages (see collab/Messages.h):
+//   {"type": "join", "lastSeq": N} -> {"type": "joined", "headSeq": ...} once the drawing is loaded, or
+//                                     {"type": "error", "code": "load_failed"} and close 1011
+//   {"type": "ping"}               -> {"type": "pong"}
+// Anything malformed gets {"type": "error", "code": "bad_message" or "unknown_type", "message": ...}.
 class DocSocket : public drogon::WebSocketController<DocSocket, false> {
 public:
     // A room is unloaded `unloadDelay` after its last member leaves, unless someone joins again first.
@@ -44,6 +50,8 @@ private:
     void joinRoom(const drogon::WebSocketConnectionPtr& connection,
                   const std::shared_ptr<DocSession>& session);
     void loadRoom(const std::shared_ptr<vec::Room>& room);
+    void handleJoin(const drogon::WebSocketConnectionPtr& connection,
+                    const std::shared_ptr<DocSession>& session);
     void leaveRoom(const std::shared_ptr<DocSession>& session);
 
     vec::AccessTokens tokens_;

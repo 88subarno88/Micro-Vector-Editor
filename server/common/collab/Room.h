@@ -4,7 +4,9 @@
 #include <trantor/net/EventLoop.h>
 
 #include <cstdint>
+#include <deque>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -25,8 +27,9 @@ using SessionId = uint64_t;
 
 // Everything live about one open document: its drawing, how far into the op log that drawing is, and
 // who is connected. A room is pinned to one event loop, and all of its state is only touched on that
-// loop's thread, so it needs no locks: post work to it with loop()->queueInLoop.
-class Room {
+// loop's thread, so it needs no locks: post work to it with loop()->queueInLoop. Every method except
+// documentId() and loop() checks that it's on that thread.
+class Room : public std::enable_shared_from_this<Room> {
 public:
     Room(std::string documentId, trantor::EventLoop* loop)
         : documentId_(std::move(documentId)), loop_(loop) {}
@@ -45,25 +48,55 @@ public:
     // emptying can unload it: someone may join and leave again before the first unload is due.
     std::optional<uint64_t> leave(SessionId session);
 
-    // Marks the room unloaded if it's still empty since `token`; true if it did. Joins then fail.
+    // Marks the room unloaded if it's still empty since `token` and has no task running or waiting; true
+    // if it did. Joins then fail.
     bool unloadIfStillEmpty(uint64_t token);
 
     enum class LoadState { NotLoaded, Loading, Loaded, Failed };
-    LoadState loadState() const { return loadState_; }
+    LoadState loadState() const {
+        assertOnLoop();
+        return loadState_;
+    }
 
     // Installs the drawing loaded for the first join, at `lastSeq` in the op log, or records a failure so
     // that the next join tries again.
     void finishLoad(Diagram diagram, int64_t lastSeq);
     void failLoad();
 
+    // One piece of work that must not overlap any other, such as handling an op: it may finish later,
+    // on any thread, by calling `done` (once; further calls are ignored).
+    using Task = std::function<void(std::function<void()> done)>;
+    static constexpr size_t maxQueuedTasks = 1000;
+
+    // Runs tasks one at a time, in order: the next starts only after the current one calls `done`, so
+    // a task that waits on the database still can't interleave with the next. False, dropping the task,
+    // if maxQueuedTasks are already waiting. Keeps the room alive until the task is done.
+    bool enqueue(Task task);
+    size_t queuedTasks() const {
+        assertOnLoop();
+        return pending_.size();
+    }
+
     // Sends `message` to every member, except `skip` if given.
     void broadcast(const std::string& message, std::optional<SessionId> skip = std::nullopt) const;
 
-    size_t memberCount() const { return members_.size(); }
-    Diagram& diagram() { return diagram_; }
-    int64_t lastSeq() const { return lastSeq_; }
+    size_t memberCount() const {
+        assertOnLoop();
+        return members_.size();
+    }
+    Diagram& diagram() {
+        assertOnLoop();
+        return diagram_;
+    }
+    int64_t lastSeq() const {
+        assertOnLoop();
+        return lastSeq_;
+    }
 
 private:
+    // Aborts, in every build, if called from another thread: that would be a data race on the room.
+    void assertOnLoop() const { loop_->assertInLoopThread(); }
+
     std::string documentId_;
     trantor::EventLoop* loop_;
     Diagram diagram_;
@@ -72,6 +105,10 @@ private:
     LoadState loadState_ = LoadState::NotLoaded;
     uint64_t emptiedCount_ = 0;  // increases each time the room becomes empty
     bool unloaded_ = false;
+    std::deque<Task> pending_;
+    bool taskRunning_ = false;
+
+    void runNextTask();
 };
 
 // Finds or creates the room for a document. Rooms are spread over `loopCount` loops by a hash of the
