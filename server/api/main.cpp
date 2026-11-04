@@ -16,6 +16,7 @@
 #include "ApiResponse.h"
 #include "AuthFilter.h"
 #include "AuthRoutes.h"
+#include "DocRoutes.h"
 #include "HealthRoutes.h"
 #include "RateLimitFilter.h"
 #include "RequestLogging.h"
@@ -80,6 +81,7 @@ int main() {
     drogon::app().registerFilter(
         std::make_shared<RateLimitFilter>(redis, "auth", authRequestsPerMinute, std::chrono::minutes(1)));
     registerAuthRoutes(database, hashing, tokens);
+    registerDocRoutes(database);
 
     // An exception from a handler, such as a lost database connection: logged, never shown to the client.
     drogon::app().setExceptionHandler([](const std::exception& e, const drogon::HttpRequestPtr& request,

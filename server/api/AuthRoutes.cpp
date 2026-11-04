@@ -12,6 +12,7 @@
 #include "ApiResponse.h"
 #include "AuthFilter.h"
 #include "RequestLogging.h"
+#include "Routes.h"
 #include "auth/AccessToken.h"
 #include "auth/Credentials.h"
 #include "auth/Password.h"
@@ -177,7 +178,7 @@ void registerAuthRoutes(const drogon::orm::DbClientPtr& database,
         },
         {drogon::Post, "RateLimitFilter"});
 
-    drogon::app().registerHandler(
+    registerProtected(
         "/api/me",
         [database](HttpRequestPtr request) -> drogon::Task<HttpResponsePtr> {
             const auto user = co_await vec::UserRepo(database).findById(userIdOf(request));
@@ -186,5 +187,5 @@ void registerAuthRoutes(const drogon::orm::DbClientPtr& database,
             co_return jsonResponse(
                 drogon::k200OK, {{"id", user->id}, {"email", user->email}, {"createdAt", user->createdAt}});
         },
-        {drogon::Get, "AuthFilter"});
+        drogon::Get);
 }
