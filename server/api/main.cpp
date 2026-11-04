@@ -30,6 +30,7 @@ constexpr size_t redisConnections = 2;
 constexpr size_t passwordHashingThreads = 2;
 constexpr int authRequestsPerMinute = 10;
 constexpr double redisTimeoutSeconds = 1.0;
+constexpr size_t maxRequestBodyBytes = 1024 * 1024;
 
 // Drogon's Redis client takes an address, not a hostname.
 std::optional<trantor::InetAddress> resolve(const vec::RedisEndpoint& redis) {
@@ -82,6 +83,8 @@ int main() {
         std::make_shared<RateLimitFilter>(redis, "auth", authRequestsPerMinute, std::chrono::minutes(1)));
     registerAuthRoutes(database, hashing, tokens);
     registerDocRoutes(database);
+    // The largest body any route accepts, an SVG upload included. Drogon answers bigger ones with 413.
+    drogon::app().setClientMaxBodySize(maxRequestBodyBytes);
 
     // An exception from a handler, such as a lost database connection: logged, never shown to the client.
     drogon::app().setExceptionHandler([](const std::exception& e, const drogon::HttpRequestPtr& request,

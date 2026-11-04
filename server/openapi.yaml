@@ -1,0 +1,633 @@
+openapi: 3.1.0
+info:
+  title: Micro-Vector Editor API
+  version: 0.1.0
+  description: |
+    The REST API of the collaborative vector editor. Live editing will happen over a WebSocket,
+    which this file doesn't cover.
+
+    Every error has the same shape, `{"error": {"code": "...", "message": "..."}}`. `code` is stable and
+    meant for programs; `message` is for people and may change.
+
+    Every response carries an `X-Request-Id` header. Send your own to correlate logs; IDs that aren't
+    1 to 64 letters, digits, `.`, `_` or `-` are replaced.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: /
+    description: The server this file is served from
+security:
+  - bearer: []
+tags:
+  - name: health
+    description: Probes for load balancers and orchestrators.
+  - name: auth
+    description: Accounts and sessions. Every route here allows 10 requests per minute per IP.
+  - name: documents
+    description: Drawings and who can see them.
+
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      operationId: healthz
+      summary: The process is running
+      security: []
+      responses:
+        '200':
+          description: Always `ok` while the process can answer.
+          content:
+            text/plain:
+              schema:
+                type: string
+                const: ok
+
+  /readyz:
+    get:
+      tags: [health]
+      operationId: readyz
+      summary: Postgres and Redis are both reachable
+      security: []
+      responses:
+        '200':
+          description: Ready to serve.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+        '503':
+          description: At least one dependency didn't answer within a second or two.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+
+  /api/auth/signup:
+    post:
+      tags: [auth]
+      operationId: signup
+      summary: Create an account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '201':
+          description: Created. Log in to get tokens.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: '`email_taken`. Emails are compared after trimming and lowercasing.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Get an access token and a refresh cookie
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          $ref: '#/components/responses/Tokens'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: >
+            `invalid_credentials`, whether the email is unknown or the password is wrong. Both take the
+            same time, so neither reveals which emails have accounts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refresh
+      summary: Swap the refresh cookie for new tokens
+      description: >
+        The old refresh token stops working. Reusing one more than 10 seconds after it was replaced is
+        treated as theft and ends the whole login.
+      security:
+        - refreshCookie: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Tokens'
+        '401':
+          description: '`invalid_refresh_token`: missing, expired or revoked. The cookie is cleared; log in again.'
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/ClearRefreshCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: End this login
+      description: >
+        Revokes the refresh cookie's token, if there is one. The access token keeps working until it
+        expires, at most 15 minutes later.
+      security:
+        - refreshCookie: []
+        - {}
+      responses:
+        '204':
+          description: Logged out, and the cookie cleared.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/ClearRefreshCookie'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/me:
+    get:
+      tags: [auth]
+      operationId: me
+      summary: The signed-in user
+      responses:
+        '200':
+          description: The user the access token belongs to.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/docs:
+    get:
+      tags: [documents]
+      operationId: listDocuments
+      summary: Documents you are a member of
+      description: Newest first, by creation date. Follow `nextCursor` for the next page.
+      parameters:
+        - name: limit
+          in: query
+          description: Page size, clamped to 1..100.
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: One page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [documents]
+      operationId: createDocument
+      summary: Create a document, empty or from an SVG file
+      description: >
+        Send JSON for an empty document, or an SVG file as the body with `Content-Type: image/svg+xml`
+        to start from its shapes. The parser reads a subset of SVG; anything it doesn't recognise is
+        dropped. Bodies over 1 MB get 413.
+      parameters:
+        - name: title
+          in: query
+          description: The title for an SVG upload.
+          schema:
+            type: string
+            default: Imported drawing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TitleRequest'
+          image/svg+xml:
+            schema:
+              type: string
+      responses:
+        '201':
+          description: Created, owned by you.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          description: '`bad_request`, `invalid_title`, or `invalid_svg` with the line and column of the problem.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: The body is over 1 MB.
+
+  /api/docs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/DocumentId'
+    get:
+      tags: [documents]
+      operationId: getDocument
+      summary: A document and its drawing (viewer)
+      description: >
+        The newest snapshot, then the ops after it, oldest first: apply them to the snapshot to get the
+        current drawing. If there were too many ops to send, `opsComplete` is false.
+      responses:
+        '200':
+          description: The document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentWithDrawing'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [documents]
+      operationId: renameDocument
+      summary: Rename a document (editor)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TitleRequest'
+      responses:
+        '200':
+          description: Renamed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [documents]
+      operationId: deleteDocument
+      summary: Delete a document (owner)
+      description: Deletes its members, ops and snapshots too. This can't be undone.
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/docs/{id}/members:
+    parameters:
+      - $ref: '#/components/parameters/DocumentId'
+    post:
+      tags: [documents]
+      operationId: addMember
+      summary: Share a document (owner)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberRequest'
+      responses:
+        '201':
+          description: Shared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+        '400':
+          description: '`bad_request`, or `invalid_role` for anything but editor or viewer.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: '`not_found` for the document, or `user_not_found` for the email.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: '`already_member`. Their role is left unchanged.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: The access token from login or refresh. It expires after 15 minutes.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+      description: Set by login and refresh. httpOnly, so page scripts can't read it.
+
+  parameters:
+    DocumentId:
+      name: id
+      in: path
+      required: true
+      description: The document's ID.
+      schema:
+        type: string
+        format: uuid
+
+  headers:
+    RefreshCookie:
+      description: '`refresh_token=...; Max-Age=2592000; Path=/api/auth; SameSite=Strict; Secure; HttpOnly`'
+      schema:
+        type: string
+    ClearRefreshCookie:
+      description: '`refresh_token=; Max-Age=0; ...`, which deletes the cookie.'
+      schema:
+        type: string
+
+  responses:
+    Tokens:
+      description: A new access token, and a new refresh token in the cookie.
+      headers:
+        Set-Cookie:
+          $ref: '#/components/headers/RefreshCookie'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Tokens'
+    BadRequest:
+      description: The request was malformed, or a field was invalid. `code` says which.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: >
+        `unauthorized`, or `token_expired` when the access token has expired: refresh it and retry.
+      headers:
+        WWW-Authenticate:
+          description: '`Bearer`'
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: '`forbidden`: you are a member, but your role is too low.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: '`not_found`: no such document, or you are not a member of it.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: '`rate_limited`. Wait the number of seconds in Retry-After.'
+      headers:
+        Retry-After:
+          description: Seconds until the limit resets.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              examples: [invalid_title]
+            message:
+              type: string
+
+    Readiness:
+      type: object
+      required: [status, postgres, redis]
+      properties:
+        status:
+          type: string
+          enum: [ready, unavailable]
+        postgres:
+          type: string
+          enum: [ok, unavailable]
+        redis:
+          type: string
+          enum: [ok, unavailable]
+
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          maxLength: 254
+          description: Trimmed and lowercased before use.
+        password:
+          type: string
+          minLength: 8
+          maxLength: 1024
+          format: password
+          description: Length in bytes.
+
+    Tokens:
+      type: object
+      required: [accessToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+          const: Bearer
+        expiresIn:
+          type: integer
+          description: Seconds until the access token expires.
+          examples: [900]
+
+    User:
+      type: object
+      required: [id, email, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    TitleRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: 1 to 200 bytes after trimming, with no control characters.
+
+    Document:
+      type: object
+      required: [id, ownerId, title, headSeq, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        headSeq:
+          type: integer
+          format: int64
+          description: The sequence number of the latest op.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DocumentPage:
+      type: object
+      required: [documents, nextCursor]
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+        nextCursor:
+          type: [string, 'null']
+          description: Null on the last page.
+
+    Role:
+      type: string
+      enum: [owner, editor, viewer]
+
+    DocumentWithDrawing:
+      type: object
+      required: [document, role, snapshot, ops, opsComplete]
+      properties:
+        document:
+          $ref: '#/components/schemas/Document'
+        role:
+          $ref: '#/components/schemas/Role'
+        snapshot:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [seq, state]
+              properties:
+                seq:
+                  type: integer
+                  format: int64
+                state:
+                  type: object
+                  description: 'The whole drawing: `{"version": 1, "shapes": [{"id", "shape"}, ...]}`.'
+        ops:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpRecord'
+        opsComplete:
+          type: boolean
+
+    OpRecord:
+      type: object
+      required: [seq, userId, clientOpId, op, createdAt]
+      properties:
+        seq:
+          type: integer
+          format: int64
+        userId:
+          type: string
+          format: uuid
+        clientOpId:
+          type: string
+        op:
+          type: object
+          description: 'An operation, such as `{"kind": "move", "id": "s_1", "dx": 1, "dy": 0}`.'
+        createdAt:
+          type: string
+          format: date-time
+
+    MemberRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+        role:
+          type: string
+          enum: [editor, viewer]
+
+    Member:
+      type: object
+      required: [documentId, userId, email, role]
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
