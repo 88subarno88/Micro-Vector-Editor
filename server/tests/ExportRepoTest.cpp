@@ -106,6 +106,26 @@ protected:
         return job ? job->id : "nothing";
     }
 
+    // Lets a job be claimed now, as if its retry delay or lease had passed.
+    void makeDue(const std::string& id) {
+        database->execSqlSync(
+            "UPDATE export_jobs SET run_after = now() - interval '1 second' WHERE id = $1::uuid", id);
+    }
+
+    double secondsUntilRunAfter(const std::string& id) {
+        return database
+            ->execSqlSync(
+                "SELECT extract(epoch FROM run_after - now())::float8 FROM export_jobs WHERE id = $1::uuid",
+                id)[0][0]
+            .as<double>();
+    }
+
+    bool fail(const std::string& id, const std::string& error = "broken") {
+        return drogon::sync_wait(ExportRepo(database).fail(id, error));
+    }
+
+    ExportJob get(const std::string& id) { return *drogon::sync_wait(ExportRepo(database).get(id)); }
+
     // A second connection, for holding a lock while the first claims. Never destroyed, like the first.
     drogon::orm::DbClientPtr otherConnection() {
         static const auto* const client = new drogon::orm::DbClientPtr(
@@ -144,11 +164,12 @@ TEST_F(ExportClaimTest, AJobIsNotClaimedBeforeItsRunAfter) {
     EXPECT_EQ(claimedId(), job.id);
 }
 
-TEST_F(ExportClaimTest, OnlyQueuedJobsAreClaimed) {
+TEST_F(ExportClaimTest, DoneAndFailedJobsAreNeverClaimed) {
     const ExportJob job = enqueue("svg");
     for (const char* status : {"done", "failed"}) {
         database->execSqlSync("UPDATE export_jobs SET status = $1 WHERE id = $2::uuid", std::string(status),
                               job.id);
+        makeDue(job.id);
         EXPECT_EQ(claim(), std::nullopt) << status;
     }
 }
@@ -180,12 +201,78 @@ TEST_F(ExportRepoTest, FinishAndFailChangeOnlyARunningJob) {
     EXPECT_EQ(done->status, "done");
     EXPECT_EQ(done->resultUrl, "/file");
     EXPECT_FALSE(drogon::sync_wait(repo.fail(queued.id, "too late")));  // done stays done
+}
 
-    const ExportJob other = enqueue("png");
-    database->execSqlSync("UPDATE export_jobs SET status = 'running' WHERE id = $1::uuid", other.id);
-    EXPECT_TRUE(drogon::sync_wait(repo.fail(other.id, "broken")));
-    const auto failed = drogon::sync_wait(repo.get(other.id));
-    EXPECT_EQ(failed->status, "failed");
-    EXPECT_EQ(failed->error, "broken");
-    EXPECT_EQ(failed->resultUrl, std::nullopt);
+TEST_F(ExportClaimTest, AClaimStartsALeaseDuringWhichTheJobIsNotClaimedAgain) {
+    const ExportJob job = enqueue("svg");
+    ASSERT_EQ(claimedId(), job.id);
+
+    EXPECT_NEAR(secondsUntilRunAfter(job.id), ExportRepo::lease.count(), 2);
+    EXPECT_EQ(claim(), std::nullopt);
+}
+
+TEST_F(ExportClaimTest, AnAbandonedJobIsClaimedAgainAndTheAttemptCounts) {
+    const ExportJob job = enqueue("svg");
+    ASSERT_EQ(claimedId(), job.id);
+    makeDue(job.id);  // its worker never finished, and the lease ran out
+
+    const auto again = claim();
+    ASSERT_TRUE(again);
+    EXPECT_EQ(again->id, job.id);
+    EXPECT_EQ(again->attempts, 2);
+}
+
+TEST_F(ExportClaimTest, AFailedAttemptIsRetriedAfterADelayThatDoubles) {
+    const ExportJob job = enqueue("svg");
+    ASSERT_EQ(claimedId(), job.id);
+
+    ASSERT_TRUE(fail(job.id, "disk full"));
+    const ExportJob queued = get(job.id);
+    EXPECT_EQ(queued.status, "queued");
+    EXPECT_EQ(queued.error, "disk full");  // why it's being retried
+    EXPECT_NEAR(secondsUntilRunAfter(job.id), 5, 1);
+    EXPECT_EQ(claim(), std::nullopt);  // not before the delay
+
+    makeDue(job.id);
+    ASSERT_EQ(claimedId(), job.id);
+    ASSERT_TRUE(fail(job.id));
+    EXPECT_NEAR(secondsUntilRunAfter(job.id), 10, 1);
+}
+
+TEST_F(ExportClaimTest, AJobFailsForGoodAfterItsLastAttempt) {
+    const ExportJob job = enqueue("svg");
+    for (int attempt = 1; attempt < ExportRepo::maxAttempts; ++attempt) {
+        makeDue(job.id);
+        ASSERT_EQ(claimedId(), job.id);
+        ASSERT_TRUE(fail(job.id));
+        EXPECT_EQ(get(job.id).status, "queued") << attempt;
+    }
+
+    makeDue(job.id);
+    ASSERT_EQ(claimedId(), job.id);
+    ASSERT_TRUE(fail(job.id, "still broken"));
+
+    const ExportJob failed = get(job.id);
+    EXPECT_EQ(failed.status, "failed");
+    EXPECT_EQ(failed.attempts, ExportRepo::maxAttempts);
+    EXPECT_EQ(failed.error, "still broken");
+    makeDue(job.id);
+    EXPECT_EQ(claim(), std::nullopt);
+}
+
+TEST_F(ExportClaimTest, AnAbandonedJobWithNoAttemptsLeftIsFailed) {
+    const ExportJob abandoned = enqueue("svg");
+    const ExportJob working = enqueue("png");
+    database->execSqlSync(
+        "UPDATE export_jobs SET status = 'running', attempts = $1::int, "
+        "run_after = now() + interval '1 hour'",
+        ExportRepo::maxAttempts);
+    makeDue(abandoned.id);  // `working` is still within its lease
+
+    EXPECT_EQ(claim(), std::nullopt);  // out of attempts, so never claimed
+    EXPECT_EQ(drogon::sync_wait(ExportRepo(database).failAbandoned()), 1u);
+
+    EXPECT_EQ(get(abandoned.id).status, "failed");
+    EXPECT_EQ(get(abandoned.id).error, "the export was interrupted");
+    EXPECT_EQ(get(working.id).status, "running");
 }

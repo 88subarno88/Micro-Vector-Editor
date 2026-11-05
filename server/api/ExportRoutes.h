@@ -4,8 +4,9 @@
 #include <drogon/orm/DbClient.h>
 
 // All behind AuthFilter. An export job is {"id", "documentId", "format", "status", "attempts",
-// "resultUrl", "error", "createdAt"}; status is queued, running, done or failed, resultUrl is set once
-// done and error once failed, and both are null until then. A worker does the export.
+// "resultUrl", "error", "createdAt"}; status is queued, running, done or failed. A worker does the export,
+// retrying a failed attempt after 5, 10, 20 and 40 s; after 5 attempts the job is failed. resultUrl is set
+// once done; error is why the latest attempt failed, null until one has.
 //
 // POST /api/docs/{id}/exports {"format": "svg" or "png"} (viewer) -> 202 job, with Location
 // /api/exports/{jobId}. If an export of the document in that format is already queued, that job is

@@ -41,7 +41,10 @@ protected:
 
     ExportJob runningJob(const std::string& format) {
         ExportJob job = drogon::sync_wait(ExportRepo(database).enqueue(document.id, format));
-        database->execSqlSync("UPDATE export_jobs SET status = 'running' WHERE id = $1::uuid", job.id);
+        database->execSqlSync("UPDATE export_jobs SET status = 'running', attempts = 1 WHERE id = $1::uuid",
+                              job.id);
+        job.status = "running";
+        job.attempts = 1;
         return job;
     }
 
@@ -92,26 +95,39 @@ TEST_F(RunExportTest, TheLatestEditsAreExported) {
     EXPECT_EQ(read(exportFilePath(directory, job)).find(R"(id="a")"), std::string::npos);
 }
 
-TEST_F(RunExportTest, ADrawingThatCantBeLoadedFailsTheJob) {
+TEST_F(RunExportTest, ADrawingThatCantBeLoadedIsRetried) {
     storeOp(2, R"({"kind":"move","id":"no-such-shape","dx":1,"dy":0})");
     const ExportJob job = runningJob("svg");
 
     const ExportJob after = run(job);
 
-    EXPECT_EQ(after.status, "failed");
+    EXPECT_EQ(after.status, "queued");
     EXPECT_EQ(after.error, "the drawing couldn't be loaded");
     EXPECT_FALSE(std::filesystem::exists(exportFilePath(directory, job)));
 }
 
-TEST_F(RunExportTest, AFileThatCantBeSavedFailsTheJobAndLeavesNothingBehind) {
+TEST_F(RunExportTest, AFileThatCantBeSavedIsRetriedAndLeavesNothingBehind) {
     const ExportJob job = runningJob("svg");
     std::filesystem::remove_all(directory);  // gone, so nothing can be written there
 
     const ExportJob after = run(job);
 
-    EXPECT_EQ(after.status, "failed");
+    EXPECT_EQ(after.status, "queued");
     EXPECT_EQ(after.error, "the file couldn't be saved");
     EXPECT_EQ(after.resultUrl, std::nullopt);
+}
+
+TEST_F(RunExportTest, AFailureOnTheLastAttemptFailsTheJob) {
+    ExportJob job = runningJob("svg");
+    database->execSqlSync("UPDATE export_jobs SET attempts = $1::int WHERE id = $2::uuid",
+                          ExportRepo::maxAttempts, job.id);
+    job.attempts = ExportRepo::maxAttempts;
+    std::filesystem::remove_all(directory);
+
+    const ExportJob after = run(job);
+
+    EXPECT_EQ(after.status, "failed");
+    EXPECT_EQ(after.error, "the file couldn't be saved");
 }
 
 TEST_F(RunExportTest, AJobThatIsNoLongerRunningKeepsItsStatusAndLeavesNoFile) {

@@ -48,7 +48,9 @@ std::filesystem::path exportFilePath(const std::filesystem::path& directory, con
 drogon::Task<> runExport(drogon::orm::DbClientPtr database, ExportJob job, std::filesystem::path directory) {
     ExportRepo jobs(database);
     const auto failWith = [&](const std::string& reason, const std::string& detail) -> drogon::Task<> {
-        logError("export failed", {}, {{"job", job.id}, {"document", job.documentId}, {"error", detail}});
+        logError(
+            "export failed", {},
+            {{"job", job.id}, {"document", job.documentId}, {"attempt", job.attempts}, {"error", detail}});
         co_await jobs.fail(job.id, reason);
     };
 

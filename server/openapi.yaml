@@ -726,6 +726,9 @@ components:
         status:
           type: string
           enum: [queued, running, done, failed]
+          description: >
+            A failed attempt is queued again after 5, 10, 20 and 40 s; after 5 attempts the job is
+            `failed`.
         attempts:
           type: integer
           description: How many times a worker has started this export.
@@ -734,7 +737,7 @@ components:
           description: Where to download the file. Set once `status` is `done`.
         error:
           type: [string, 'null']
-          description: Why the export failed. Set once `status` is `failed`.
+          description: Why the latest attempt failed, also while the job waits to be retried.
         createdAt:
           type: string
           format: date-time

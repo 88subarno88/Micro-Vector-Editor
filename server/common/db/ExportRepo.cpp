@@ -50,11 +50,15 @@ drogon::Task<std::optional<ExportJob>> ExportRepo::get(const std::string& id) {
 
 drogon::Task<std::optional<ExportJob>> ExportRepo::claim() {
     const auto result = co_await database_->execSqlCoro(
-        std::string("UPDATE export_jobs SET status = 'running', attempts = attempts + 1 "
-                    "WHERE id = (SELECT id FROM export_jobs WHERE status = 'queued' AND run_after <= now() "
+        std::string("UPDATE export_jobs SET status = 'running', attempts = attempts + 1, "
+                    "                       run_after = now() + make_interval(secs => $1::int) "
+                    "WHERE id = (SELECT id FROM export_jobs "
+                    "            WHERE status IN ('queued', 'running') AND run_after <= now() "
+                    "              AND attempts < $2::int "
                     "            ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) "
                     "RETURNING ") +
-        columns);
+            columns,
+        static_cast<int>(lease.count()), maxAttempts);
     if (result.empty()) co_return std::nullopt;
     co_return toExportJob(result[0]);
 }
@@ -68,9 +72,20 @@ drogon::Task<bool> ExportRepo::finish(const std::string& id, const std::string& 
 
 drogon::Task<bool> ExportRepo::fail(const std::string& id, const std::string& error) {
     const auto result = co_await database_->execSqlCoro(
-        "UPDATE export_jobs SET status = 'failed', error = $2 WHERE id = $1::uuid AND status = 'running'", id,
-        error);
+        "UPDATE export_jobs SET error = $2, "
+        "  status = CASE WHEN attempts >= $3::int THEN 'failed' ELSE 'queued' END, "
+        "  run_after = now() + make_interval(secs => $4::int * power(2, attempts - 1)) "
+        "WHERE id = $1::uuid AND status = 'running'",
+        id, error, maxAttempts, static_cast<int>(firstRetryDelay.count()));
     co_return result.affectedRows() == 1;
+}
+
+drogon::Task<size_t> ExportRepo::failAbandoned() {
+    const auto result = co_await database_->execSqlCoro(
+        "UPDATE export_jobs SET status = 'failed', error = 'the export was interrupted' "
+        "WHERE status = 'running' AND run_after <= now() AND attempts >= $1::int",
+        maxAttempts);
+    co_return result.affectedRows();
 }
 
 }  // namespace vec

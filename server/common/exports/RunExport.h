@@ -18,8 +18,9 @@ std::string exportResultUrl(const std::string& jobId);
 std::filesystem::path exportFilePath(const std::filesystem::path& directory, const ExportJob& job);
 
 // Does a claimed (running) job: renders the document's current drawing in the job's format, saves it to
-// exportFilePath(), and marks the job done, or failed with a reason fit to show its user. Details of a
-// failure are logged. Database failures throw DrogonDbException, leaving the job running.
+// exportFilePath(), and marks the job done. On failure, ExportRepo::fail() records a reason fit to show
+// its user and retries it later; the details are logged. Database failures throw DrogonDbException,
+// leaving the job running until its lease ends.
 drogon::Task<> runExport(drogon::orm::DbClientPtr database, ExportJob job, std::filesystem::path directory);
 
 }  // namespace vec

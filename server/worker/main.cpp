@@ -65,6 +65,11 @@ int main() {
         std::optional<vec::ExportJob> job;
         try {
             job = drogon::sync_wait(jobs.claim());
+            if (!job) {
+                if (const size_t abandoned = drogon::sync_wait(jobs.failAbandoned())) {
+                    vec::logWarning("abandoned exports failed", {}, {{"jobs", abandoned}});
+                }
+            }
         } catch (const drogon::orm::DrogonDbException& e) {
             vec::logError("claim failed", {}, {{"error", e.base().what()}});
         }
