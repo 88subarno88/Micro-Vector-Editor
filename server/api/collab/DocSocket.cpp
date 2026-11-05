@@ -14,6 +14,7 @@
 #include "collab/LoadDrawing.h"
 #include "collab/Messages.h"
 #include "collab/OpPipeline.h"
+#include "collab/Snapshots.h"
 #include "db/DocRepo.h"
 #include "limits/TokenBucket.h"
 #include "logging/Log.h"
@@ -164,14 +165,16 @@ void DocSocket::loadRoom(const std::shared_ptr<vec::Room>& room) {
                                     std::chrono::steady_clock::now() - started)
                                     .count();
 
-            room->loop()->queueInLoop([room, loaded, error, millis, done] {
+            room->loop()->queueInLoop([this, room, loaded, error, millis, done] {
                 if (loaded) {
-                    room->finishLoad(std::move(loaded->diagram), loaded->lastSeq);
+                    room->finishLoad(std::move(loaded->diagram), loaded->lastSeq, loaded->snapshotSeq);
                     vec::logInfo("loaded room", {},
                                  {{"document", room->documentId()},
                                   {"lastSeq", room->lastSeq()},
                                   {"shapes", room->diagram().getObjectCount()},
                                   {"ms", millis}});
+                    // A long tail to replay means the next load would be slow too: snapshot it now.
+                    vec::snapshotIfDue(database_, room);
                 } else {
                     room->failLoad();
                     vec::logError("room load failed", {},

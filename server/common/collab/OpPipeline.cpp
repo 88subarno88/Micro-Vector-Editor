@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 #include <vector>
 
+#include "collab/Snapshots.h"
 #include "db/OpRepo.h"
 #include "logging/Log.h"
 #include "metrics/StageTimer.h"
@@ -127,6 +128,7 @@ drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec:
         }
         ack(sender, op, inserted.seq);
         room->broadcast(opBroadcast(inserted.seq, sender.userId, op.op), sender.session);
+        snapshotIfDue(database, room);
         timing.timer.mark("apply_and_send");
         timing.outcome = "ack";
     } catch (const std::exception& e) {

@@ -1,13 +1,16 @@
 #include <trantor/net/EventLoopThread.h>
 
+#include <chrono>
 #include <future>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "DatabaseTest.h"
 #include "collab/LoadDrawing.h"
 #include "collab/OpPipeline.h"
+#include "collab/Snapshots.h"
 #include "db/DocRepo.h"
 #include "db/OpRepo.h"
 #include "ops/Apply.h"
@@ -180,4 +183,47 @@ TEST_F(OpPipelineTest, OpsFromAnotherInstanceAreCaughtUpAndBroadcastFirst) {
     ASSERT_EQ(watcher.size(), 2u);
     EXPECT_EQ(watcher.messages[0].at("seq"), 1);
     EXPECT_EQ(watcher.messages[1].at("seq"), 2);
+}
+
+namespace {
+
+// Waits for the background snapshot write, failing after a few seconds.
+std::optional<SnapshotRow> waitForSnapshot(const drogon::orm::DbClientPtr& database,
+                                           const std::string& documentId, int64_t seq) {
+    for (int i = 0; i < 100; ++i) {
+        auto latest = drogon::sync_wait(SnapshotRepo(database).latest(documentId));
+        if (latest && latest->seq >= seq) return latest;
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    }
+    return std::nullopt;
+}
+
+}  // namespace
+
+TEST_F(OpPipelineTest, ASnapshotIsSavedEverySnapshotIntervalOps) {
+    for (int64_t i = 1; i < snapshotInterval; ++i) send("m" + std::to_string(i), moveA);
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    EXPECT_EQ(drogon::sync_wait(SnapshotRepo(database).latest(document.id))->seq, 0);  // only the original
+
+    send("m-last", moveA);
+
+    const auto snapshot = waitForSnapshot(database, document.id, snapshotInterval);
+    ASSERT_TRUE(snapshot);
+    EXPECT_EQ(snapshot->seq, snapshotInterval);
+    // The snapshot holds the drawing as of that op: "a" moved by 5, snapshotInterval times.
+    const auto drawing = decodeDiagram(snapshot->state);
+    ASSERT_TRUE(drawing);
+    EXPECT_DOUBLE_EQ(drawing->find("a")->getX(), 5.0 * snapshotInterval);
+}
+
+TEST_F(OpPipelineTest, LoadingFromTheNewSnapshotGivesTheSameDrawing) {
+    for (int64_t i = 1; i <= snapshotInterval + 7; ++i) send("m" + std::to_string(i), moveA);
+    ASSERT_TRUE(waitForSnapshot(database, document.id, snapshotInterval));
+
+    const auto loaded = drogon::sync_wait(loadDrawing(database, document.id));
+
+    ASSERT_TRUE(loaded);
+    EXPECT_EQ(loaded->snapshotSeq, snapshotInterval);
+    EXPECT_EQ(loaded->lastSeq, snapshotInterval + 7);
+    EXPECT_DOUBLE_EQ(loaded->diagram.find("a")->getX(), xOfA());
 }

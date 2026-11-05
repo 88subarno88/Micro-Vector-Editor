@@ -76,6 +76,7 @@ TEST_F(LoadDrawingTest, StartsFromTheSnapshotAndAppliesOnlyLaterOps) {
     ASSERT_TRUE(loaded) << loaded.error();
     EXPECT_EQ(loaded->lastSeq, 3);
     EXPECT_EQ(loaded->diagram.getObjectCount(), 1);
+    EXPECT_EQ(loaded->snapshotSeq, 2);
     EXPECT_DOUBLE_EQ(loaded->diagram.find("a")->getX(), 7);
 }
 

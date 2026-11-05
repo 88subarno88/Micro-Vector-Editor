@@ -16,6 +16,7 @@ drogon::Task<tl::expected<LoadedDrawing, std::string>> loadDrawing(drogon::orm::
                                      diagram.error().message);
         loaded.diagram = std::move(*diagram);
         loaded.lastSeq = snapshot->seq;
+        loaded.snapshotSeq = snapshot->seq;
     }
 
     OpRepo ops(database);

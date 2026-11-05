@@ -69,7 +69,17 @@ public:
 
     // Installs the drawing loaded for the first join, at `lastSeq` in the op log, or records a failure so
     // that the next join tries again.
-    void finishLoad(Diagram diagram, int64_t lastSeq);
+    void finishLoad(Diagram diagram, int64_t lastSeq, int64_t snapshotSeq = 0);
+
+    // The seq of the newest snapshot this room knows of: loaded from, or taken since.
+    int64_t snapshotSeq() const {
+        assertOnLoop();
+        return snapshotSeq_;
+    }
+    void setSnapshotSeq(int64_t seq) {
+        assertOnLoop();
+        snapshotSeq_ = seq;
+    }
     void failLoad();
 
     // Applies an op already committed to the log at `seq` by `userId`, the next one after lastSeq(), and
@@ -124,6 +134,7 @@ private:
     trantor::EventLoop* loop_;
     Diagram diagram_;
     int64_t lastSeq_ = 0;  // the seq of the last op applied to diagram_
+    int64_t snapshotSeq_ = 0;
     std::unordered_map<SessionId, RoomMember> members_;
     LoadState loadState_ = LoadState::NotLoaded;
     uint64_t emptiedCount_ = 0;  // increases each time the room becomes empty

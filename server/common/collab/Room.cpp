@@ -32,10 +32,11 @@ bool Room::unloadIfStillEmpty(uint64_t token) {
     return true;
 }
 
-void Room::finishLoad(Diagram diagram, int64_t lastSeq) {
+void Room::finishLoad(Diagram diagram, int64_t lastSeq, int64_t snapshotSeq) {
     assertOnLoop();
     diagram_ = std::move(diagram);
     lastSeq_ = lastSeq;
+    snapshotSeq_ = snapshotSeq;
     recentOps_.clear();
     loadState_ = LoadState::Loaded;
 }

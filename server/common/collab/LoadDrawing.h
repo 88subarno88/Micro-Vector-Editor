@@ -14,7 +14,8 @@ namespace vec {
 
 struct LoadedDrawing {
     Diagram diagram;
-    int64_t lastSeq = 0;  // the seq of the last op applied
+    int64_t lastSeq = 0;      // the seq of the last op applied
+    int64_t snapshotSeq = 0;  // the seq of the snapshot it started from, 0 if none
 };
 
 // A document's current drawing: its newest snapshot with every later op applied, read in batches so that

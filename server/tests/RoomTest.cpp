@@ -524,3 +524,14 @@ TEST_F(RoomTest, OnlyJoinedMembersGetBroadcasts) {
         EXPECT_TRUE(b.messages.empty());
     });
 }
+
+TEST_F(RoomTest, TheSnapshotSeqComesFromTheLoadAndCanAdvance) {
+    onLoop([&] {
+        Room room("doc", loop());
+        room.finishLoad(Diagram(), 250, 200);
+        EXPECT_EQ(room.snapshotSeq(), 200);
+
+        room.setSnapshotSeq(250);
+        EXPECT_EQ(room.snapshotSeq(), 250);
+    });
+}
