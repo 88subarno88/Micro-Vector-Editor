@@ -1,6 +1,5 @@
 add_executable(vec main.cpp)
-find_package(lunasvg CONFIG REQUIRED)
-target_link_libraries(vec PRIVATE vec_core lunasvg::lunasvg)
+target_link_libraries(vec PRIVATE vec_core vec_render)
 set_target_properties(vec PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if(MSVC)

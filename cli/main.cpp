@@ -1,5 +1,3 @@
-#include <lunasvg/lunasvg.h>
-
 #include <algorithm>
 #include <cstdint>
 #include <exception>
@@ -13,6 +11,7 @@
 
 #include "ops/Json.h"
 #include "parser/SVGParser.h"
+#include "render/Png.h"
 
 namespace {
 
@@ -102,42 +101,26 @@ int convert(const std::string& input, const std::string& output) {
     return exitOk;
 }
 
-// lunasvg has no system fonts of its own, and without one it silently leaves text out.
-bool loadFallbackFont() {
-    for (const char* path : {"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"}) {
-        if (lunasvg_add_font_face_from_file("", false, false, path)) return true;
-    }
-    return false;
-}
-
-bool hasText(const Diagram& diagram) {
-    const auto& shapes = diagram.getShapes();
-    return std::any_of(shapes.begin(), shapes.end(),
-                       [](const auto& shape) { return shape->getType() == "Text"; });
-}
-
 int exportPng(const std::string& input, const std::string& output) {
     const auto diagram = load(input);
     if (!diagram) {
         std::cerr << diagram.error() << '\n';
         return exitFailed;
     }
-
-    if (!loadFallbackFont() && hasText(*diagram)) {
-        std::cerr << "cannot draw text: no font found (install fonts-liberation or fonts-dejavu-core)\n";
+    const auto png = vec::renderPng(*diagram);
+    if (!png) {
+        std::cerr << png.error() << '\n';
         return exitFailed;
     }
 
-    constexpr uint32_t opaqueWhite = 0xFFFFFFFF;
-    const auto document = lunasvg::Document::loadFromData(diagram->toSVG());
-    const lunasvg::Bitmap bitmap =
-        document ? document->renderToBitmap(-1, -1, opaqueWhite) : lunasvg::Bitmap();
-    if (bitmap.isNull() || !bitmap.writeToPng(output)) {
+    std::ofstream out(output, std::ios::binary);
+    out << png->bytes;
+    out.close();
+    if (!out) {
         std::cerr << "cannot write " << output << '\n';
         return exitFailed;
     }
-    std::cout << output << ": wrote " << bitmap.width() << 'x' << bitmap.height() << " image\n";
+    std::cout << output << ": wrote " << png->width << 'x' << png->height << " image\n";
     return exitOk;
 }
 

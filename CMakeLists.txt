@@ -16,6 +16,10 @@ endif()
 
 add_subdirectory(core)
 
+if(BUILD_CLI OR BUILD_SERVER)
+    add_subdirectory(render)
+endif()
+
 if(BUILD_CLI)
     add_subdirectory(cli)
 endif()

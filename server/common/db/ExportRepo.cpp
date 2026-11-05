@@ -48,4 +48,29 @@ drogon::Task<std::optional<ExportJob>> ExportRepo::get(const std::string& id) {
     co_return toExportJob(result[0]);
 }
 
+drogon::Task<std::optional<ExportJob>> ExportRepo::claim() {
+    const auto result = co_await database_->execSqlCoro(
+        std::string("UPDATE export_jobs SET status = 'running', attempts = attempts + 1 "
+                    "WHERE id = (SELECT id FROM export_jobs WHERE status = 'queued' AND run_after <= now() "
+                    "            ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) "
+                    "RETURNING ") +
+        columns);
+    if (result.empty()) co_return std::nullopt;
+    co_return toExportJob(result[0]);
+}
+
+drogon::Task<bool> ExportRepo::finish(const std::string& id, const std::string& resultUrl) {
+    const auto result = co_await database_->execSqlCoro(
+        "UPDATE export_jobs SET status = 'done', result_url = $2 WHERE id = $1::uuid AND status = 'running'",
+        id, resultUrl);
+    co_return result.affectedRows() == 1;
+}
+
+drogon::Task<bool> ExportRepo::fail(const std::string& id, const std::string& error) {
+    const auto result = co_await database_->execSqlCoro(
+        "UPDATE export_jobs SET status = 'failed', error = $2 WHERE id = $1::uuid AND status = 'running'", id,
+        error);
+    co_return result.affectedRows() == 1;
+}
+
 }  // namespace vec

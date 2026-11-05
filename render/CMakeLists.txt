@@ -1,0 +1,10 @@
+add_library(vec_render src/Png.cpp)
+target_include_directories(vec_render PUBLIC include)
+find_package(lunasvg CONFIG REQUIRED)
+target_link_libraries(vec_render PUBLIC vec_core PRIVATE lunasvg::lunasvg)
+
+if(MSVC)
+    target_compile_options(vec_render PRIVATE /W4)
+else()
+    target_compile_options(vec_render PRIVATE -Wall -Wextra -pedantic)
+endif()

@@ -28,6 +28,16 @@ public:
     drogon::Task<ExportJob> enqueue(const std::string& documentId, const std::string& format);
     drogon::Task<std::optional<ExportJob>> get(const std::string& id);
 
+    // Takes the oldest queued job whose run_after has passed, marks it running and counts the attempt;
+    // nullopt if none is due. Rows another worker is claiming at the same moment are skipped, not waited
+    // for, so each job goes to exactly one worker.
+    drogon::Task<std::optional<ExportJob>> claim();
+
+    // Mark a running job done, with where to download the file, or failed, with why. False, changing
+    // nothing, if the job isn't running, such as when its document was deleted meanwhile.
+    drogon::Task<bool> finish(const std::string& id, const std::string& resultUrl);
+    drogon::Task<bool> fail(const std::string& id, const std::string& error);
+
 private:
     drogon::orm::DbClientPtr database_;
 };
