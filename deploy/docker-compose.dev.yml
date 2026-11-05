@@ -28,5 +28,14 @@ services:
       timeout: 3s
       retries: 15
 
+  # Only with --profile scale: listens on 127.0.0.1:8080 and balances across two vec_api processes
+  # started on the host with PORT=8081 and PORT=8082. Host networking lets it reach them.
+  nginx:
+    image: nginx:1.27
+    profiles: [scale]
+    network_mode: host
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/nginx.conf:ro
+
 volumes:
   postgres-data:

@@ -59,6 +59,17 @@ struct SnapshotRow {
     std::string createdAt;
 };
 
+struct ExportJob {
+    std::string id;
+    std::string documentId;
+    std::string format;  // "svg" or "png"
+    std::string status;  // "queued", "running", "done" or "failed"
+    int attempts = 0;
+    std::optional<std::string> resultUrl;  // set when done
+    std::optional<std::string> error;      // set when failed
+    std::string createdAt;
+};
+
 }  // namespace vec
 
 #endif  // SERVER_MODELS_H

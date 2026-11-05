@@ -1,0 +1,70 @@
+#include "ExportRoutes.h"
+
+#include <drogon/drogon.h>
+
+#include <optional>
+#include <string>
+
+#include "ApiResponse.h"
+#include "AuthFilter.h"
+#include "Routes.h"
+#include "db/DocRepo.h"
+#include "db/ExportRepo.h"
+
+using drogon::HttpRequestPtr;
+using drogon::HttpResponsePtr;
+using nlohmann::json;
+
+namespace {
+
+json toJson(const vec::ExportJob& job) {
+    const auto orNull = [](const std::optional<std::string>& text) {
+        return text ? json(*text) : json(nullptr);
+    };
+    return {{"id", job.id},
+            {"documentId", job.documentId},
+            {"format", job.format},
+            {"status", job.status},
+            {"attempts", job.attempts},
+            {"resultUrl", orNull(job.resultUrl)},
+            {"error", orNull(job.error)},
+            {"createdAt", job.createdAt}};
+}
+
+}  // namespace
+
+void registerExportRoutes(const drogon::orm::DbClientPtr& database) {
+    registerProtected(
+        "/api/docs/{id}/exports",
+        [database](HttpRequestPtr request, std::string id) -> drogon::Task<HttpResponsePtr> {
+            const auto role = co_await requireRole(database, id, userIdOf(request), vec::Role::Viewer);
+            if (!role) co_return role.error();
+
+            const json body = json::parse(request->body(), nullptr, false);
+            const auto format = body.is_object() ? body.find("format") : body.end();
+            if (format == body.end() || !format->is_string() ||
+                !vec::isExportFormat(format->get<std::string>())) {
+                co_return errorResponse(drogon::k400BadRequest, "invalid_format",
+                                        "format must be svg or png");
+            }
+
+            const vec::ExportJob job =
+                co_await vec::ExportRepo(database).enqueue(id, format->get<std::string>());
+            auto response = jsonResponse(drogon::k202Accepted, toJson(job));
+            response->addHeader("Location", "/api/exports/" + job.id);
+            co_return response;
+        },
+        drogon::Post);
+
+    registerProtected(
+        "/api/exports/{id}",
+        [database](HttpRequestPtr request, std::string id) -> drogon::Task<HttpResponsePtr> {
+            const auto job = co_await vec::ExportRepo(database).get(id);
+            // Someone who can't see the document can't tell its exports exist either.
+            if (!job || !co_await vec::MemberRepo(database).roleOf(job->documentId, userIdOf(request))) {
+                co_return errorResponse(drogon::k404NotFound, "not_found", "no such export");
+            }
+            co_return jsonResponse(drogon::k200OK, toJson(*job));
+        },
+        drogon::Get);
+}

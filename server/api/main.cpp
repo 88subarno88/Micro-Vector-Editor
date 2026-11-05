@@ -21,6 +21,7 @@
 #include "AuthFilter.h"
 #include "AuthRoutes.h"
 #include "DocRoutes.h"
+#include "ExportRoutes.h"
 #include "HealthRoutes.h"
 #include "RateLimitFilter.h"
 #include "RequestLogging.h"
@@ -109,6 +110,7 @@ int main() {
         std::make_shared<RateLimitFilter>(redis, "auth", authRequestsPerMinute, std::chrono::minutes(1)));
     registerAuthRoutes(database, hashing, tokens);
     registerDocRoutes(database);
+    registerExportRoutes(database);
     // One IO thread per core, so that rooms on different documents run in parallel.
     const size_t ioThreads = std::max(1u, std::thread::hardware_concurrency());
     drogon::app().setThreadNum(ioThreads);

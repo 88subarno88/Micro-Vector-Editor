@@ -26,6 +26,8 @@ tags:
     description: Accounts and sessions. Every route here allows 10 requests per minute per IP.
   - name: documents
     description: Drawings and who can see them.
+  - name: exports
+    description: Drawings rendered to files by a background worker.
 
 paths:
   /healthz:
@@ -356,6 +358,74 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/docs/{id}/exports:
+    parameters:
+      - $ref: '#/components/parameters/DocumentId'
+    post:
+      tags: [exports]
+      operationId: createExport
+      summary: Export a document as SVG or PNG (viewer)
+      description: >
+        Queues the export for a worker; poll the job until it is done or failed. If an export of the
+        document in that format is already queued, that job is returned instead of a new one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '202':
+          description: Queued.
+          headers:
+            Location:
+              description: '`/api/exports/{jobId}`'
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJob'
+        '400':
+          description: '`invalid_format` for anything but svg or png.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/exports/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The export job's ID.
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [exports]
+      operationId: getExport
+      summary: Get an export's status
+      responses:
+        '200':
+          description: The job, for any member of its document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJob'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: '`not_found`: no such export, or you are not a member of its document.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     bearer:
@@ -631,3 +701,40 @@ components:
           type: string
         role:
           $ref: '#/components/schemas/Role'
+
+    ExportRequest:
+      type: object
+      required: [format]
+      properties:
+        format:
+          type: string
+          enum: [svg, png]
+
+    ExportJob:
+      type: object
+      required: [id, documentId, format, status, attempts, resultUrl, error, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        documentId:
+          type: string
+          format: uuid
+        format:
+          type: string
+          enum: [svg, png]
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+        attempts:
+          type: integer
+          description: How many times a worker has started this export.
+        resultUrl:
+          type: [string, 'null']
+          description: Where to download the file. Set once `status` is `done`.
+        error:
+          type: [string, 'null']
+          description: Why the export failed. Set once `status` is `failed`.
+        createdAt:
+          type: string
+          format: date-time
