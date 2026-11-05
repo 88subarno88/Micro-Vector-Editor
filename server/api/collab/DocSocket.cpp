@@ -15,6 +15,7 @@
 #include "collab/Messages.h"
 #include "collab/OpPipeline.h"
 #include "db/DocRepo.h"
+#include "limits/TokenBucket.h"
 #include "logging/Log.h"
 #include "ops/Json.h"
 
@@ -30,6 +31,11 @@ constexpr auto closeNotFound = static_cast<CloseCode>(4404);
 constexpr auto closeLoadFailed = CloseCode::kUnexpectedCondition;  // 1011, a server-side failure
 
 constexpr std::string_view pathPrefix = "/ws/docs/";
+
+// Each connection may send this many ops a second on average, in bursts of up to opBurst: well above what
+// a person dragging shapes produces, while one connection can't monopolise its room's queue.
+constexpr double opsPerSecond = 30;
+constexpr double opBurst = 60;
 
 // A connection that sends nothing for this long is closed; clients ping well within it.
 constexpr std::chrono::seconds silenceLimit{45};
@@ -61,6 +67,8 @@ struct DocSession {
     std::atomic<bool> closed = false;
     std::atomic<int64_t> lastHeardMs = 0;  // steady clock; when the client last sent anything
     trantor::TimerId heartbeatTimer = 0;   // set and cancelled on the connection's own thread
+    // Used only on the connection's own thread, where its messages arrive one at a time.
+    vec::TokenBucket opRate{opsPerSecond, opBurst};
 
     std::shared_ptr<vec::Room> room() {
         const std::lock_guard lock(mutex);
@@ -233,6 +241,7 @@ void DocSocket::handleOp(const WebSocketConnectionPtr& connection, const std::sh
             {{"type", "reject"}, {"clientOpId", op.clientOpId}, {"reason", reason}, {"message", message}});
     };
     if (session->role < vec::Role::Editor) return reject("forbidden", "viewers can't edit");
+    if (!session->opRate.tryTake()) return reject("rate_limited", "too many edits; slow down");
     const auto room = session->room();
     room->loop()->queueInLoop([this, room, op, connection, session] {
         vec::OpSender sender{session->id, session->userId,

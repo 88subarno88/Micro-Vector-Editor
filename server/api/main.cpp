@@ -35,6 +35,7 @@ constexpr size_t passwordHashingThreads = 2;
 constexpr int authRequestsPerMinute = 10;
 constexpr double redisTimeoutSeconds = 1.0;
 constexpr size_t maxRequestBodyBytes = 1024 * 1024;
+constexpr size_t maxWebSocketMessageBytes = 64 * 1024;
 constexpr std::chrono::seconds roomUnloadDelay{60};
 constexpr std::chrono::seconds unacknowledgedSendLimit{30};
 
@@ -97,6 +98,8 @@ int main() {
     drogon::app().registerController(std::make_shared<DocSocket>(tokens, database, rooms, roomUnloadDelay));
     // The largest body any route accepts, an SVG upload included. Drogon answers bigger ones with 413.
     drogon::app().setClientMaxBodySize(maxRequestBodyBytes);
+    // The largest WebSocket message a client may send. Ops are small; this leaves room for big addShapes.
+    drogon::app().setClientMaxWebSocketMessageSize(maxWebSocketMessageBytes);
     // A client that stops reading lets the server's send buffer for it grow with every broadcast. Drogon
     // doesn't expose that buffer, so the kernel bounds it instead: once sent data has gone unacknowledged
     // for this long, as it does when the client's receive window stays shut, the connection is dropped.

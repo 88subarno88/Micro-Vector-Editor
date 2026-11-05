@@ -46,8 +46,12 @@ private:
     // One client that's never destroyed, as in the server. Destroying one per test crashes now and then:
     // if the last reference goes on the client's own thread, that thread tries to join itself.
     static drogon::orm::DbClientPtr sharedClient(const char* url) {
-        static const auto* const client =
-            new drogon::orm::DbClientPtr(drogon::orm::DbClient::newPgClient(url, 1));
+        static const auto* const client = [&] {
+            auto* created = new drogon::orm::DbClientPtr(drogon::orm::DbClient::newPgClient(url, 1));
+            // Without a timeout, a query waits forever for a database that isn't running.
+            (*created)->setTimeout(10);
+            return created;
+        }();
         return *client;
     }
 };

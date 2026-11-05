@@ -32,8 +32,10 @@ struct DocSession;
 //                                     drawing can't be loaded
 //   {"type": "ping"}               -> {"type": "pong"}. Send one at least every 45 s (15 s is a good
 //                                     interval): a connection silent for 45 s is closed.
-//   {"type": "op", ...}            -> {"type": "reject", "clientOpId", "reason", "message"}, reason
-//                                     bad_op for an op that can't be decoded, or forbidden for a viewer
+//   {"type": "op", ...}            -> 30 a second on average, bursts of 60; beyond that, reject with
+//                                     reason rate_limited. Otherwise {"type": "reject", "clientOpId",
+//                                     "reason", "message"}, reason bad_op for an op that can't be decoded, or
+//                                     forbidden for a viewer
 // Anything malformed gets {"type": "error", "code": "bad_message" or "unknown_type", "message": ...}.
 class DocSocket : public drogon::WebSocketController<DocSocket, false> {
 public:
