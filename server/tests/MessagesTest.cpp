@@ -90,3 +90,21 @@ TEST(MessagesTest, ClientOpIds) {
     for (const char* id : {"", "a b", "a/b", "a\"b", "caf\xc3\xa9"})
         EXPECT_FALSE(isValidClientOpId(id)) << id;
 }
+
+TEST(MessagesTest, Cursor) {
+    const auto message = parseClientMessage(R"({"type":"cursor","x":310,"y":-14.5})");
+
+    ASSERT_TRUE(message);
+    EXPECT_DOUBLE_EQ(std::get<CursorMessage>(*message).x, 310);
+    EXPECT_DOUBLE_EQ(std::get<CursorMessage>(*message).y, -14.5);
+}
+
+TEST(MessagesTest, ABadCursorIsBadMessage) {
+    for (const char* text :
+         {R"({"type":"cursor"})", R"({"type":"cursor","x":1})", R"({"type":"cursor","x":"1","y":2})",
+          R"({"type":"cursor","x":1e308,"y":2})", R"({"type":"cursor","x":null,"y":2})"}) {
+        const auto message = parseClientMessage(text);
+        ASSERT_FALSE(message) << text;
+        EXPECT_EQ(message.error().code, "bad_message") << text;
+    }
+}

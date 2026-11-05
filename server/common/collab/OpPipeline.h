@@ -18,6 +18,9 @@ namespace vec {
 // JSON {"seq", "userId", "op", "instance"}. Called on the room's loop, once per op this instance commits.
 using OpPublisher = std::function<void(const std::string& documentId, const std::string& message)>;
 
+// An op as room members receive it: {"type": "op", "seq", "userId", "op"}.
+std::string opBroadcast(int64_t seq, const std::string& userId, const Operation& op);
+
 // Who sent an op, and how to answer them.
 struct OpSender {
     SessionId session = 0;

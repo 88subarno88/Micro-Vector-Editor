@@ -8,14 +8,18 @@
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <variant>
 
 #include "collab/LoadDrawing.h"
 #include "collab/Messages.h"
 #include "collab/OpPipeline.h"
+#include "collab/Presence.h"
+#include "collab/RemoteOps.h"
 #include "collab/Snapshots.h"
 #include "db/DocRepo.h"
+#include "db/UserRepo.h"
 #include "limits/TokenBucket.h"
 #include "logging/Log.h"
 #include "ops/Json.h"
@@ -32,6 +36,13 @@ constexpr auto closeNotFound = static_cast<CloseCode>(4404);
 constexpr auto closeLoadFailed = CloseCode::kUnexpectedCondition;  // 1011, a server-side failure
 
 constexpr std::string_view pathPrefix = "/ws/docs/";
+
+// Cursor moves beyond this are dropped: plenty for smooth cursors, without flooding Redis.
+constexpr double cursorsPerSecond = 10;
+// The presence hash outlives its last refresh by this long, so a document nobody visits again is cleaned up.
+constexpr int presenceKeyLifetimeSeconds = 120;
+// Published on a document's channel, beside its ops, when its presence changes.
+constexpr const char* presenceNotice = R"({"presence":true})";
 
 // Each connection may send this many ops a second on average, in bursts of up to opBurst: well above what
 // a person dragging shapes produces, while one connection can't monopolise its room's queue.
@@ -50,15 +61,6 @@ int64_t steadyNowMs() {
 }
 
 std::atomic<vec::SessionId> nextSessionId = 1;
-
-// An op another instance committed and published. For now only logged; applying it comes next.
-void handleRemoteOp(const std::shared_ptr<vec::Room>& room, const std::string& message) {
-    const json parsed = json::parse(message, nullptr, false);
-    vec::logInfo("remote op received", {},
-                 {{"document", room->documentId()},
-                  {"seq", parsed.is_object() ? parsed.value("seq", json(nullptr)) : json(nullptr)},
-                  {"from", parsed.is_object() ? parsed.value("instance", json(nullptr)) : json(nullptr)}});
-}
 
 void sendJson(const WebSocketConnectionPtr& connection, const json& message) {
     connection->send(message.dump());
@@ -79,6 +81,17 @@ struct DocSession {
     trantor::TimerId heartbeatTimer = 0;   // set and cancelled on the connection's own thread
     // Used only on the connection's own thread, where its messages arrive one at a time.
     vec::TokenBucket opRate{opsPerSecond, opBurst};
+    vec::TokenBucket cursorRate{cursorsPerSecond, cursorsPerSecond};
+    std::string name;  // the user's email, written before `ready` is set
+
+    std::optional<Point> cursor() {
+        const std::lock_guard lock(mutex);
+        return cursor_;
+    }
+    void setCursor(Point cursor) {
+        const std::lock_guard lock(mutex);
+        cursor_ = cursor;
+    }
 
     std::shared_ptr<vec::Room> room() {
         const std::lock_guard lock(mutex);
@@ -92,6 +105,7 @@ struct DocSession {
 private:
     std::mutex mutex;
     std::shared_ptr<vec::Room> room_;
+    std::optional<Point> cursor_;
 };
 
 void DocSocket::handleNewConnection(const drogon::HttpRequestPtr& request,
@@ -127,6 +141,8 @@ void DocSocket::handleNewConnection(const drogon::HttpRequestPtr& request,
             co_return;
         }
         session->role = *role;
+        const auto user = co_await vec::UserRepo(database_).findById(session->userId);
+        session->name = user ? user->email : "";
         joinRoom(connection, session);
     });
 }
@@ -199,33 +215,35 @@ void DocSocket::loadRoom(const std::shared_ptr<vec::Room>& room) {
 void DocSocket::handleJoin(const WebSocketConnectionPtr& connection,
                            const std::shared_ptr<DocSession>& session, int64_t lastSeq) {
     const auto room = session->room();
-    room->loop()->queueInLoop([connection, session, room, lastSeq] {
+    room->loop()->queueInLoop([this, connection, session, room, lastSeq] {
         // A room task, so no op is processed between building the reply and marking the member joined.
-        const bool queued = room->enqueue([connection, session, room, lastSeq](std::function<void()> done) {
-            // Runs after the load, which is queued ahead of every join.
-            if (room->loadState() != vec::Room::LoadState::Loaded) {
-                sendJson(connection, {{"type", "error"},
-                                      {"code", "load_failed"},
-                                      {"message", "the document can't be opened"}});
-                connection->shutdown(closeLoadFailed, "load_failed");
-                return done();
-            }
-
-            json reply = {{"type", "joined"}, {"headSeq", room->lastSeq()}};
-            if (const auto missed = room->opsSince(lastSeq)) {
-                json ops = json::array();
-                for (const vec::RecentOp& recent : *missed) {
-                    ops.push_back({{"seq", recent.seq}, {"userId", recent.userId}, {"op", recent.op}});
+        const bool queued =
+            room->enqueue([this, connection, session, room, lastSeq](std::function<void()> done) {
+                // Runs after the load, which is queued ahead of every join.
+                if (room->loadState() != vec::Room::LoadState::Loaded) {
+                    sendJson(connection, {{"type", "error"},
+                                          {"code", "load_failed"},
+                                          {"message", "the document can't be opened"}});
+                    connection->shutdown(closeLoadFailed, "load_failed");
+                    return done();
                 }
-                reply["ops"] = std::move(ops);
-            } else {
-                // Too far behind, or claiming to be ahead: start over from the whole drawing.
-                reply["snapshot"] = vec::diagramToJson(room->diagram());
-            }
-            sendJson(connection, reply);
-            room->markJoined(session->id);
-            done();
-        });
+
+                json reply = {{"type", "joined"}, {"headSeq", room->lastSeq()}};
+                if (const auto missed = room->opsSince(lastSeq)) {
+                    json ops = json::array();
+                    for (const vec::RecentOp& recent : *missed) {
+                        ops.push_back({{"seq", recent.seq}, {"userId", recent.userId}, {"op", recent.op}});
+                    }
+                    reply["ops"] = std::move(ops);
+                } else {
+                    // Too far behind, or claiming to be ahead: start over from the whole drawing.
+                    reply["snapshot"] = vec::diagramToJson(room->diagram());
+                }
+                sendJson(connection, reply);
+                room->markJoined(session->id);
+                writePresence(session, true);
+                done();
+            });
         if (!queued)
             sendJson(connection, {{"type", "error"}, {"code", "busy"}, {"message", "try again shortly"}});
     });
@@ -234,13 +252,92 @@ void DocSocket::handleJoin(const WebSocketConnectionPtr& connection,
 void DocSocket::subscribe(const std::string& documentId) {
     const std::lock_guard lock(subscriptionsMutex_);
     if (!subscriptions_.insert(documentId).second) return;  // already listening, for an earlier room
-    subscriber_->subscribe(
-        "doc:" + documentId, [this, documentId](const std::string&, const std::string& message) {
-            // Looked up per message rather than captured: the document's room may have been replaced since.
-            if (const auto room = rooms_->find(documentId)) {
-                room->loop()->queueInLoop([room, message] { handleRemoteOp(room, message); });
-            }
-        });
+    subscriber_->subscribe("doc:" + documentId,
+                           [this, documentId](const std::string&, const std::string& message) {
+                               // Looked up per message rather than captured: the document's room may have
+                               // been replaced since.
+                               const auto room = rooms_->find(documentId);
+                               if (!room) return;
+                               if (message == presenceNotice) return sendPresence(room);
+                               room->loop()->queueInLoop([this, room, message] {
+                                   // A room task, so that it can't interleave with an op this instance is
+                                   // committing. If the queue is full the op is dropped here, and caught up
+                                   // from Postgres before the room's next op.
+                                   room->enqueue([this, room, message](std::function<void()> done) {
+                                       drogon::async_run([this, room, message, done]() -> drogon::Task<> {
+                                           co_await vec::applyRemoteOp(database_, room, message, instanceId_);
+                                           done();
+                                       });
+                                   });
+                               });
+                           });
+}
+
+namespace {
+
+std::string presenceKey(const std::string& documentId) { return "presence:" + documentId; }
+
+void logRedisError(const char* what, const std::string& documentId, const std::exception& e) {
+    vec::logError(what, {}, {{"document", documentId}, {"error", e.what()}});
+}
+
+}  // namespace
+
+void DocSocket::writePresence(const std::shared_ptr<DocSession>& session, bool announce) {
+    if (!session->ready) return;  // not listed until joined
+    const std::string field = instanceId_ + ":" + std::to_string(session->id);
+    const std::string entry =
+        vec::encodePresence({session->userId, session->name, session->cursor(), vec::unixMillis()});
+    const std::string documentId = session->documentId;
+    redis_->execCommandAsync(
+        [redis = redis_, documentId, announce](const drogon::nosql::RedisResult&) {
+            // After the write, so that whoever reads on the notice sees it.
+            redis->execCommandAsync([](const drogon::nosql::RedisResult&) {},
+                                    [documentId](const std::exception& e) {
+                                        logRedisError("presence expiry failed", documentId, e);
+                                    },
+                                    "EXPIRE %s %d", presenceKey(documentId).c_str(),
+                                    presenceKeyLifetimeSeconds);
+            if (!announce) return;
+            redis->execCommandAsync([](const drogon::nosql::RedisResult&) {},
+                                    [documentId](const std::exception& e) {
+                                        logRedisError("presence notice failed", documentId, e);
+                                    },
+                                    "PUBLISH %s %s", ("doc:" + documentId).c_str(), presenceNotice);
+        },
+        [documentId](const std::exception& e) { logRedisError("presence write failed", documentId, e); },
+        "HSET %s %s %s", presenceKey(documentId).c_str(), field.c_str(), entry.c_str());
+}
+
+void DocSocket::removePresence(const std::shared_ptr<DocSession>& session) {
+    const std::string field = instanceId_ + ":" + std::to_string(session->id);
+    const std::string documentId = session->documentId;
+    redis_->execCommandAsync(
+        [redis = redis_, documentId](const drogon::nosql::RedisResult&) {
+            redis->execCommandAsync([](const drogon::nosql::RedisResult&) {},
+                                    [documentId](const std::exception& e) {
+                                        logRedisError("presence notice failed", documentId, e);
+                                    },
+                                    "PUBLISH %s %s", ("doc:" + documentId).c_str(), presenceNotice);
+        },
+        [documentId](const std::exception& e) { logRedisError("presence removal failed", documentId, e); },
+        "HDEL %s %s", presenceKey(documentId).c_str(), field.c_str());
+}
+
+void DocSocket::sendPresence(const std::shared_ptr<vec::Room>& room) {
+    redis_->execCommandAsync(
+        [room](const drogon::nosql::RedisResult& result) {
+            std::vector<std::string> values;
+            const auto items = result.asArray();
+            for (size_t i = 1; i < items.size(); i += 2)
+                values.push_back(items[i].asString());  // field, value, ...
+            const std::string message = vec::presenceMessage(values, vec::unixMillis());
+            room->loop()->queueInLoop([room, message] { room->broadcast(message); });
+        },
+        [documentId = room->documentId()](const std::exception& e) {
+            logRedisError("presence read failed", documentId, e);
+        },
+        "HGETALL %s", presenceKey(room->documentId()).c_str());
 }
 
 void DocSocket::unsubscribeIfUnused(const std::string& documentId) {
@@ -251,6 +348,7 @@ void DocSocket::unsubscribeIfUnused(const std::string& documentId) {
 }
 
 void DocSocket::leaveRoom(const std::shared_ptr<DocSession>& session) {
+    removePresence(session);
     const auto room = session->room();
     room->loop()->queueInLoop([this, session, room] {
         const auto emptied = room->leave(session->id);
@@ -319,7 +417,15 @@ void DocSocket::handleNewMessage(const WebSocketConnectionPtr& connection, std::
             connection,
             {{"type", "error"}, {"code", parsed.error().code}, {"message", parsed.error().message}});
     }
-    if (std::holds_alternative<vec::PingMessage>(*parsed)) return sendJson(connection, {{"type", "pong"}});
+    if (std::holds_alternative<vec::PingMessage>(*parsed)) {
+        writePresence(session, false);  // still here: keeps the entry from going stale
+        return sendJson(connection, {{"type", "pong"}});
+    }
+    if (const auto* cursor = std::get_if<vec::CursorMessage>(&*parsed)) {
+        if (!session->cursorRate.tryTake()) return;  // moving fast: the next move will carry the position
+        session->setCursor({cursor->x, cursor->y});
+        return writePresence(session, true);
+    }
     if (const auto* op = std::get_if<vec::OpMessage>(&*parsed)) return handleOp(connection, session, *op);
     handleJoin(connection, session, std::get<vec::JoinMessage>(*parsed).lastSeq);
 }

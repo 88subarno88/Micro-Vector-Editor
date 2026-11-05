@@ -31,7 +31,13 @@ struct OpMessage {
     Operation op;
 };
 
-using ClientMessage = std::variant<JoinMessage, PingMessage, OpMessage>;
+// {"type": "cursor", "x": 310, "y": 145}: where the user's pointer is, in drawing coordinates.
+struct CursorMessage {
+    double x = 0;
+    double y = 0;
+};
+
+using ClientMessage = std::variant<JoinMessage, PingMessage, OpMessage, CursorMessage>;
 
 struct MessageError {
     std::string code;  // bad_message, unknown_type, or bad_op

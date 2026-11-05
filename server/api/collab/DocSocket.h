@@ -2,6 +2,7 @@
 #define DOC_SOCKET_H
 
 #include <drogon/WebSocketController.h>
+#include <drogon/nosql/RedisClient.h>
 #include <drogon/nosql/RedisSubscriber.h>
 #include <drogon/orm/DbClient.h>
 
@@ -37,25 +38,32 @@ struct DocSession;
 //                                     drawing can't be loaded
 //   {"type": "ping"}               -> {"type": "pong"}. Send one at least every 45 s (15 s is a good
 //                                     interval): a connection silent for 45 s is closed.
+//   {"type": "cursor", "x", "y"}  -> no reply; at most 10 a second count, the rest are dropped
 //   {"type": "op", ...}            -> 30 a second on average, bursts of 60; beyond that, reject with
 //                                     reason rate_limited. Otherwise {"type": "reject", "clientOpId",
 //                                     "reason", "message"}, reason bad_op for an op that can't be decoded, or
 //                                     forbidden for a viewer
 // Anything malformed gets {"type": "error", "code": "bad_message" or "unknown_type", "message": ...}.
+// The server also sends {"type": "presence", "users": [{"id", "name", "cursor"}]} with everyone looking
+// at the document, on every instance, whenever someone joins, leaves or moves their cursor.
 class DocSocket : public drogon::WebSocketController<DocSocket, false> {
 public:
     // A room is unloaded `unloadDelay` after its last member leaves, unless someone joins again first.
     // Ops this instance commits go to `publish`; ops other instances publish arrive on `subscriber`, which
-    // listens on each document this instance has a room for.
+    // listens on each document this instance has a room for, and are applied to its room. `instanceId`
+    // tells this process's own published ops apart.
     DocSocket(vec::AccessTokens tokens, drogon::orm::DbClientPtr database,
               std::shared_ptr<vec::RoomRegistry> rooms, std::chrono::seconds unloadDelay,
-              vec::OpPublisher publish, std::shared_ptr<drogon::nosql::RedisSubscriber> subscriber)
+              vec::OpPublisher publish, std::shared_ptr<drogon::nosql::RedisSubscriber> subscriber,
+              std::string instanceId, drogon::nosql::RedisClientPtr redis)
         : tokens_(std::move(tokens)),
           database_(std::move(database)),
           rooms_(std::move(rooms)),
           unloadDelay_(unloadDelay),
           publish_(std::move(publish)),
-          subscriber_(std::move(subscriber)) {}
+          subscriber_(std::move(subscriber)),
+          redis_(std::move(redis)),
+          instanceId_(std::move(instanceId)) {}
 
     void handleNewConnection(const drogon::HttpRequestPtr& request,
                              const drogon::WebSocketConnectionPtr& connection) override;
@@ -78,6 +86,12 @@ private:
     void leaveRoom(const std::shared_ptr<DocSession>& session);
     void subscribe(const std::string& documentId);
     void unsubscribeIfUnused(const std::string& documentId);
+    // Records the session in the document's presence hash; with `announce`, tells every instance to send
+    // its clients the new list.
+    void writePresence(const std::shared_ptr<DocSession>& session, bool announce);
+    void removePresence(const std::shared_ptr<DocSession>& session);
+    // Reads the presence hash and sends the list to the room's joined members.
+    void sendPresence(const std::shared_ptr<vec::Room>& room);
 
     vec::AccessTokens tokens_;
     drogon::orm::DbClientPtr database_;
@@ -85,8 +99,10 @@ private:
     std::chrono::seconds unloadDelay_;
     vec::OpPublisher publish_;
     std::shared_ptr<drogon::nosql::RedisSubscriber> subscriber_;
+    drogon::nosql::RedisClientPtr redis_;
     std::mutex subscriptionsMutex_;
     std::unordered_set<std::string> subscriptions_;  // documents whose channel subscriber_ listens on
+    std::string instanceId_;                         // tags this process's published ops
 };
 
 #endif  // DOC_SOCKET_H

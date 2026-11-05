@@ -23,11 +23,6 @@ void reject(const OpSender& sender, const vec::OpMessage& op, const char* reason
             .dump());
 }
 
-// An op as members receive it.
-std::string opBroadcast(int64_t seq, const std::string& userId, const vec::Operation& op) {
-    return json{{"type", "op"}, {"seq", seq}, {"userId", userId}, {"op", op}}.dump();
-}
-
 void ack(const OpSender& sender, const vec::OpMessage& op, int64_t seq) {
     sender.send(json{{"type", "ack"}, {"clientOpId", op.clientOpId}, {"seq", seq}}.dump());
 }
@@ -56,6 +51,10 @@ drogon::Task<bool> catchUp(const std::shared_ptr<drogon::orm::Transaction>& tran
 }
 
 }  // namespace
+
+std::string opBroadcast(int64_t seq, const std::string& userId, const Operation& op) {
+    return json{{"type", "op"}, {"seq", seq}, {"userId", userId}, {"op", op}}.dump();
+}
 
 drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec::Room> room, OpSender sender,
                          vec::OpMessage op, std::chrono::steady_clock::time_point queuedAt,

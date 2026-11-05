@@ -114,8 +114,9 @@ int main() {
     drogon::app().setThreadNum(ioThreads);
     const auto rooms = std::make_shared<vec::RoomRegistry>(
         ioThreads, [](size_t index) { return drogon::app().getIOLoop(index); });
-    drogon::app().registerController(std::make_shared<DocSocket>(
-        tokens, database, rooms, roomUnloadDelay, publishToRedis(redis, instanceId), redis->newSubscriber()));
+    drogon::app().registerController(std::make_shared<DocSocket>(tokens, database, rooms, roomUnloadDelay,
+                                                                 publishToRedis(redis, instanceId),
+                                                                 redis->newSubscriber(), instanceId, redis));
     // The largest body any route accepts, an SVG upload included. Drogon answers bigger ones with 413.
     drogon::app().setClientMaxBodySize(maxRequestBodyBytes);
     // The largest WebSocket message a client may send. Ops are small; this leaves room for big addShapes.

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <nlohmann/json.hpp>
 
 #include "ops/Json.h"
@@ -70,6 +71,16 @@ tl::expected<ClientMessage, MessageError> parseClientMessage(std::string_view te
         return JoinMessage{*lastSeq};
     }
     if (*type == "op") return parseOp(message);
+    if (*type == "cursor") {
+        const auto x = message.find("x"), y = message.find("y");
+        // The same bound the drawing uses, so that a cursor can sit anywhere a shape can.
+        constexpr double limit = 1e300;
+        if (x == message.end() || y == message.end() || !x->is_number() || !y->is_number() ||
+            std::abs(x->get<double>()) > limit || std::abs(y->get<double>()) > limit) {
+            return tl::unexpected(MessageError{"bad_message", "x and y must be numbers", {}});
+        }
+        return CursorMessage{x->get<double>(), y->get<double>()};
+    }
     return tl::unexpected(MessageError{"unknown_type", "unknown message type", {}});
 }
 
