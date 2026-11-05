@@ -12,6 +12,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <thread>
@@ -55,6 +56,22 @@ std::optional<trantor::InetAddress> resolve(const vec::RedisEndpoint& redis) {
 
 }  // namespace
 
+// Publishes each committed op on the Redis channel doc:{id}, tagged with this instance's ID so that the
+// instance can recognise its own messages. A failed publish is only logged: another instance that misses
+// the op still catches up from Postgres before its next one.
+vec::OpPublisher publishToRedis(drogon::nosql::RedisClientPtr redis, std::string instanceId) {
+    return [redis, instanceId](const std::string& documentId, const std::string& message) {
+        auto tagged = nlohmann::json::parse(message);
+        tagged["instance"] = instanceId;
+        redis->execCommandAsync([](const drogon::nosql::RedisResult&) {},
+                                [documentId](const std::exception& e) {
+                                    vec::logError("publish failed", {},
+                                                  {{"document", documentId}, {"error", e.what()}});
+                                },
+                                "PUBLISH %s %s", ("doc:" + documentId).c_str(), tagged.dump().c_str());
+    };
+}
+
 int main() {
     vec::initLogging();
     routeDrogonLogsToJson();
@@ -84,6 +101,8 @@ int main() {
     const auto hashing = std::make_shared<trantor::EventLoopThreadPool>(passwordHashingThreads, "hashing");
     hashing->start();
     const vec::AccessTokens tokens(config->jwtSecret);
+    // Distinguishes this process from other instances of the server sharing the same Redis.
+    const std::string instanceId = drogon::utils::getUuid();
     drogon::app().registerFilter(std::make_shared<AuthFilter>(tokens));
     // Enough for real use, but too few to guess passwords or flood signups.
     drogon::app().registerFilter(
@@ -95,7 +114,8 @@ int main() {
     drogon::app().setThreadNum(ioThreads);
     const auto rooms = std::make_shared<vec::RoomRegistry>(
         ioThreads, [](size_t index) { return drogon::app().getIOLoop(index); });
-    drogon::app().registerController(std::make_shared<DocSocket>(tokens, database, rooms, roomUnloadDelay));
+    drogon::app().registerController(std::make_shared<DocSocket>(
+        tokens, database, rooms, roomUnloadDelay, publishToRedis(redis, instanceId), redis->newSubscriber()));
     // The largest body any route accepts, an SVG upload included. Drogon answers bigger ones with 413.
     drogon::app().setClientMaxBodySize(maxRequestBodyBytes);
     // The largest WebSocket message a client may send. Ops are small; this leaves room for big addShapes.
@@ -116,7 +136,7 @@ int main() {
         vec::logError("unhandled exception", id, {{"error", e.what()}});
         respond(errorResponse(drogon::k500InternalServerError, "internal", "something went wrong"));
     });
-    vec::logInfo("server starting", {}, {{"port", config->port}});
+    vec::logInfo("server starting", {}, {{"port", config->port}, {"instance", instanceId}});
 
     drogon::app().addListener("0.0.0.0", config->port).run();
 }

@@ -51,6 +51,15 @@ int64_t steadyNowMs() {
 
 std::atomic<vec::SessionId> nextSessionId = 1;
 
+// An op another instance committed and published. For now only logged; applying it comes next.
+void handleRemoteOp(const std::shared_ptr<vec::Room>& room, const std::string& message) {
+    const json parsed = json::parse(message, nullptr, false);
+    vec::logInfo("remote op received", {},
+                 {{"document", room->documentId()},
+                  {"seq", parsed.is_object() ? parsed.value("seq", json(nullptr)) : json(nullptr)},
+                  {"from", parsed.is_object() ? parsed.value("instance", json(nullptr)) : json(nullptr)}});
+}
+
 void sendJson(const WebSocketConnectionPtr& connection, const json& message) {
     connection->send(message.dump());
 }
@@ -173,6 +182,7 @@ void DocSocket::loadRoom(const std::shared_ptr<vec::Room>& room) {
                                   {"lastSeq", room->lastSeq()},
                                   {"shapes", room->diagram().getObjectCount()},
                                   {"ms", millis}});
+                    subscribe(room->documentId());
                     // A long tail to replay means the next load would be slow too: snapshot it now.
                     vec::snapshotIfDue(database_, room);
                 } else {
@@ -221,6 +231,25 @@ void DocSocket::handleJoin(const WebSocketConnectionPtr& connection,
     });
 }
 
+void DocSocket::subscribe(const std::string& documentId) {
+    const std::lock_guard lock(subscriptionsMutex_);
+    if (!subscriptions_.insert(documentId).second) return;  // already listening, for an earlier room
+    subscriber_->subscribe(
+        "doc:" + documentId, [this, documentId](const std::string&, const std::string& message) {
+            // Looked up per message rather than captured: the document's room may have been replaced since.
+            if (const auto room = rooms_->find(documentId)) {
+                room->loop()->queueInLoop([room, message] { handleRemoteOp(room, message); });
+            }
+        });
+}
+
+void DocSocket::unsubscribeIfUnused(const std::string& documentId) {
+    const std::lock_guard lock(subscriptionsMutex_);
+    // A room loaded again since this one unloaded still needs the channel.
+    if (rooms_->find(documentId) || subscriptions_.erase(documentId) == 0) return;
+    subscriber_->unsubscribe("doc:" + documentId);
+}
+
 void DocSocket::leaveRoom(const std::shared_ptr<DocSession>& session) {
     const auto room = session->room();
     room->loop()->queueInLoop([this, session, room] {
@@ -231,6 +260,7 @@ void DocSocket::leaveRoom(const std::shared_ptr<DocSession>& session) {
         room->loop()->runAfter(unloadDelay_.count(), [this, room, token = *emptied] {
             if (!room->unloadIfStillEmpty(token)) return;
             rooms_->remove(room);
+            unsubscribeIfUnused(room->documentId());
             vec::logInfo("unloaded room", {}, {{"document", room->documentId()}});
         });
     });
@@ -255,7 +285,7 @@ void DocSocket::handleOp(const WebSocketConnectionPtr& connection, const std::sh
             room->enqueue([this, room, op, sender,
                            queuedAt = std::chrono::steady_clock::now()](std::function<void()> done) {
                 drogon::async_run([this, room, op, sender, queuedAt, done]() -> drogon::Task<> {
-                    co_await vec::processOp(database_, room, sender, op, queuedAt);
+                    co_await vec::processOp(database_, room, sender, op, queuedAt, publish_);
                     done();
                 });
             });

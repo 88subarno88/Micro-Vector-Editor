@@ -117,6 +117,12 @@ std::shared_ptr<Room> RoomRegistry::roomFor(const std::string& documentId) {
     return room;
 }
 
+std::shared_ptr<Room> RoomRegistry::find(const std::string& documentId) const {
+    const std::lock_guard lock(mutex_);
+    const auto it = rooms_.find(documentId);
+    return it == rooms_.end() ? nullptr : it->second;
+}
+
 trantor::EventLoop* RoomRegistry::loopFor(const std::string& documentId) const {
     return loopAt_(std::hash<std::string>{}(documentId) % loopCount_);
 }

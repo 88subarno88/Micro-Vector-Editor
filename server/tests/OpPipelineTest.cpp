@@ -77,7 +77,11 @@ protected:
     // Runs one op through the pipeline as `session`, and returns the answer it got.
     json send(const std::string& clientOpId, const Operation& op, SessionId session = senderSession) {
         drogon::sync_wait(processOp(database, room, {session, user.id, sender.sink()}, {clientOpId, 0, op},
-                                    std::chrono::steady_clock::now()));
+                                    std::chrono::steady_clock::now(),
+                                    [this](const std::string& id, const std::string& message) {
+                                        const std::lock_guard lock(publishedMutex);
+                                        published.emplace_back(id, json::parse(message));
+                                    }));
         return sender.last();
     }
 
@@ -101,6 +105,8 @@ protected:
     Document document;
     std::shared_ptr<Room> room;
     Inbox sender, watcher;
+    std::mutex publishedMutex;
+    std::vector<std::pair<std::string, json>> published;
 };
 
 const Operation moveA = Move{"a", 5, 0};
@@ -226,4 +232,27 @@ TEST_F(OpPipelineTest, LoadingFromTheNewSnapshotGivesTheSameDrawing) {
     EXPECT_EQ(loaded->snapshotSeq, snapshotInterval);
     EXPECT_EQ(loaded->lastSeq, snapshotInterval + 7);
     EXPECT_DOUBLE_EQ(loaded->diagram.find("a")->getX(), xOfA());
+}
+
+TEST_F(OpPipelineTest, EachCommittedOpIsPublishedOnceForOtherInstances) {
+    send("c1", moveA);
+    send("c1", moveA);                   // a retry: already published
+    send("bad", Move{"missing", 1, 1});  // rejected: nothing to publish
+
+    ASSERT_EQ(published.size(), 1u);
+    EXPECT_EQ(published[0].first, document.id);
+    EXPECT_EQ(published[0].second, json({{"seq", 1}, {"userId", user.id}, {"op", json(moveA)}}));
+}
+
+TEST_F(OpPipelineTest, OpsCaughtUpFromOtherInstancesAreNotPublishedAgain) {
+    database->execSqlSync(
+        "INSERT INTO operations (document_id, seq, user_id, client_op_id, payload) "
+        "VALUES ($1::uuid, 1, $2::uuid, 'elsewhere', '{\"kind\":\"move\",\"id\":\"a\",\"dx\":100,\"dy\":0}')",
+        document.id, user.id);
+    database->execSqlSync("UPDATE documents SET head_seq = 1 WHERE id = $1::uuid", document.id);
+
+    send("c1", moveA);
+
+    ASSERT_EQ(published.size(), 1u);
+    EXPECT_EQ(published[0].second.at("seq"), 2);
 }

@@ -2,13 +2,18 @@
 #define DOC_SOCKET_H
 
 #include <drogon/WebSocketController.h>
+#include <drogon/nosql/RedisSubscriber.h>
 #include <drogon/orm/DbClient.h>
 
 #include <chrono>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_set>
 
 #include "auth/AccessToken.h"
 #include "collab/Messages.h"
+#include "collab/OpPipeline.h"
 #include "collab/Room.h"
 
 struct DocSession;
@@ -40,12 +45,17 @@ struct DocSession;
 class DocSocket : public drogon::WebSocketController<DocSocket, false> {
 public:
     // A room is unloaded `unloadDelay` after its last member leaves, unless someone joins again first.
+    // Ops this instance commits go to `publish`; ops other instances publish arrive on `subscriber`, which
+    // listens on each document this instance has a room for.
     DocSocket(vec::AccessTokens tokens, drogon::orm::DbClientPtr database,
-              std::shared_ptr<vec::RoomRegistry> rooms, std::chrono::seconds unloadDelay)
+              std::shared_ptr<vec::RoomRegistry> rooms, std::chrono::seconds unloadDelay,
+              vec::OpPublisher publish, std::shared_ptr<drogon::nosql::RedisSubscriber> subscriber)
         : tokens_(std::move(tokens)),
           database_(std::move(database)),
           rooms_(std::move(rooms)),
-          unloadDelay_(unloadDelay) {}
+          unloadDelay_(unloadDelay),
+          publish_(std::move(publish)),
+          subscriber_(std::move(subscriber)) {}
 
     void handleNewConnection(const drogon::HttpRequestPtr& request,
                              const drogon::WebSocketConnectionPtr& connection) override;
@@ -66,11 +76,17 @@ private:
     void handleOp(const drogon::WebSocketConnectionPtr& connection,
                   const std::shared_ptr<DocSession>& session, const vec::OpMessage& op);
     void leaveRoom(const std::shared_ptr<DocSession>& session);
+    void subscribe(const std::string& documentId);
+    void unsubscribeIfUnused(const std::string& documentId);
 
     vec::AccessTokens tokens_;
     drogon::orm::DbClientPtr database_;
     std::shared_ptr<vec::RoomRegistry> rooms_;
     std::chrono::seconds unloadDelay_;
+    vec::OpPublisher publish_;
+    std::shared_ptr<drogon::nosql::RedisSubscriber> subscriber_;
+    std::mutex subscriptionsMutex_;
+    std::unordered_set<std::string> subscriptions_;  // documents whose channel subscriber_ listens on
 };
 
 #endif  // DOC_SOCKET_H

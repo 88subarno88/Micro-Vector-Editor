@@ -157,6 +157,9 @@ public:
 
     std::shared_ptr<Room> roomFor(const std::string& documentId);
 
+    // The document's room if it has one; unlike roomFor(), never creates one.
+    std::shared_ptr<Room> find(const std::string& documentId) const;
+
     // The loop a document's room runs on.
     trantor::EventLoop* loopFor(const std::string& documentId) const;
 

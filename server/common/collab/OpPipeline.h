@@ -14,6 +14,10 @@
 
 namespace vec {
 
+// Announces a committed op to the other server instances: (documentId, message), where the message is
+// JSON {"seq", "userId", "op", "instance"}. Called on the room's loop, once per op this instance commits.
+using OpPublisher = std::function<void(const std::string& documentId, const std::string& message)>;
+
 // Who sent an op, and how to answer them.
 struct OpSender {
     SessionId session = 0;
@@ -31,7 +35,7 @@ struct OpSender {
 // Logs "op timing" with the microseconds spent in each stage, from `queuedAt`, when the op entered the
 // room's queue.
 drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<Room> room, OpSender sender,
-                         OpMessage op, std::chrono::steady_clock::time_point queuedAt);
+                         OpMessage op, std::chrono::steady_clock::time_point queuedAt, OpPublisher publish);
 
 }  // namespace vec
 

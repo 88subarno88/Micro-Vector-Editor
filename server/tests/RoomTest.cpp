@@ -535,3 +535,12 @@ TEST_F(RoomTest, TheSnapshotSeqComesFromTheLoadAndCanAdvance) {
         EXPECT_EQ(room.snapshotSeq(), 250);
     });
 }
+
+TEST_F(RoomRegistryTest, FindNeverCreatesARoom) {
+    RoomRegistry registry(loops.size(), [this](size_t i) { return loops[i]; });
+
+    EXPECT_EQ(registry.find("doc"), nullptr);
+    EXPECT_EQ(registry.roomCount(), 0u);
+    const auto room = registry.roomFor("doc");
+    EXPECT_EQ(registry.find("doc"), room);
+}

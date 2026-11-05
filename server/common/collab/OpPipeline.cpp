@@ -58,7 +58,8 @@ drogon::Task<bool> catchUp(const std::shared_ptr<drogon::orm::Transaction>& tran
 }  // namespace
 
 drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec::Room> room, OpSender sender,
-                         vec::OpMessage op, std::chrono::steady_clock::time_point queuedAt) {
+                         vec::OpMessage op, std::chrono::steady_clock::time_point queuedAt,
+                         OpPublisher publish) {
     // One log line per op, with how long each stage took and how it ended, logged however it ends.
     struct Timing {
         vec::StageTimer timer;
@@ -128,6 +129,10 @@ drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec:
         }
         ack(sender, op, inserted.seq);
         room->broadcast(opBroadcast(inserted.seq, sender.userId, op.op), sender.session);
+        // After the commit, like the ack: other instances only ever hear of ops that are in the log.
+        if (publish)
+            publish(room->documentId(),
+                    json{{"seq", inserted.seq}, {"userId", sender.userId}, {"op", op.op}}.dump());
         snapshotIfDue(database, room);
         timing.timer.mark("apply_and_send");
         timing.outcome = "ack";
