@@ -1,37 +1,22 @@
 #include <memory>
 #include <string>
 
-#include "DocClient.h"
-#include "HttpTest.h"
-#include "collab/LoadDrawing.h"
-#include "ops/Json.h"
+#include "LiveDocTest.h"
 
 using namespace vec;
 using nlohmann::json;
 
 namespace {
 
-// A document shared by alice and bob, both editors, each with a live connection to it.
-class SyncHttpTest : public HttpTest {
+// A document owned by alice and shared with bob as an editor, each with a live connection to it.
+class SyncHttpTest : public LiveDocTest {
 protected:
     void SetUp() override {
-        HttpTest::SetUp();
+        LiveDocTest::SetUp();
         if (IsSkipped()) return;
-        aliceToken = signUpAndLogIn("alice@example.com").accessToken;
-        bobToken = signUpAndLogIn("bob@example.com").accessToken;
-        documentId = send(drogon::Post, "/api/docs", {{"title", "shared"}}, aliceToken).body["id"];
-        ASSERT_EQ(send(drogon::Post, "/api/docs/" + documentId + "/members",
-                       {{"email", "bob@example.com"}, {"role", "editor"}}, aliceToken)
-                      .status,
-                  201);
-        alice = connect(aliceToken);
-        bob = connect(bobToken);
-    }
-
-    std::unique_ptr<DocClient> connect(const std::string& token) {
-        auto client = std::make_unique<DocClient>(server->port, documentId, token);
-        EXPECT_TRUE(client->joined()) << client->problem();
-        return client;
+        createSharedDocument("alice@example.com", {"bob@example.com"});
+        alice = connect(ownerToken);
+        bob = connect(editorTokens[0]);
     }
 
     static AddShape rect(const std::string& id) { return {id, {RectGeom{0, 0, 10, 10}, {}}, std::nullopt}; }
@@ -39,33 +24,6 @@ protected:
         return {id, {CircleGeom{{50, 50}, 5}, {}}, std::nullopt};
     }
 
-    int64_t headSeq() {
-        return send(drogon::Get, "/api/docs/" + documentId, nullptr, aliceToken).body["document"]["headSeq"];
-    }
-
-    // The drawing as the server would load it now, from Postgres.
-    json serverDrawing() {
-        const auto drawing = drogon::sync_wait(loadDrawing(server->database, documentId));
-        EXPECT_TRUE(drawing) << drawing.error();
-        return drawing ? diagramToJson(drawing->diagram) : json();
-    }
-
-    // Waits until every client has its answers and has heard of every committed op, then checks they all
-    // hold the drawing the server would load.
-    void expectEveryoneAgrees(std::initializer_list<DocClient*> clients) {
-        // First every answer, so that the head read next is final.
-        for (DocClient* client : clients) ASSERT_TRUE(client->waitUntilSettled(0)) << "unanswered ops";
-        const int64_t head = headSeq();
-        const json expected = serverDrawing();
-        for (DocClient* client : clients) {
-            ASSERT_TRUE(client->waitUntilSettled(head))
-                << "stuck at seq " << client->lastSeq() << " of " << head;
-            EXPECT_EQ(client->problem(), "");
-            EXPECT_EQ(client->replica(), expected);
-        }
-    }
-
-    std::string aliceToken, bobToken, documentId;
     std::unique_ptr<DocClient> alice, bob;
 };
 
@@ -115,7 +73,7 @@ TEST_F(SyncHttpTest, AClientThatJoinsLaterGetsTheSameDrawing) {
     bob->send(DeleteShape{"a"});
     expectEveryoneAgrees({alice.get(), bob.get()});
 
-    const auto late = connect(bobToken);
+    const auto late = connect(editorTokens[0]);
 
     expectEveryoneAgrees({alice.get(), bob.get(), late.get()});
 }

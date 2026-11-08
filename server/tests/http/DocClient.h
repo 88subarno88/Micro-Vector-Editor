@@ -38,6 +38,7 @@ public:
     int64_t lastSeq();
     int acked();
     int rejected();
+    std::map<std::string, int> rejectedFor();  // how many were rejected for each reason
     std::string problem();  // anything that shouldn't happen, such as a confirmed op that didn't apply
 
 private:
@@ -53,7 +54,7 @@ private:
     std::map<int64_t, vec::Operation> confirmed_;    // ops by seq, waiting to be applied in order
     std::map<std::string, vec::Operation> pending_;  // sent and not yet answered, by clientOpId
     int acked_ = 0;
-    int rejected_ = 0;
+    std::map<std::string, int> rejectedFor_;
     std::string problem_;
 };
 

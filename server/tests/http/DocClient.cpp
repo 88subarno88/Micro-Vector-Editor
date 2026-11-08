@@ -65,7 +65,14 @@ int DocClient::acked() {
 
 int DocClient::rejected() {
     std::lock_guard lock(mutex_);
-    return rejected_;
+    int total = 0;
+    for (const auto& [reason, count] : rejectedFor_) total += count;
+    return total;
+}
+
+std::map<std::string, int> DocClient::rejectedFor() {
+    std::lock_guard lock(mutex_);
+    return rejectedFor_;
 }
 
 std::string DocClient::problem() {
@@ -112,7 +119,7 @@ void DocClient::handle(const std::string& message) {
         }
     } else if (type == "reject") {
         pending_.erase(m.value("clientOpId", ""));
-        ++rejected_;
+        ++rejectedFor_[m.value("reason", "")];
     } else if (type != "presence" && type != "pong") {
         problem_ += "unexpected message: " + message + "\n";
     }
