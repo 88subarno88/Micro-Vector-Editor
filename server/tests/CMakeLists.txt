@@ -7,3 +7,11 @@ set_target_properties(vec_server_tests PROPERTIES CXX_STANDARD 20)
 
 # Database tests skip themselves without TEST_DATABASE_URL; report them as skipped, not passed.
 gtest_discover_tests(vec_server_tests PROPERTIES SKIP_REGULAR_EXPRESSION "\\[  SKIPPED \\]")
+
+# The real API in-process, over HTTP.
+add_executable(vec_http_tests http/HttpTest.cpp http/HttpServerTest.cpp http/AuthHttpTest.cpp http/DocHttpTest.cpp
+    http/PermissionHttpTest.cpp http/DocClient.cpp http/SyncHttpTest.cpp)
+target_link_libraries(vec_http_tests PRIVATE vec_api_lib GTest::gtest_main)
+target_compile_definitions(vec_http_tests PRIVATE FIXTURE_DIR="${CMAKE_SOURCE_DIR}/core/tests/fixtures")
+set_target_properties(vec_http_tests PROPERTIES CXX_STANDARD 20)
+gtest_discover_tests(vec_http_tests PROPERTIES SKIP_REGULAR_EXPRESSION "\\[  SKIPPED \\]")

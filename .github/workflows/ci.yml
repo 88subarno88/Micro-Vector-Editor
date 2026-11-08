@@ -106,7 +106,7 @@ jobs:
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }} --parallel
 
-      - name: Start the database and run migrations
+      - name: Start the databases and migrate the test one
         if: matrix.preset == 'server'
         run: |
           docker compose -f deploy/docker-compose.dev.yml up -d --wait
@@ -115,7 +115,7 @@ jobs:
           chmod +x dbmate
           grep -E '^[A-Z_]+=' deploy/dev.env >> "$GITHUB_ENV"
           set -a; source deploy/dev.env; set +a
-          ./dbmate up
+          ./dbmate -e TEST_DATABASE_URL up
 
       - name: Test
         if: matrix.preset != 'fuzz'
