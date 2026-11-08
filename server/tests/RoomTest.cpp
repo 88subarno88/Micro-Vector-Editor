@@ -386,6 +386,7 @@ TEST_F(RoomTest, CallingDoneTwiceStartsOnlyOneNextTask) {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     EXPECT_EQ(started, 2);
+    onLoop([&] { second = nullptr; });  // it was set on the loop, so it's released there too
 }
 
 TEST_F(RoomTest, ATaskThatThrowsDoesNotStallTheQueue) {

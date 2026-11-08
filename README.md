@@ -71,6 +71,19 @@ cmake --build --preset asan --parallel
 ctest --preset asan
 ```
 
+The server's tests also run under ThreadSanitizer, with every dependency rebuilt under it too, so the first configure takes a while. TSan can't start with the address randomisation newer kernels use, so run it under `setarch -R`:
+
+```bash
+setarch -R cmake --preset tsan
+setarch -R cmake --build --preset tsan --parallel
+docker compose -f deploy/docker-compose.dev.yml up -d --wait
+set -a; source deploy/dev.env; set +a
+dbmate -e TEST_DATABASE_URL up
+setarch -R ctest --preset tsan
+```
+
+Reports that aren't ours to fix are suppressed, with the reason for each, in `server/tests/tsan.supp`.
+
 The fuzz targets cover the SVG parser and the JSON decoders. They need clang:
 
 ```bash

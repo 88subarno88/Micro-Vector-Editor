@@ -1,0 +1,6 @@
+# ThreadSanitizer reports that aren't ours to fix. Each entry says why it's safe.
+
+# libpq: every connection writes the same server setting into the global static_std_strings while it starts
+# up, from whichever thread is connecting. Only the deprecated PQescapeString reads it, and nothing here
+# calls that.
+race:pqSaveParameterStatus

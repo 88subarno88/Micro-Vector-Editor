@@ -44,6 +44,11 @@ jobs:
           - name: Server
             preset: server
             desktop: OFF
+            server: true
+          - name: Server under TSan
+            preset: tsan
+            desktop: OFF
+            server: true
           - name: ASan + UBSan
             preset: asan
             desktop: OFF
@@ -59,8 +64,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .vcpkg-cache
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
-          restore-keys: vcpkg-${{ runner.os }}-
+          # Per preset: jobs sharing one key would race to save it, and only one job's packages would be kept.
+          key: vcpkg-${{ runner.os }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json', 'triplets/*') }}
+          restore-keys: vcpkg-${{ runner.os }}-${{ matrix.preset }}-
 
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1.2
@@ -74,7 +80,7 @@ jobs:
           sudo apt-get install -y clang
 
       - name: Install server build tools
-        if: matrix.preset == 'server'
+        if: matrix.server
         run: |
           sudo apt-get update
           sudo apt-get install -y bison flex autoconf autoconf-archive automake libtool
@@ -84,6 +90,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y qt6-base-dev libgl-dev
+
+      # TSan can't map its shadow memory with the address randomisation the runner's kernel uses, and
+      # libpq's build runs programs built with TSan too.
+      - name: Let ThreadSanitizer run
+        if: matrix.preset == 'tsan'
+        run: sudo sysctl vm.mmap_rnd_bits=28
 
       - name: Set up vcpkg at the manifest baseline
         run: |
@@ -107,7 +119,7 @@ jobs:
         run: cmake --build --preset ${{ matrix.preset }} --parallel
 
       - name: Start the databases and migrate the test one
-        if: matrix.preset == 'server'
+        if: matrix.server
         run: |
           docker compose -f deploy/docker-compose.dev.yml up -d --wait
           curl -fsSL -o dbmate https://github.com/amacneil/dbmate/releases/download/v2.37.0/dbmate-linux-amd64

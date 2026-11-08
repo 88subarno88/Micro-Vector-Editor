@@ -37,6 +37,37 @@
       }
     },
     {
+      "name": "tsan",
+      "displayName": "Server and tests with ThreadSanitizer, dependencies included",
+      "binaryDir": "${sourceDir}/build/tsan",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_FLAGS": "-fsanitize=thread -fno-omit-frame-pointer",
+        "VCPKG_MANIFEST_FEATURES": "server",
+        "VCPKG_INSTALLED_DIR": "$env{HOME}/.cache/micro-vector-editor/vcpkg_installed",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-tsan",
+        "BUILD_DESKTOP": "OFF",
+        "BUILD_SERVER": "ON"
+      }
+    },
+    {
+      "name": "wasm",
+      "displayName": "Core compiled to WebAssembly with Emscripten (source emsdk_env.sh first)",
+      "binaryDir": "${sourceDir}/build/wasm",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_TARGET_TRIPLET": "wasm32-emscripten",
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+        "VCPKG_INSTALLED_DIR": "$env{HOME}/.cache/micro-vector-editor/vcpkg_installed",
+        "BUILD_DESKTOP": "OFF",
+        "BUILD_CLI": "OFF",
+        "BUILD_TESTS": "OFF"
+      }
+    },
+    {
       "name": "fuzz",
       "displayName": "libFuzzer targets with ASan and UBSan",
       "binaryDir": "${sourceDir}/build/fuzz",
@@ -66,6 +97,14 @@
       "configurePreset": "asan"
     },
     {
+      "name": "tsan",
+      "configurePreset": "tsan"
+    },
+    {
+      "name": "wasm",
+      "configurePreset": "wasm"
+    },
+    {
       "name": "fuzz",
       "configurePreset": "fuzz"
     }
@@ -85,6 +124,14 @@
       "name": "asan",
       "configurePreset": "asan",
       "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": { "outputOnFailure": true },
+      "environment": {
+        "TSAN_OPTIONS": "suppressions='${sourceDir}/server/tests/tsan.supp' second_deadlock_stack=1"
+      }
     }
   ]
 }

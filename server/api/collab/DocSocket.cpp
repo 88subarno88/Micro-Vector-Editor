@@ -258,7 +258,13 @@ void DocSocket::subscribe(const std::string& documentId) {
                                // been replaced since.
                                const auto room = rooms_->find(documentId);
                                if (!room) return;
-                               if (message == presenceNotice) return sendPresence(room);
+                               if (message == presenceNotice) {
+                                   // Not from here: this callback runs holding the subscriber's lock, and
+                                   // a Redis command takes the client's, the reverse of the order Drogon
+                                   // takes them in when it reconnects, which could deadlock.
+                                   room->loop()->queueInLoop([this, room] { sendPresence(room); });
+                                   return;
+                               }
                                room->loop()->queueInLoop([this, room, message] {
                                    // A room task, so that it can't interleave with an op this instance is
                                    // committing. If the queue is full the op is dropped here, and caught up
