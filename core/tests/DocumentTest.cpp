@@ -160,3 +160,53 @@ TEST(DocumentTest, TextThatIsNotUtf8StillGivesJson) {
 
     EXPECT_EQ(drawing["shapes"][0]["shape"]["text"], "caf\xef\xbf\xbd");  // U+FFFD
 }
+
+TEST(DocumentTest, DrawCommandsFollowTheShapesBottomToTop) {
+    Document doc;
+    ASSERT_EQ(doc.loadSVG(fixture("app-export.svg")), ok);
+
+    const json commands = json::parse(doc.drawCommands());
+    const json shapes = json::parse(doc.shapesJson())["shapes"];
+
+    ASSERT_EQ(commands.size(), shapes.size());  // every shape here draws with one call
+    for (size_t i = 0; i < shapes.size(); ++i) EXPECT_EQ(commands[i]["id"], shapes[i]["id"]) << i;
+}
+
+TEST(DocumentTest, EachKindOfShapeDrawsWithItsPrimitive) {
+    const auto drawn = [](const std::string& opName) {
+        Document doc;
+        EXPECT_EQ(doc.applyOp(op(opName)), ok) << opName;
+        return json::parse(doc.drawCommands()).at(0);
+    };
+
+    const json rect = drawn("add-rounded-rect");
+    EXPECT_EQ(rect["kind"], "rect");
+    EXPECT_EQ(rect["x"], 10);
+    EXPECT_EQ(rect["cornerRadius"], 5);
+    EXPECT_EQ(rect["style"], (json{{"stroke", "red"}, {"fill", "#00ff00"}, {"strokeWidth", 2.5}}));
+
+    const json circle = drawn("add-circle");
+    EXPECT_EQ(circle["kind"], "ellipse");
+    EXPECT_EQ(circle["cx"], 10);
+    EXPECT_EQ(circle["rx"], 30);
+    EXPECT_EQ(circle["ry"], 30);
+
+    const json hexagon = drawn("add-hexagon");
+    EXPECT_EQ(hexagon["kind"], "polyline");
+    EXPECT_EQ(hexagon["closed"], true);
+    EXPECT_EQ(hexagon["points"].size(), 12u);  // six corners
+
+    const json freehand = drawn("add-freehand");
+    EXPECT_EQ(freehand["kind"], "polyline");
+    EXPECT_EQ(freehand["closed"], false);
+    EXPECT_EQ(freehand["points"], (json{1, 2, 3.5, 4.5, 5, 6}));
+
+    EXPECT_EQ(drawn("add-line")["kind"], "polyline");
+
+    const json text = drawn("add-text");
+    EXPECT_EQ(text["kind"], "text");
+    EXPECT_EQ(text["text"], json::parse(op("add-text"))["shape"]["text"]);
+    EXPECT_EQ(text["fontFamily"], "Arial");
+}
+
+TEST(DocumentTest, AnEmptyDrawingHasNoDrawCommands) { EXPECT_EQ(Document().drawCommands(), "[]"); }

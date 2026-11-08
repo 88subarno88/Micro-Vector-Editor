@@ -19,5 +19,6 @@ EMSCRIPTEN_BINDINGS(vec) {
         .function("toSVG", &Document::toSVG)
         .function("loadSVG", &Document::loadSVG)
         .function("loadJson", &Document::loadJson)
-        .function("shapesJson", &Document::shapesJson);
+        .function("shapesJson", &Document::shapesJson)
+        .function("drawCommands", &Document::drawCommands);
 }

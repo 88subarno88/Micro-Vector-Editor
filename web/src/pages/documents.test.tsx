@@ -8,14 +8,18 @@ import { setAccessToken } from '../api/client'
 import App from '../App'
 import { AuthProvider } from '../auth/AuthProvider'
 
-// A stand-in for the WebAssembly core: every op it's given adds a shape.
+// A stand-in for the WebAssembly core: every op it's given adds a shape, except one of kind "broken".
 vi.mock('../core/core', () => ({
   loadCore: async () => ({
     Document: class {
       shapes = 0
       loadJson() { return '{"ok":true}' }
-      applyOp() { this.shapes += 1; return '{"ok":true}' }
-      shapesJson() { return JSON.stringify({ shapes: Array(this.shapes).fill({}) }) }
+      applyOp(op: string) {
+        if (JSON.parse(op).kind === 'broken') return '{"error":{"code":"shape_not_found","message":"no such shape"}}'
+        this.shapes += 1
+        return '{"ok":true}'
+      }
+      drawCommands() { return JSON.stringify(Array(this.shapes).fill({ kind: 'rect' })) }
       delete() {}
     },
   }),
@@ -39,7 +43,7 @@ const failure = (status: number, code: string) => json(status, { error: { code, 
 // A fake server holding `docs`, newest first, logged in as ada unless `loggedIn` is false. Ada owns the
 // documents whose ownerId is u1; on the others she's a viewer, so the server refuses her renames.
 function server(docs: Doc[], { loggedIn = true } = {}) {
-  const state = { docs: [...docs], loggedIn, nextId: 100 }
+  const state = { docs: [...docs], loggedIn, nextId: 100, ops: [addOp('s1'), addOp('s2')] as unknown[] }
   vi.stubGlobal('fetch', async (input: Request | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(input, init)
     const url = new URL(request.url)
@@ -84,7 +88,7 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
         return new Response(null, { status: 204 })
       case 'GET /api/docs/:id':
         if (!doc) return failure(404, 'not_found')
-        return json(200, { document: doc, role: doc.ownerId === me.id ? 'owner' : 'viewer', snapshot: null, ops: [addOp('s1'), addOp('s2')], opsComplete: true })
+        return json(200, { document: doc, role: doc.ownerId === me.id ? 'owner' : 'viewer', snapshot: null, ops: state.ops, opsComplete: true })
     }
     return failure(404, 'not_found')
   })
@@ -109,7 +113,11 @@ function renderAt(path: string) {
 
 const row = async (title: string) => (await screen.findByRole('link', { name: title })).closest('li') as HTMLElement
 
-beforeEach(() => setAccessToken(null))
+beforeEach(() => {
+  setAccessToken(null)
+  // jsdom has no canvas; the drawing component copes without one.
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+})
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -191,8 +199,15 @@ describe('the documents page', () => {
     await userEvent.click(await screen.findByRole('link', { name: 'Plans' }))
 
     expect(await screen.findByRole('heading', { name: 'Plans' })).toBeInTheDocument()
-    expect(screen.getByText(/You are the owner\. 3 edits so far/)).toBeInTheDocument()
-    expect(await screen.findByText('2 shapes, rebuilt in the browser.')).toBeInTheDocument()
+    expect(screen.getByText('You are the owner.')).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: 'The drawing' })).toBeInTheDocument()
+  })
+
+  it("says so when the server's edits don't rebuild the drawing", async () => {
+    const state = server([doc('d1', 'Plans')])
+    state.ops = [addOp('s1'), { ...addOp('s2'), seq: 2, op: { kind: 'broken' } }]
+    renderAt('/docs/d1')
+    expect(await screen.findByRole('alert')).toHaveTextContent("Edit 2 didn't apply: no such shape")
   })
 
   it("says so when a document can't be opened", async () => {

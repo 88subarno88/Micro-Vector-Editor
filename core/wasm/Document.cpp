@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 #include <utility>
 
+#include "core/Renderer.h"
 #include "ops/Apply.h"
 #include "ops/Json.h"
 #include "parser/SVGParser.h"
@@ -21,6 +22,53 @@ std::string ok() { return R"({"ok":true})"; }
 std::string error(const std::string& code, const std::string& message) {
     return dump({{"error", {{"code", code}, {"message", message}}}});
 }
+
+json styleJson(const Style& style) {
+    return {{"stroke", style.stroke}, {"fill", style.fill}, {"strokeWidth", style.strokeWidth}};
+}
+
+// Writes down what a shape draws, for JavaScript to replay on a canvas.
+class RecordingRenderer : public Renderer {
+public:
+    json commands = json::array();
+    std::string shapeId;
+
+    void drawRect(const RectGeom& r, const Style& style) override {
+        add("rect", style,
+            {{"x", r.x},
+             {"y", r.y},
+             {"width", r.width},
+             {"height", r.height},
+             {"cornerRadius", r.cornerRadius}});
+    }
+    void drawEllipse(const EllipseGeom& e, const Style& style) override {
+        add("ellipse", style, {{"cx", e.center.x}, {"cy", e.center.y}, {"rx", e.rx}, {"ry", e.ry}});
+    }
+    void drawPolyline(const std::vector<Point>& points, bool closed, const Style& style) override {
+        json flat = json::array();
+        for (const Point& p : points) {
+            flat.push_back(p.x);
+            flat.push_back(p.y);
+        }
+        add("polyline", style, {{"points", std::move(flat)}, {"closed", closed}});
+    }
+    void drawText(const TextGeom& t, const Style& style) override {
+        add("text", style,
+            {{"x", t.topLeft.x},
+             {"y", t.topLeft.y},
+             {"text", t.text},
+             {"fontFamily", t.fontFamily},
+             {"fontSize", t.fontSize}});
+    }
+
+private:
+    void add(const char* kind, const Style& style, json fields) {
+        fields["id"] = shapeId;
+        fields["kind"] = kind;
+        fields["style"] = styleJson(style);
+        commands.push_back(std::move(fields));
+    }
+};
 
 }  // namespace
 
@@ -70,5 +118,14 @@ std::string Document::loadJson(const std::string& snapshotJson) {
 }
 
 std::string Document::shapesJson() const { return dump(diagramToJson(diagram_)); }
+
+std::string Document::drawCommands() const {
+    RecordingRenderer recorder;
+    for (const auto& shape : diagram_.getShapes()) {
+        recorder.shapeId = shape->getId();
+        shape->draw(recorder);
+    }
+    return dump(recorder.commands);
+}
 
 }  // namespace vec::web

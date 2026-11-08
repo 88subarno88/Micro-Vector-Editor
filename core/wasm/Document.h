@@ -35,9 +35,18 @@ public:
     // can't be used; the drawing is then unchanged.
     std::string loadJson(const std::string& snapshotJson);
 
-    // {"version", "shapes": [{"id", "shape"}]}, bottom to top: everything needed to draw it. Text that isn't
-    // valid UTF-8 can't be written as JSON; it's replaced with U+FFFD.
+    // {"version", "shapes": [{"id", "shape"}]}, bottom to top: the drawing's data. Text that isn't valid
+    // UTF-8 can't be written as JSON; it's replaced with U+FFFD, here and in drawCommands.
     std::string shapesJson() const;
+
+    // How to draw it, bottom to top: the calls each shape makes on a Renderer, the same ones the desktop app
+    // paints with. Each is an object with the shape's "id", a "kind" and a "style" ({stroke, fill,
+    // strokeWidth}, where fill "none" means no fill), plus:
+    //   rect:     x, y, width, height, cornerRadius
+    //   ellipse:  cx, cy, rx, ry
+    //   polyline: points [x0, y0, x1, y1, ...], closed (a closed one is filled)
+    //   text:     x, y (the top left), text, fontFamily, fontSize
+    std::string drawCommands() const;
 
 private:
     Diagram diagram_;
