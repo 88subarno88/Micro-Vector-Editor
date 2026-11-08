@@ -426,6 +426,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/exports/{id}/file:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The export job's ID.
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [exports]
+      operationId: downloadExport
+      summary: Download a finished export
+      description: >
+        The job's `resultUrl`. Like every route here it needs the access token in the Authorization
+        header, so a browser should fetch it and save the response, rather than link to it.
+      responses:
+        '200':
+          description: The file, as an attachment named `drawing.svg` or `drawing.png`.
+          headers:
+            Content-Disposition:
+              description: '`attachment; filename=drawing.svg` or `drawing.png`'
+              schema:
+                type: string
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+            image/png:
+              schema:
+                type: string
+                contentEncoding: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: '`not_found`: no such export, or you are not a member of its document.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: '`not_ready`: the export is queued, running or failed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: '`gone`: the file has been deleted.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     bearer:

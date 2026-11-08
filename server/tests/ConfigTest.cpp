@@ -15,7 +15,8 @@ std::map<std::string, std::string> validEnv() {
     return {{"PORT", "8080"},
             {"DATABASE_URL", "postgres://db"},
             {"REDIS_URL", "redis://cache"},
-            {"JWT_SECRET", goodSecret}};
+            {"JWT_SECRET", goodSecret},
+            {"EXPORT_DIR", "/exports"}};
 }
 
 auto load(const std::map<std::string, std::string>& env) {
@@ -36,10 +37,11 @@ TEST(ConfigTest, LoadsEverySetting) {
     EXPECT_EQ(config->databaseUrl, "postgres://db");
     EXPECT_EQ(config->redis.host, "cache");
     EXPECT_EQ(config->jwtSecret, goodSecret);
+    EXPECT_EQ(config->exportDir, "/exports");
 }
 
 TEST(ConfigTest, EachMissingOrEmptySettingIsNamed) {
-    for (const char* name : {"PORT", "DATABASE_URL", "REDIS_URL", "JWT_SECRET"}) {
+    for (const char* name : {"PORT", "DATABASE_URL", "REDIS_URL", "JWT_SECRET", "EXPORT_DIR"}) {
         auto missing = validEnv();
         missing.erase(name);
         const auto withoutIt = load(missing);
@@ -58,7 +60,7 @@ TEST(ConfigTest, ReportsEveryProblemAtOnce) {
     const auto config = load({});
 
     ASSERT_FALSE(config);
-    for (const char* name : {"PORT", "DATABASE_URL", "REDIS_URL", "JWT_SECRET"}) {
+    for (const char* name : {"PORT", "DATABASE_URL", "REDIS_URL", "JWT_SECRET", "EXPORT_DIR"}) {
         EXPECT_NE(config.error().find(name), std::string::npos) << name;
     }
 }

@@ -5,4 +5,5 @@ add_executable(vec_server_tests AccessTest.cpp AccessTokenTest.cpp ConfigTest.cp
 target_link_libraries(vec_server_tests PRIVATE vec_server_common GTest::gtest_main)
 set_target_properties(vec_server_tests PROPERTIES CXX_STANDARD 20)
 
-gtest_discover_tests(vec_server_tests)
+# Database tests skip themselves without TEST_DATABASE_URL; report them as skipped, not passed.
+gtest_discover_tests(vec_server_tests PROPERTIES SKIP_REGULAR_EXPRESSION "\\[  SKIPPED \\]")

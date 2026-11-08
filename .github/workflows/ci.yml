@@ -119,14 +119,14 @@ jobs:
 
       - name: Test
         if: matrix.preset != 'fuzz'
-        run: ctest --preset ${{ matrix.preset }}
-
-      # A missing setting would otherwise pass quietly, with every database test skipped.
-      - name: Check the database tests ran
-        if: matrix.preset == 'server'
+        shell: bash
         run: |
-          build/server/server/tests/vec_server_tests --gtest_filter='UserRepoTest.*:DocRepoTest.*:OpRepoTest.*' | tee tests.log
-          if grep -q SKIPPED tests.log; then exit 1; fi
+          ctest --preset ${{ matrix.preset }} | tee ctest.log
+          # A missing setting would otherwise pass quietly, with every database test skipped.
+          if grep -q '(Skipped)' ctest.log; then
+            echo "::error::tests were skipped; is TEST_DATABASE_URL set?"
+            exit 1
+          fi
 
       - name: Fuzz
         if: matrix.preset == 'fuzz'

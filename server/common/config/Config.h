@@ -27,6 +27,7 @@ struct Config {
     std::string databaseUrl;
     RedisEndpoint redis;
     std::string jwtSecret;
+    std::string exportDir;  // where the export worker saves files
 };
 
 // Looks up one setting by name; nullopt if it isn't set.
@@ -35,7 +36,7 @@ using EnvLookup = std::function<std::optional<std::string>(const std::string&)>;
 // Reads the process environment.
 std::optional<std::string> readEnv(const std::string& name);
 
-// Builds a Config from PORT, DATABASE_URL, REDIS_URL and JWT_SECRET. An empty value counts as
+// Builds a Config from PORT, DATABASE_URL, REDIS_URL, JWT_SECRET and EXPORT_DIR. An empty value counts as
 // missing, and the two URLs must be well formed. The error lists every problem at once and never contains a
 // setting's value.
 tl::expected<Config, std::string> loadConfig(const EnvLookup& lookup = readEnv);

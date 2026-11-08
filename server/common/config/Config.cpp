@@ -100,6 +100,8 @@ tl::expected<Config, std::string> loadConfig(const EnvLookup& lookup) {
                            " characters");
     }
 
+    config.exportDir = require("EXPORT_DIR");
+
     const std::string port = require("PORT");
     if (!port.empty()) {
         const auto parsed = parsePort(port);

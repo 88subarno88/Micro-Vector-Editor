@@ -14,6 +14,10 @@
 //
 // GET /api/exports/{id} -> 200 job, for any member of its document; 404 not_found otherwise, or if
 // there's no such job.
-void registerExportRoutes(const drogon::orm::DbClientPtr& database);
+//
+// GET /api/exports/{id}/file -> 200 the file, as an attachment named drawing.svg or drawing.png, for
+// any member of its document; 404 as above. 409 not_ready unless the job is done; 410 gone if the file
+// has been deleted. Files are read from `exportDir`, where the worker saves them.
+void registerExportRoutes(const drogon::orm::DbClientPtr& database, const std::string& exportDir);
 
 #endif  // EXPORT_ROUTES_H

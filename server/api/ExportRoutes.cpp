@@ -2,6 +2,7 @@
 
 #include <drogon/drogon.h>
 
+#include <filesystem>
 #include <optional>
 #include <string>
 
@@ -10,6 +11,7 @@
 #include "Routes.h"
 #include "db/DocRepo.h"
 #include "db/ExportRepo.h"
+#include "exports/RunExport.h"
 
 using drogon::HttpRequestPtr;
 using drogon::HttpResponsePtr;
@@ -31,9 +33,11 @@ json toJson(const vec::ExportJob& job) {
             {"createdAt", job.createdAt}};
 }
 
+HttpResponsePtr noSuchExport() { return errorResponse(drogon::k404NotFound, "not_found", "no such export"); }
+
 }  // namespace
 
-void registerExportRoutes(const drogon::orm::DbClientPtr& database) {
+void registerExportRoutes(const drogon::orm::DbClientPtr& database, const std::string& exportDir) {
     registerProtected(
         "/api/docs/{id}/exports",
         [database](HttpRequestPtr request, std::string id) -> drogon::Task<HttpResponsePtr> {
@@ -62,9 +66,37 @@ void registerExportRoutes(const drogon::orm::DbClientPtr& database) {
             const auto job = co_await vec::ExportRepo(database).get(id);
             // Someone who can't see the document can't tell its exports exist either.
             if (!job || !co_await vec::MemberRepo(database).roleOf(job->documentId, userIdOf(request))) {
-                co_return errorResponse(drogon::k404NotFound, "not_found", "no such export");
+                co_return noSuchExport();
             }
             co_return jsonResponse(drogon::k200OK, toJson(*job));
+        },
+        drogon::Get);
+
+    registerProtected(
+        "/api/exports/{id}/file",
+        [database, exportDir](HttpRequestPtr request, std::string id) -> drogon::Task<HttpResponsePtr> {
+            const auto job = co_await vec::ExportRepo(database).get(id);
+            if (!job || !co_await vec::MemberRepo(database).roleOf(job->documentId, userIdOf(request))) {
+                co_return noSuchExport();
+            }
+            if (job->status != "done") {
+                co_return errorResponse(drogon::k409Conflict, "not_ready", "the export is " + job->status);
+            }
+            const std::filesystem::path path = vec::exportFilePath(exportDir, *job);
+            std::error_code error;
+            if (!std::filesystem::is_regular_file(path, error)) {
+                co_return errorResponse(drogon::k410Gone, "gone", "the file is no longer available");
+            }
+
+            const bool svg = job->format == "svg";
+            auto response =
+                drogon::HttpResponse::newFileResponse(path.string(), svg ? "drawing.svg" : "drawing.png",
+                                                      svg ? drogon::CT_IMAGE_SVG_XML : drogon::CT_IMAGE_PNG);
+            // An SVG opened from this origin could run script; ours never contains any, but don't rely on it.
+            response->addHeader("Content-Security-Policy", "default-src 'none'");
+            response->addHeader("X-Content-Type-Options", "nosniff");
+            response->addHeader("Cache-Control", "private, no-store");
+            co_return response;
         },
         drogon::Get);
 }
