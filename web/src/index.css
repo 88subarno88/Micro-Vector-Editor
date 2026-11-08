@@ -136,3 +136,25 @@ button:disabled {
   border: 1px solid color-mix(in srgb, var(--muted) 40%, transparent);
   background: #ffffff;
 }
+
+.editor {
+  display: grid;
+  gap: 8px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.toolbar button[aria-pressed='true'] {
+  background: #1f6feb;
+  border-color: #1f6feb;
+  color: #ffffff;
+}
+
+.drawing {
+  touch-action: none; /* drags draw instead of scrolling the page */
+  cursor: crosshair;
+}
