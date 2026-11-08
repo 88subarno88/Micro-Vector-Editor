@@ -1,8 +1,34 @@
+import type { ReactNode } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router'
+import { useAuth } from './auth/auth'
+import AuthPage from './pages/AuthPage'
+import HomePage from './pages/HomePage'
+
+// Sends a signed-out visitor to the login page, remembering where they were going.
+function SignedInOnly({ children }: { children: ReactNode }) {
+  const { status } = useAuth()
+  const location = useLocation()
+  if (status === 'checking') return <p className="loading">Loading…</p>
+  if (status === 'signedOut') return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  return children
+}
+
+// Sends a signed-in visitor on from the login and signup pages, to where they were going.
+function SignedOutOnly({ children }: { children: ReactNode }) {
+  const { status } = useAuth()
+  const from = (useLocation().state as { from?: string } | null)?.from ?? '/'
+  if (status === 'checking') return <p className="loading">Loading…</p>
+  if (status === 'signedIn') return <Navigate to={from} replace />
+  return children
+}
+
 export default function App() {
   return (
-    <main>
-      <h1>Micro-Vector Editor</h1>
-      <p>Sign-in and your documents come next.</p>
-    </main>
+    <Routes>
+      <Route path="/login" element={<SignedOutOnly><AuthPage mode="login" /></SignedOutOnly>} />
+      <Route path="/signup" element={<SignedOutOnly><AuthPage mode="signup" /></SignedOutOnly>} />
+      <Route path="/" element={<SignedInOnly><HomePage /></SignedInOnly>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }

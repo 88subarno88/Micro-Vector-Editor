@@ -63,5 +63,6 @@ export async function authFetch(request: Request): Promise<Response> {
 }
 
 // Every API call goes through this: paths, parameters, bodies and responses are typed from the OpenAPI
-// spec (regenerate with `npm run gen:api` when it changes).
-export const api = createClient<paths>({ fetch: authFetch })
+// spec (regenerate with `npm run gen:api` when it changes). The base URL is the page's own origin, made
+// absolute so that the client also works where fetch can't resolve relative URLs, as in tests.
+export const api = createClient<paths>({ baseUrl: globalThis.location?.origin, fetch: authFetch })
