@@ -5,12 +5,16 @@ C++ server for everything else.
 
 ## Development
 
-Needs Node 22 or newer. Start the server first (see the main README), then:
+Needs Node 22 or newer, and the WebAssembly core built with the `wasm` preset (see the main README). Start
+the server first, then:
 
 ```bash
 npm install
+npm run wasm       # copy vec.js, vec.wasm and vec.d.ts from ../build/wasm into src/wasm
 npm run dev        # http://localhost:5173
 ```
+
+Run `npm run wasm` again whenever the core changes. The copied files are build outputs, so git ignores them.
 
 The dev server passes `/api` and `/ws` on to the C++ server at `http://localhost:8080`, so the app and the
 API share one origin, as they will behind nginx. Set `VEC_API_URL` to use a server elsewhere.

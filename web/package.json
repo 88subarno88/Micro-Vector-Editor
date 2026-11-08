@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "gen:api": "npx --yes -p typescript@5.9.3 -p openapi-typescript@7.13.0 openapi-typescript ../server/openapi.yaml -o src/api/schema.d.ts",
+    "wasm": "mkdir -p src/wasm && cp ../build/wasm/vec.js ../build/wasm/vec.wasm ../build/wasm/vec.d.ts src/wasm/",
     "preview": "vite preview"
   },
   "dependencies": {

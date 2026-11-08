@@ -77,3 +77,52 @@ button:disabled {
   color: #d1242f;
   margin: 0;
 }
+
+.inline {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inline input {
+  flex: 1 1 200px;
+}
+
+.docs {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.doc {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+}
+
+.doc .title {
+  font-weight: 600;
+  flex: 1 1 200px;
+  overflow-wrap: anywhere;
+}
+
+.doc .meta {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.doc .actions {
+  display: flex;
+  gap: 8px;
+}
+
+.doc form {
+  flex: 1 1 100%;
+}
+
+.doc .error {
+  flex-basis: 100%;
+}

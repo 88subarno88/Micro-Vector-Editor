@@ -22,7 +22,8 @@ if(EMSCRIPTEN)
         -sEXPORT_ES6=1
         -sEXPORT_NAME=createVecModule
         -sALLOW_MEMORY_GROWTH=1
-        -sENVIRONMENT=web,node)
+        -sENVIRONMENT=web,node
+        --emit-tsd vec.d.ts)
     # A page that checks the module in a browser, with the op fixtures it applies. Copied whenever either
     # changes, not only when the module is relinked.
     file(GLOB opFixtures CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/core/tests/fixtures/ops/*.json)

@@ -1,0 +1,213 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { setAccessToken } from '../api/client'
+import App from '../App'
+import { AuthProvider } from '../auth/AuthProvider'
+
+// A stand-in for the WebAssembly core: every op it's given adds a shape.
+vi.mock('../core/core', () => ({
+  loadCore: async () => ({
+    Document: class {
+      shapes = 0
+      loadJson() { return '{"ok":true}' }
+      applyOp() { this.shapes += 1; return '{"ok":true}' }
+      shapesJson() { return JSON.stringify({ shapes: Array(this.shapes).fill({}) }) }
+      delete() {}
+    },
+  }),
+}))
+
+const me = { id: 'u1', email: 'ada@example.com', createdAt: 'x' }
+
+interface Doc {
+  id: string
+  ownerId: string
+  title: string
+  headSeq: number
+  createdAt: string
+  updatedAt: string
+}
+
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+const failure = (status: number, code: string) => json(status, { error: { code, message: `server says ${code}` } })
+
+// A fake server holding `docs`, newest first, logged in as ada unless `loggedIn` is false. Ada owns the
+// documents whose ownerId is u1; on the others she's a viewer, so the server refuses her renames.
+function server(docs: Doc[], { loggedIn = true } = {}) {
+  const state = { docs: [...docs], loggedIn, nextId: 100 }
+  vi.stubGlobal('fetch', async (input: Request | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(input, init)
+    const url = new URL(request.url)
+    const route = `${request.method} ${url.pathname.replace(/^\/api\/docs\/[^/]+$/, '/api/docs/:id')}`
+    const id = url.pathname.split('/')[3]
+    const doc = state.docs.find((d) => d.id === id)
+    const authorized = request.headers.get('Authorization') === 'Bearer valid'
+
+    if (url.pathname === '/api/auth/refresh') {
+      return state.loggedIn ? json(200, { accessToken: 'valid', tokenType: 'Bearer', expiresIn: 900 }) : failure(401, 'x')
+    }
+    if (url.pathname === '/api/auth/login') {
+      state.loggedIn = true
+      return json(200, { accessToken: 'valid', tokenType: 'Bearer', expiresIn: 900 })
+    }
+    if (!authorized) return failure(401, 'unauthorized')
+
+    switch (route) {
+      case 'GET /api/me':
+        return json(200, me)
+      case 'GET /api/docs': {
+        const limit = Number(url.searchParams.get('limit'))
+        const start = Number(url.searchParams.get('cursor') ?? 0)
+        const page = state.docs.slice(start, start + limit)
+        const more = start + limit < state.docs.length
+        return json(200, { documents: page, nextCursor: more ? String(start + limit) : null })
+      }
+      case 'POST /api/docs': {
+        const { title } = await request.json()
+        const created = { id: `d${state.nextId++}`, ownerId: me.id, title, headSeq: 0, createdAt: 'x', updatedAt: '2026-11-09T10:00:00Z' }
+        state.docs.unshift(created)
+        return json(201, created)
+      }
+      case 'PATCH /api/docs/:id': {
+        if (!doc) return failure(404, 'not_found')
+        if (doc.ownerId !== me.id) return failure(403, 'forbidden')
+        doc.title = (await request.json()).title
+        return json(200, doc)
+      }
+      case 'DELETE /api/docs/:id':
+        state.docs = state.docs.filter((d) => d !== doc)
+        return new Response(null, { status: 204 })
+      case 'GET /api/docs/:id':
+        if (!doc) return failure(404, 'not_found')
+        return json(200, { document: doc, role: doc.ownerId === me.id ? 'owner' : 'viewer', snapshot: null, ops: [addOp('s1'), addOp('s2')], opsComplete: true })
+    }
+    return failure(404, 'not_found')
+  })
+  return state
+}
+
+const addOp = (id: string) => ({ seq: 1, userId: me.id, clientOpId: id, createdAt: 'x', op: { kind: 'addShape', id } })
+
+const doc = (id: string, title: string, ownerId = me.id): Doc => ({
+  id, ownerId, title, headSeq: 3, createdAt: 'x', updatedAt: '2026-11-09T09:00:00Z',
+})
+
+function renderAt(path: string) {
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </MemoryRouter>,
+  )
+}
+
+const row = async (title: string) => (await screen.findByRole('link', { name: title })).closest('li') as HTMLElement
+
+beforeEach(() => setAccessToken(null))
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
+describe('the documents page', () => {
+  it('lists your documents, and loads more when there are', async () => {
+    server(Array.from({ length: 25 }, (_, i) => doc(`d${i}`, `Doc ${i}`)))
+    renderAt('/')
+
+    expect(await screen.findByRole('link', { name: 'Doc 0' })).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(20)
+    await userEvent.click(screen.getByRole('button', { name: 'Load more' }))
+
+    expect(await screen.findByRole('link', { name: 'Doc 24' })).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(25)
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
+  })
+
+  it('says when there are none', async () => {
+    server([])
+    renderAt('/')
+    expect(await screen.findByText(/No documents yet/)).toBeInTheDocument()
+  })
+
+  it('creates a document at the top of the list', async () => {
+    const state = server([doc('d1', 'Older')])
+    renderAt('/')
+    await userEvent.type(await screen.findByLabelText('New document title'), 'Plans')
+    await userEvent.click(screen.getByRole('button', { name: 'New document' }))
+
+    expect(await screen.findByRole('link', { name: 'Plans' })).toBeInTheDocument()
+    expect(screen.getAllByRole('link').map((l) => l.textContent)).toEqual(['Plans', 'Older'])
+    expect(state.docs[0].title).toBe('Plans')
+  })
+
+  it('renames a document in place', async () => {
+    server([doc('d1', 'Draft')])
+    renderAt('/')
+    await userEvent.click(within(await row('Draft')).getByRole('button', { name: 'Rename' }))
+    const input = screen.getByLabelText('Title')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Final')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByRole('link', { name: 'Final' })).toBeInTheDocument()
+  })
+
+  it("explains when you can't rename a document shared with you", async () => {
+    server([doc('d1', 'Theirs', 'u2')])
+    renderAt('/')
+    await userEvent.click(within(await row('Theirs')).getByRole('button', { name: 'Rename' }))
+    await userEvent.type(screen.getByLabelText('Title'), '!')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("You don't have permission to do that here.")
+  })
+
+  it('offers delete only on your own documents, and asks first', async () => {
+    const state = server([doc('d1', 'Mine'), doc('d2', 'Theirs', 'u2')])
+    renderAt('/')
+    expect(within(await row('Theirs')).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const deleteButton = within(await row('Mine')).getByRole('button', { name: 'Delete' })
+    await userEvent.click(deleteButton) // cancelled
+    expect(state.docs).toHaveLength(2)
+    await userEvent.click(deleteButton)
+
+    expect(confirm).toHaveBeenCalledTimes(2)
+    await vi.waitFor(() => expect(screen.queryByRole('link', { name: 'Mine' })).not.toBeInTheDocument())
+    expect(state.docs.map((d) => d.id)).toEqual(['d2'])
+  })
+
+  it('opens a document', async () => {
+    server([doc('d1', 'Plans')])
+    renderAt('/')
+    await userEvent.click(await screen.findByRole('link', { name: 'Plans' }))
+
+    expect(await screen.findByRole('heading', { name: 'Plans' })).toBeInTheDocument()
+    expect(screen.getByText(/You are the owner\. 3 edits so far/)).toBeInTheDocument()
+    expect(await screen.findByText('2 shapes, rebuilt in the browser.')).toBeInTheDocument()
+  })
+
+  it("says so when a document can't be opened", async () => {
+    server([])
+    renderAt('/docs/missing')
+    expect(await screen.findByRole('alert')).toHaveTextContent("That document doesn't exist")
+  })
+
+  it('returns to the document you were opening after you log in', async () => {
+    server([doc('d1', 'Plans')], { loggedIn: false })
+    renderAt('/docs/d1')
+    await userEvent.type(await screen.findByLabelText('Email'), 'ada@example.com')
+    await userEvent.type(screen.getByLabelText('Password'), 'correct horse')
+    await userEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    expect(await screen.findByRole('heading', { name: 'Plans' })).toBeInTheDocument()
+  })
+})

@@ -1,17 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, onSessionEnded, setAccessToken } from '../api/client'
-import { AuthContext, describeFailure, type Auth, type User } from './auth'
-
-// Runs `request`, turning a network failure into a missing response rather than a throw.
-async function attempt<T>(
-  request: () => Promise<T>,
-): Promise<T | { data: undefined; error: undefined; response: undefined }> {
-  try {
-    return await request()
-  } catch {
-    return { data: undefined, error: undefined, response: undefined }
-  }
-}
+import { attempt, describeFailure } from '../api/errors'
+import { AuthContext, type Auth, type User } from './auth'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Auth['status']>('checking')

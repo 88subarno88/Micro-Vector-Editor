@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router'
 import { useAuth } from './auth/auth'
 import AuthPage from './pages/AuthPage'
-import HomePage from './pages/HomePage'
+import DocumentPage from './pages/DocumentPage'
+import DocumentsPage from './pages/DocumentsPage'
 
 // Sends a signed-out visitor to the login page, remembering where they were going.
 function SignedInOnly({ children }: { children: ReactNode }) {
@@ -27,7 +28,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<SignedOutOnly><AuthPage mode="login" /></SignedOutOnly>} />
       <Route path="/signup" element={<SignedOutOnly><AuthPage mode="signup" /></SignedOutOnly>} />
-      <Route path="/" element={<SignedInOnly><HomePage /></SignedInOnly>} />
+      <Route path="/" element={<SignedInOnly><DocumentsPage /></SignedInOnly>} />
+      <Route path="/docs/:id" element={<SignedInOnly><DocumentPage /></SignedInOnly>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

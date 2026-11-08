@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setAccessToken } from '../api/client'
 import App from '../App'
 import { AuthProvider } from './AuthProvider'
-import { describeFailure } from './auth'
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } })
@@ -127,24 +126,5 @@ describe('the auth pages', () => {
     await fillIn('ada@example.com', 'correct horse')
     await userEvent.click(await screen.findByRole('button', { name: 'Log in' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Too many attempts. Try again in 42 seconds.')
-  })
-})
-
-describe('describeFailure', () => {
-  it('says how long to wait when rate limited', () => {
-    const response = new Response(null, { status: 429, headers: { 'Retry-After': '42' } })
-    expect(describeFailure({ error: { code: 'rate_limited', message: 'x' } }, response)).toBe(
-      'Too many attempts. Try again in 42 seconds.',
-    )
-  })
-
-  it('reports a server it cannot reach', () => {
-    expect(describeFailure(undefined, undefined)).toMatch(/Can't reach the server/)
-  })
-
-  it("falls back to the server's own message for codes it doesn't know", () => {
-    expect(describeFailure({ error: { code: 'odd', message: 'An odd thing.' } }, new Response(null, { status: 400 }))).toBe(
-      'An odd thing.',
-    )
   })
 })
