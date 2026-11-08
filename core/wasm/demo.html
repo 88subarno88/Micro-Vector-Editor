@@ -1,0 +1,65 @@
+<!doctype html>
+<!--
+  Checks the WebAssembly core in a browser. The wasm build copies this page and the op fixtures next to
+  vec.js; serve that folder over HTTP (browsers won't load WebAssembly from file://):
+
+    python3 -m http.server -d build/wasm 8000    # then open http://localhost:8000/demo.html
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>vec core demo</title>
+  <link rel="icon" href="data:,">
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; max-width: 900px; }
+    pre { background: #f4f4f4; padding: 8px; white-space: pre-wrap; word-break: break-all; }
+    #drawing { border: 1px solid #ccc; overflow: auto; max-height: 320px; }
+    .error { color: #b00020; }
+  </style>
+</head>
+<body>
+  <h1>vec core in the browser</h1>
+  <p id="status">Loading vec.wasm…</p>
+  <h2>Ops</h2>
+  <pre id="log"></pre>
+  <h2>toSVG()</h2>
+  <div id="drawing"></div>
+  <pre id="svg"></pre>
+
+  <script type="module">
+    import createVecModule from "./vec.js";
+
+    const status = document.getElementById("status");
+    const log = document.getElementById("log");
+    const write = (label, result) => {
+      const line = document.createElement("div");
+      line.textContent = `${label.padEnd(26)} ${result}`;
+      if (result.includes('"error"')) line.className = "error";
+      log.append(line);
+    };
+
+    try {
+      const vec = await createVecModule();
+      const doc = new vec.Document();
+      // The last two fail on purpose: the circle reuses the rectangle's ID, and the final op isn't JSON.
+      for (const name of ["add-rect", "move", "resize", "set-style-one", "add-circle"]) {
+        const op = await (await fetch(`fixtures/ops/${name}.json`)).text();
+        write(`applyOp(${name})`, doc.applyOp(op));
+      }
+      write("applyOp(not json)", doc.applyOp("{not json"));
+      write("hitTest(20, 30)", JSON.stringify(doc.hitTest(20, 30)));
+
+      const svg = doc.toSVG();
+      document.getElementById("svg").textContent = svg;
+      // The SVG comes from our own core, which escapes text, so it's safe to draw.
+      document.getElementById("drawing").innerHTML = svg;
+      doc.delete();
+      status.textContent = "Done.";
+    } catch (error) {
+      status.textContent = `Failed: ${error}`;
+      status.className = "error";
+    }
+  </script>
+</body>
+</html>

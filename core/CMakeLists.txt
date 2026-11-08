@@ -28,6 +28,8 @@ else()
     target_compile_options(vec_core PRIVATE -Wall -Wextra -pedantic)
 endif()
 
+add_subdirectory(wasm)
+
 if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()

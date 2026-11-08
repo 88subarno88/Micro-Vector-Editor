@@ -61,6 +61,31 @@ vec convert drawing.json drawing.svg
 vec export drawing.json --format png --out drawing.png
 ```
 
+## WebAssembly
+
+The same core also compiles to WebAssembly for the browser, as `build/wasm/vec.js` and `vec.wasm`. It needs [Emscripten](https://emscripten.org/docs/getting_started/downloads.html):
+
+```bash
+git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+~/emsdk/emsdk install 6.0.13 && ~/emsdk/emsdk activate 6.0.13
+source ~/emsdk/emsdk_env.sh                # in each new terminal
+
+cmake --preset wasm
+cmake --build --preset wasm --parallel
+python3 -m http.server -d build/wasm 8000  # then open http://localhost:8000/demo.html
+VEC_WASM_DIR=build/wasm node --test core/wasm/vec.test.mjs   # tests the built module, as CI does
+```
+
+The demo page loads the module, applies a few operations and shows the resulting SVG. From JavaScript:
+
+```js
+import createVecModule from "./vec.js";
+const vec = await createVecModule();
+const doc = new vec.Document();
+doc.applyOp(JSON.stringify(op));  // {"ok":true} or {"error":{"code","message"}}
+doc.delete();                     // objects from WebAssembly must be freed
+```
+
 ## Testing
 
 ```bash

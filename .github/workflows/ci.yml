@@ -155,3 +155,61 @@ jobs:
         with:
           name: fuzz-crashes
           path: build/fuzz/artifacts/
+
+  wasm:
+    name: WebAssembly
+    runs-on: ubuntu-24.04
+    env:
+      EMSDK_VERSION: 6.0.13
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: .vcpkg-cache
+          key: vcpkg-${{ runner.os }}-wasm-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ runner.os }}-wasm-
+
+      - name: Cache Emscripten
+        uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ runner.os }}-${{ env.EMSDK_VERSION }}
+
+      - name: Set up Emscripten
+        run: |
+          [ -d ~/emsdk ] || git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install "$EMSDK_VERSION"
+          ~/emsdk/emsdk activate "$EMSDK_VERSION"
+
+      - name: Set up vcpkg at the manifest baseline
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$RUNNER_TEMP/vcpkg"
+          git -C "$RUNNER_TEMP/vcpkg" checkout "$(jq -r '."builtin-baseline"' vcpkg.json)"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+          mkdir -p .vcpkg-cache
+
+      - name: Build
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          cmake --preset wasm
+          cmake --build --preset wasm --parallel
+
+      # Emscripten's own Node runs the module as the browser will: loading it, calling through embind, and
+      # catching exceptions inside WebAssembly.
+      - name: Test the module
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          VEC_WASM_DIR=build/wasm node --test core/wasm/vec.test.mjs
+
+      - name: Keep the module for the web client
+        uses: actions/upload-artifact@v4
+        with:
+          name: vec-wasm
+          path: |
+            build/wasm/vec.js
+            build/wasm/vec.wasm
+          if-no-files-found: error
