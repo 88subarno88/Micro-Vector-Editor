@@ -3,6 +3,7 @@ import type { components } from '../api/schema'
 import type { Core } from '../core/core'
 import type { Document as CoreDocument } from '../wasm/vec.js'
 import type { DrawCommand } from './paint'
+import { anchorFrom } from './resize'
 import type { Point } from './tools'
 
 export interface Bounds {
@@ -86,5 +87,21 @@ export function useDrawing(core: Core, loaded: LoadedDocument) {
     [drawing],
   )
 
-  return { commands, error, ready: drawing !== null, apply, preview, shapeAt, boundsOf }
+  // The point a shape scales around, measured by scaling it by 2 and back. 2 and its inverse, 0.5, are
+  // exact in floating point, so the shape ends up exactly as it was. Null if it can't be resized.
+  const anchorOf = useCallback(
+    (id: string): Point | null => {
+      if (!drawing) return null
+      const before: Bounds | null = JSON.parse(drawing.boundsOf(id))
+      const probe = JSON.stringify({ kind: 'resize', id, factor: 2 })
+      const inverse = JSON.parse(drawing.invertOp(probe))
+      if (!before || !inverse.op || 'error' in JSON.parse(drawing.applyOp(probe))) return null
+      const after: Bounds = JSON.parse(drawing.boundsOf(id))
+      drawing.applyOp(JSON.stringify(inverse.op))
+      return anchorFrom(before, after, 2)
+    },
+    [drawing],
+  )
+
+  return { commands, error, ready: drawing !== null, apply, preview, shapeAt, boundsOf, anchorOf }
 }

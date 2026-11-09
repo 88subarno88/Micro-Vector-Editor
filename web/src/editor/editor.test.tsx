@@ -10,6 +10,16 @@ import type { LoadedDocument } from './useDrawing'
 // A stand-in for the core: keeps shapes by ID, refuses a duplicate ID or a shape starting past x = 700,
 // moves rectangles, hit-tests and outlines them by their box, inverts adds and moves, and draws one rect
 // command per shape. Records every op it's applied.
+// The box around a fake shape: a rectangle's own, or the one around a line's two ends.
+function boxOf(shape: Record<string, unknown>) {
+  if (shape.start && shape.end) {
+    const [a, b] = [shape.start, shape.end] as { x: number; y: number }[]
+    return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.abs(a.x - b.x), height: Math.abs(a.y - b.y) }
+  }
+  const r = shape as { x: number; y: number; width: number; height: number }
+  return { x: r.x, y: r.y, width: r.width, height: r.height }
+}
+
 function fakeCore() {
   const ops: { kind: string; id: string; shape?: Record<string, unknown> & { kind: string } }[] = []
   const shapes = new Map<string, Record<string, unknown>>()
@@ -30,6 +40,14 @@ function fakeCore() {
           const shape = shapes.get(op.id) as { x: number; y: number }
           shape.x += op.dx
           shape.y += op.dy
+        } else if (op.kind === 'setStyle') {
+          const shape = shapes.get(op.id) as { style: Record<string, unknown> }
+          for (const key of ['stroke', 'fill', 'strokeWidth']) if (key in op) shape.style = { ...shape.style, [key]: op[key] }
+        } else if (op.kind === 'resize') {
+          // Like the core's rectangle: grows from its top left.
+          const shape = shapes.get(op.id) as { width: number; height: number }
+          shape.width *= op.factor
+          shape.height *= op.factor
         }
         return ok
       }
@@ -37,22 +55,34 @@ function fakeCore() {
         const op = JSON.parse(text)
         if (op.kind === 'addShape') return JSON.stringify({ op: { kind: 'deleteShape', id: op.id } })
         if (op.kind === 'move') return JSON.stringify({ op: { ...op, dx: -op.dx, dy: -op.dy } })
+        if (op.kind === 'resize') return JSON.stringify({ op: { ...op, factor: 1 / op.factor } })
+        if (op.kind === 'setStyle') {
+          const before = (shapes.get(op.id) as { style: Record<string, unknown> }).style
+          const inverse: Record<string, unknown> = { kind: 'setStyle', id: op.id }
+          for (const key of ['stroke', 'fill', 'strokeWidth']) if (key in op) inverse[key] = before[key]
+          return JSON.stringify({ op: inverse })
+        }
         return refuse('no inverse')
       }
       hitTest(x: number, y: number) {
         const hits = [...shapes].filter(([, s]) => {
-          const r = s as { x: number; y: number; width: number; height: number }
+          const r = boxOf(s)
           return x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height
         })
         return hits.length ? hits[hits.length - 1][0] : ''
       }
       boundsOf(id: string) {
-        const r = shapes.get(id) as { x: number; y: number; width: number; height: number } | undefined
-        return r ? JSON.stringify({ x: r.x, y: r.y, width: r.width, height: r.height }) : 'null'
+        const shape = shapes.get(id)
+        return shape ? JSON.stringify(boxOf(shape)) : 'null'
       }
       loadJson() { return ok }
       drawCommands() {
-        return JSON.stringify([...shapes.keys()].map((id) => ({ id, kind: 'rect' })))
+        return JSON.stringify([...shapes].map(([id, shape]) => ({
+          id,
+          kind: shape.kind === 'line' || shape.kind === 'freehand' ? 'polyline' : 'rect',
+          closed: false,
+          style: shape.style,
+        })))
       }
       delete() {}
     },
@@ -237,16 +267,55 @@ describe('the editor', () => {
       drag([75, 75], [95, 85]) // 20 by 10 on screen
 
       expect(shapes.get(id)).toMatchObject({ x: 140, y: 120 })
-      expect(ops.at(-1)).toEqual({ kind: 'move', id, dx: 40, dy: 20 })
+      expect(ops.filter((op) => op.kind === 'move').at(-1)).toEqual({ kind: 'move', id, dx: 40, dy: 20 })
       // Each preview was undone, so all the moves before the last cancel out.
       const total = ops.reduce((sum, op) => sum + ((op as { dx?: number }).dx ?? 0), 0)
       expect(total).toBe(40)
     })
 
+    it('resizes the shape by dragging its handle, with one resize op', async () => {
+      const { ops, shapes, id } = await withRectangle()
+      click([75, 75])
+      ops.length = 0
+
+      // The handle is at the corner farthest from where the rectangle grows from: (200, 200), so (100, 100)
+      // on screen. Dragging it to (125, 125) on screen, (250, 250), scales the rectangle by 1.5. (Not 2:
+      // selecting also resizes by 2 and back, to measure where the shape grows from.)
+      drag([100, 100], [125, 125])
+
+      expect(shapes.get(id)).toMatchObject({ x: 100, y: 100, width: 150, height: 150 })
+      expect(ops).toContainEqual({ kind: 'resize', id, factor: 1.5 })
+    })
+
+    it('still moves the shape when it is pressed away from the handle', async () => {
+      const { shapes, id } = await withRectangle()
+      click([75, 75])
+      drag([60, 60], [70, 60])
+      expect(shapes.get(id)).toMatchObject({ x: 120, y: 100, width: 100 })
+    })
+
+    it("doesn't resize on a click on the handle", async () => {
+      const { ops, shapes, id } = await withRectangle()
+      click([75, 75])
+      ops.length = 0
+      click([100, 100])
+      expect(shapes.get(id)).toMatchObject({ width: 100, height: 100 })
+    })
+
+    it('measures where a shape grows from without changing it', async () => {
+      const { ops, shapes, id } = await withRectangle()
+      click([75, 75])
+      // Selecting measured the anchor: a resize by 2 and straight back.
+      const probes = ops.filter((op) => op.kind === 'resize').map((op) => (op as { factor?: number }).factor)
+      expect(probes.length).toBeGreaterThan(0)
+      expect(probes.every((f, i) => f === (i % 2 === 0 ? 2 : 0.5))).toBe(true)
+      expect(shapes.get(id)).toMatchObject({ x: 100, y: 100, width: 100, height: 100 })
+    })
+
     it("doesn't move a shape that was only clicked", async () => {
       const { ops } = await withRectangle()
       click([75, 75])
-      expect(ops).toEqual([])
+      expect(ops.filter((op) => op.kind === 'move')).toEqual([])
     })
 
     it('deletes the selected shape with Delete, Backspace or the button', async () => {
@@ -285,6 +354,83 @@ describe('the editor', () => {
       click([75, 75])
       await chooseTool('Circle')
       expect(deleteButton()).toBeDisabled()
+    })
+  })
+
+  describe('the style panel', () => {
+    async function withSelected(toolName = 'Rectangle') {
+      const fake = fakeCore()
+      render(<Editor core={fake.core} loaded={loaded} />)
+      await chooseTool(toolName)
+      drag([50, 50], [100, 100])
+      await chooseTool('Select')
+      click([75, 75])
+      fake.ops.length = 0
+      const id = [...fake.shapes.keys()][0]
+      const styleOf = () => (fake.shapes.get(id) as { style: Record<string, unknown> }).style
+      const committed = () => fake.ops.filter((op) => op.kind === 'setStyle')
+      return { ...fake, id, styleOf, committed }
+    }
+    const width = () => screen.getByLabelText('Width')
+
+    it("shows only with a shape selected, with that shape's style", async () => {
+      render(<Editor core={fakeCore().core} loaded={loaded} />)
+      expect(screen.queryByRole('group', { name: 'Style' })).not.toBeInTheDocument()
+      cleanup()
+
+      await withSelected()
+      expect(screen.getByLabelText('Stroke')).toHaveValue('#000000')
+      expect(screen.getByLabelText('Fill')).toHaveValue('#ffffff')
+      expect(width()).toHaveValue(1)
+    })
+
+    it('has no fill for a line', async () => {
+      await withSelected('Line')
+      expect(screen.getByRole('group', { name: 'Style' })).toBeInTheDocument()
+      expect(screen.queryByLabelText('Fill')).not.toBeInTheDocument()
+    })
+
+    it('sets the stroke width with one edit, on Enter', async () => {
+      const { styleOf, committed, id } = await withSelected()
+      await userEvent.clear(width())
+      await userEvent.type(width(), '4{Enter}')
+      expect(styleOf()).toMatchObject({ strokeWidth: 4 })
+      expect(committed().at(-1)).toEqual({ kind: 'setStyle', id, strokeWidth: 4 })
+      expect(committed().filter((op) => (op as { strokeWidth?: number }).strokeWidth === 4)).toHaveLength(2) // a preview, then the edit
+    })
+
+    it('changes nothing on Escape, or for a width out of range', async () => {
+      const { styleOf } = await withSelected()
+      await userEvent.clear(width())
+      await userEvent.type(width(), '7{Escape}')
+      expect(styleOf()).toMatchObject({ strokeWidth: 1 })
+      await userEvent.clear(width())
+      await userEvent.type(width(), '99{Enter}')
+      expect(styleOf()).toMatchObject({ strokeWidth: 1 })
+      expect(width()).toHaveValue(1)
+    })
+
+    it('previews a colour while the picker moves, and commits it when the picker closes', async () => {
+      const { styleOf } = await withSelected()
+      fireEvent.input(screen.getByLabelText('Stroke'), { target: { value: '#ff0000' } })
+      expect(styleOf()).toMatchObject({ stroke: 'black' }) // only previewed
+      fireEvent.change(screen.getByLabelText('Stroke'), { target: { value: '#ff0000' } })
+      expect(styleOf()).toMatchObject({ stroke: '#ff0000' })
+    })
+
+    it('turns the fill off and back on, keeping its colour', async () => {
+      const { styleOf } = await withSelected()
+      await userEvent.click(screen.getByLabelText('No fill'))
+      expect(styleOf()).toMatchObject({ fill: 'none' })
+      expect(screen.getByLabelText('Fill')).toBeDisabled()
+      await userEvent.click(screen.getByLabelText('No fill'))
+      expect(styleOf()).toMatchObject({ fill: '#ffffff' })
+    })
+
+    it("doesn't delete the shape when Backspace is pressed in the width", async () => {
+      const { shapes } = await withSelected()
+      await userEvent.type(width(), '{Backspace}')
+      expect(shapes.size).toBe(1)
     })
   })
 

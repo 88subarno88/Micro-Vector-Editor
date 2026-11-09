@@ -181,3 +181,28 @@ button:disabled {
   background: #ffffff;
   color: #000000;
 }
+
+.style-panel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  min-height: 48px; /* the same with or without a selection: taller than any of its fields */
+  margin: 0;
+}
+
+.style-panel label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.style-panel input[type='color'] {
+  width: 40px;
+  height: 32px;
+  padding: 2px;
+}
+
+.style-panel input[type='number'] {
+  width: 72px;
+}

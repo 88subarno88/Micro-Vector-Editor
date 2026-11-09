@@ -14,11 +14,15 @@ export type PointerPhase = 'down' | 'move' | 'up' | 'cancel'
 // is shown at.
 // Clear of the shape's own outline.
 const outlinePadding = 4
+// The resize handle's size, in drawing units.
+export const handleSize = 10
 
-// `outline`, if set, is the box around the selected shape, drawn dashed over the drawing.
-export default function DrawingCanvas({ commands, outline, onPointer }: {
+// `outline`, if set, is the box around the selected shape, drawn dashed over the drawing; `handle` is
+// where its resize handle goes.
+export default function DrawingCanvas({ commands, outline, handle, onPointer }: {
   commands: DrawCommand[]
   outline?: Bounds | null
+  handle?: Point | null
   onPointer?: (phase: PointerPhase, point: Point) => void
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -45,7 +49,12 @@ export default function DrawingCanvas({ commands, outline, onPointer }: {
       )
       context.setLineDash([])
     }
-  }, [commands, outline])
+    if (handle) {
+      context.fillStyle = '#ffffff'
+      context.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
+      context.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
+    }
+  }, [commands, outline, handle])
 
   const report = (phase: PointerPhase) => (event: PointerEvent<HTMLCanvasElement>) => {
     if (!onPointer) return
