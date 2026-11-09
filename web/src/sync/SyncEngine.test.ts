@@ -1,28 +1,34 @@
 import { describe, expect, it } from 'vitest'
-import { SyncEngine, type DrawingModel, type Transport } from './SyncEngine'
+import { SyncEngine, type Drawings, type Transport } from './SyncEngine'
 
-// A drawing that's just a number: {add: n} adds n, {set: n} sets it. Refuses anything that would take it
-// below 0, and records every op applied to it.
-function counter(start = 0) {
-  const applied: object[] = []
-  const model: DrawingModel & { value: number; applied: object[] } = {
-    value: start,
-    applied,
-    apply(op: object) {
-      const { add, set } = op as { add?: number; set?: number }
-      const next = set ?? model.value + (add ?? 0)
-      if (next < 0) return 'would go below zero'
-      model.value = next
-      applied.push(op)
+// Drawings that are just numbers: {add: n} adds n, {set: n} sets it. Anything that would go below 0 is
+// refused. `confirmed` is what the server has; `local` is what the user sees.
+function counters(start = 0) {
+  const step = (value: number, op: object): number | null => {
+    const { add, set } = op as { add?: number; set?: number }
+    const next = set ?? value + (add ?? 0)
+    return next < 0 ? null : next
+  }
+  const drawings: Drawings & { confirmed: number; local: number } = {
+    confirmed: start,
+    local: start,
+    applyConfirmed(op) {
+      const next = step(drawings.confirmed, op)
+      if (next === null) return 'would go below zero'
+      drawings.confirmed = next
       return null
     },
-    // A set's inverse depends on the value before it: the reason to invert before applying.
-    invert(op: object) {
-      const { add, set } = op as { add?: number; set?: number }
-      return set === undefined ? { add: -(add ?? 0) } : { set: model.value }
+    applyLocal(op) {
+      const next = step(drawings.local, op)
+      if (next === null) return 'would go below zero'
+      drawings.local = next
+      return null
+    },
+    resetLocal() {
+      drawings.local = drawings.confirmed
     },
   }
-  return model
+  return drawings
 }
 
 // A connection that records what it sends, and can be taken down.
@@ -46,38 +52,33 @@ const ids = () => {
 }
 
 describe('a local edit', () => {
-  it('applies at once, waits for the server, and is sent from the last seq the client knows', () => {
-    const model = counter()
+  it('shows at once, waits for the server, and is sent from the last seq the client knows', () => {
+    const drawings = counters()
     const transport = wire()
-    const engine = new SyncEngine(model, transport, 7, ids())
+    const engine = new SyncEngine(drawings, transport, 7, ids())
 
     expect(engine.local({ add: 5 })).toBeNull()
 
-    expect(model.value).toBe(5) // no waiting for the server
-    expect(engine.pending).toEqual([{ clientOpId: 'op-1', op: { add: 5 }, inverse: { add: -5 }, sent: true }])
+    expect(drawings.local).toBe(5) // no waiting for the server
+    expect(drawings.confirmed).toBe(0) // not the server's until it says so
+    expect(engine.pending).toEqual([{ clientOpId: 'op-1', op: { add: 5 }, sent: true, applied: true }])
     expect(transport.sent).toEqual([{ clientOpId: 'op-1', baseSeq: 7, op: { add: 5 } }])
   })
 
   it('that the drawing refuses is neither kept nor sent', () => {
-    const model = counter()
+    const drawings = counters()
     const transport = wire()
-    const engine = new SyncEngine(model, transport, 0, ids())
+    const engine = new SyncEngine(drawings, transport, 0, ids())
 
     expect(engine.local({ add: -1 })).toBe('would go below zero')
 
-    expect(model.value).toBe(0)
+    expect(drawings.local).toBe(0)
     expect(engine.pending).toEqual([])
     expect(transport.sent).toEqual([])
   })
 
-  it("keeps its inverse from before it was applied, for undoing it later", () => {
-    const engine = new SyncEngine(counter(4), wire(), 0, ids())
-    engine.local({ set: 9 })
-    expect(engine.pending[0].inverse).toEqual({ set: 4 }) // back to the value before, not the one after
-  })
-
   it('gets its own client op ID', () => {
-    const engine = new SyncEngine(counter(), wire(), 0, ids())
+    const engine = new SyncEngine(counters(), wire(), 0, ids())
     engine.local({ add: 1 })
     engine.local({ add: 1 })
     expect(engine.pending.map((p) => p.clientOpId)).toEqual(['op-1', 'op-2'])
@@ -85,9 +86,10 @@ describe('a local edit', () => {
 })
 
 describe('acks', () => {
-  it('confirm the oldest pending op and advance the last seq', () => {
+  it('confirm the oldest pending op, advance the last seq, and leave what the user sees alone', () => {
+    const drawings = counters()
     const transport = wire()
-    const engine = new SyncEngine(counter(), transport, 10, ids())
+    const engine = new SyncEngine(drawings, transport, 10, ids())
     engine.local({ add: 1 })
     engine.local({ add: 2 })
 
@@ -95,26 +97,28 @@ describe('acks', () => {
 
     expect(engine.lastSeq).toBe(11)
     expect(engine.pending.map((p) => p.clientOpId)).toEqual(['op-2'])
+    expect([drawings.confirmed, drawings.local]).toEqual([1, 3])
     // Both were sent before either ack: from seq 10.
     expect(transport.sent.map((s) => s.baseSeq)).toEqual([10, 10])
 
     engine.ack('op-2', 14) // others' ops 12 and 13 came first
     expect(engine.lastSeq).toBe(14)
-    expect(engine.pending).toEqual([])
     expect(engine.synced).toBe(true)
+    expect([drawings.confirmed, drawings.local]).toEqual([3, 3])
   })
 
   it('send later ops from the newer last seq', () => {
     const transport = wire()
-    const engine = new SyncEngine(counter(), transport, 0, ids())
+    const engine = new SyncEngine(counters(), transport, 0, ids())
     engine.local({ add: 1 })
     engine.ack('op-1', 1)
     engine.local({ add: 1 })
     expect(transport.sent.map((s) => s.baseSeq)).toEqual([0, 1])
   })
 
-  it('for an op that isn\'t pending, or a repeated one, change nothing', () => {
-    const engine = new SyncEngine(counter(), wire(), 5, ids())
+  it("for an op that isn't pending, or a repeated one, change nothing", () => {
+    const drawings = counters()
+    const engine = new SyncEngine(drawings, wire(), 5, ids())
     engine.local({ add: 1 })
     engine.ack('op-1', 6)
 
@@ -122,11 +126,11 @@ describe('acks', () => {
     engine.ack('nobody', 9)
 
     expect(engine.lastSeq).toBe(6)
-    expect(engine.pending).toEqual([])
+    expect(drawings.confirmed).toBe(1) // applied once
   })
 
   it('never move the last seq backwards', () => {
-    const engine = new SyncEngine(counter(), wire(), 20, ids())
+    const engine = new SyncEngine(counters(), wire(), 20, ids())
     engine.local({ add: 1 })
     engine.ack('op-1', 3)
     expect(engine.lastSeq).toBe(20)
@@ -134,15 +138,15 @@ describe('acks', () => {
 })
 
 describe('without a connection', () => {
-  it('still applies edits at once, and sends them in order once flushed', () => {
-    const model = counter()
+  it('still shows edits at once, and sends them in order once flushed', () => {
+    const drawings = counters()
     const transport = wire()
-    const engine = new SyncEngine(model, transport, 4, ids())
+    const engine = new SyncEngine(drawings, transport, 4, ids())
     transport.up = false
 
     engine.local({ add: 1 })
     engine.local({ add: 2 })
-    expect(model.value).toBe(3)
+    expect(drawings.local).toBe(3)
     expect(engine.pending.map((p) => p.sent)).toEqual([false, false])
     expect(engine.synced).toBe(false)
 
@@ -158,7 +162,7 @@ describe('without a connection', () => {
 
   it('sends nothing twice when flushed again', () => {
     const transport = wire()
-    const engine = new SyncEngine(counter(), transport, 0, ids())
+    const engine = new SyncEngine(counters(), transport, 0, ids())
     engine.local({ add: 1 })
     engine.flush()
     engine.flush()
@@ -167,7 +171,7 @@ describe('without a connection', () => {
 
   it('keeps the order: an earlier unsent op goes before a later one', () => {
     const transport = wire()
-    const engine = new SyncEngine(counter(), transport, 0, ids())
+    const engine = new SyncEngine(counters(), transport, 0, ids())
     transport.up = false
     engine.local({ add: 1 })
     transport.up = true
@@ -178,7 +182,7 @@ describe('without a connection', () => {
 
   it('stops at the first op that cannot be sent, so no later one overtakes it', () => {
     const transport = wire()
-    const engine = new SyncEngine(counter(), transport, 0, ids())
+    const engine = new SyncEngine(counters(), transport, 0, ids())
     transport.up = false
     engine.local({ add: 1 })
     engine.local({ add: 2 })
@@ -197,5 +201,162 @@ describe('without a connection', () => {
 
     engine.flush()
     expect(transport.sent.map((s) => s.clientOpId)).toEqual(['op-1', 'op-2', 'op-3'])
+  })
+})
+
+describe("others' ops", () => {
+  it('apply straight away when nothing is pending', () => {
+    const drawings = counters(1)
+    const engine = new SyncEngine(drawings, wire(), 3, ids())
+
+    expect(engine.remote(4, { set: 10 })).toBe('applied')
+
+    expect([drawings.confirmed, drawings.local]).toEqual([10, 10])
+    expect(engine.lastSeq).toBe(4)
+  })
+
+  it("go underneath pending local ops, in the server's order", () => {
+    const drawings = counters(1)
+    const engine = new SyncEngine(drawings, wire(), 3, ids())
+    engine.local({ add: 3 }) // 4 here
+
+    // The server put this before ours: set to 10, then add 3.
+    engine.remote(4, { set: 10 })
+
+    expect(drawings.confirmed).toBe(10)
+    expect(drawings.local).toBe(13) // not 10, as applying it on top would give
+    expect(engine.pending.map((p) => p.applied)).toEqual([true])
+  })
+
+  it('reapply several pending ops in the order they were made', () => {
+    const drawings = counters(0)
+    const engine = new SyncEngine(drawings, wire(), 0, ids())
+    engine.local({ set: 5 })
+    engine.local({ add: 1 })
+
+    engine.remote(1, { set: 100 })
+
+    expect(drawings.local).toBe(6) // 100, then set 5, then add 1
+  })
+
+  it("are exact: the user sees precisely the server's order, with no floating-point drift", () => {
+    const drawings = counters(0.3)
+    const engine = new SyncEngine(drawings, wire(), 0, ids())
+    engine.local({ add: 0.6 })
+
+    engine.remote(1, { add: 0.1 })
+
+    // The server's order: 0.3, then + 0.1, then + 0.6, which is exactly 1. Undoing + 0.6 and redoing it
+    // would give 0.9999999999999999 instead (checked below, so this test can't pass by luck).
+    expect(drawings.local).toBe(0.3 + 0.1 + 0.6)
+    expect(0.3 + 0.6 - 0.6 + 0.1 + 0.6).not.toBe(0.3 + 0.1 + 0.6)
+  })
+
+  it('leave out a pending op that no longer applies, which the server will refuse too', () => {
+    const drawings = counters(5)
+    const engine = new SyncEngine(drawings, wire(), 0, ids())
+    engine.local({ add: -5 }) // fine on 5
+
+    engine.remote(1, { set: 2 }) // but not on 2
+
+    expect(drawings.local).toBe(2)
+    expect(engine.pending.map((p) => p.applied)).toEqual([false])
+    expect(engine.diverged).toBe(false)
+  })
+
+  it('apply an op that no longer applied once a later remote op makes room again', () => {
+    const drawings = counters(5)
+    const engine = new SyncEngine(drawings, wire(), 0, ids())
+    engine.local({ add: -5 })
+    engine.remote(1, { set: 2 })
+    expect(engine.pending[0].applied).toBe(false)
+
+    engine.remote(2, { set: 7 })
+
+    expect(drawings.local).toBe(2) // 7 - 5
+    expect(engine.pending[0].applied).toBe(true)
+  })
+
+  it('that the client already has are ignored', () => {
+    const drawings = counters(0)
+    const engine = new SyncEngine(drawings, wire(), 5, ids())
+    expect(engine.remote(5, { set: 99 })).toBe('duplicate')
+    expect(engine.remote(2, { set: 99 })).toBe('duplicate')
+    expect(drawings.local).toBe(0)
+  })
+
+  it('after a gap are left alone, so the missing ones can be fetched first', () => {
+    const drawings = counters(0)
+    const engine = new SyncEngine(drawings, wire(), 5, ids())
+    expect(engine.remote(7, { set: 99 })).toBe('gap')
+    expect(drawings.local).toBe(0)
+    expect(engine.lastSeq).toBe(5)
+  })
+
+  it("mark the drawing as out of step if the server's op doesn't apply to the server's own state", () => {
+    const engine = new SyncEngine(counters(0), wire(), 0, ids())
+    expect(engine.remote(1, { add: -1 })).toBe('diverged')
+    expect(engine.diverged).toBe(true)
+  })
+})
+
+describe('an ack for an op the client left out', () => {
+  it('marks the drawing as out of step: the server did apply it', () => {
+    const engine = new SyncEngine(counters(5), wire(), 0, ids())
+    engine.local({ add: -5 })
+    engine.remote(1, { set: 2 })
+
+    engine.ack('op-1', 2)
+
+    expect(engine.diverged).toBe(true)
+  })
+})
+
+describe('rejects', () => {
+  it('roll back an op that was showing, keeping the pending ops after it', () => {
+    const drawings = counters(0)
+    const engine = new SyncEngine(drawings, wire(), 0, ids())
+    engine.local({ set: 5 })
+    engine.local({ add: 1 }) // 6
+
+    const rejected = engine.reject('op-1')
+
+    expect(rejected).toEqual({ set: 5 }) // the op, so the user can be told which edit it was
+    expect(drawings.local).toBe(1) // 0 + 1: the set is gone, the add stays
+    expect(engine.pending.map((p) => p.clientOpId)).toEqual(['op-2'])
+  })
+
+  it('leave the drawing alone for an op that was already left out', () => {
+    const drawings = counters(5)
+    const engine = new SyncEngine(drawings, wire(), 0, ids())
+    engine.local({ add: -5 })
+    engine.remote(1, { set: 2 }) // the add no longer applies
+    let resets = 0
+    const reset = drawings.resetLocal
+    drawings.resetLocal = () => { resets++; reset() }
+
+    expect(engine.reject('op-1')).toEqual({ add: -5 })
+
+    expect(drawings.local).toBe(2)
+    expect(resets).toBe(0) // nothing to undo
+    expect(engine.synced).toBe(true)
+  })
+
+  it("don't change what the server has, or the last seq", () => {
+    const drawings = counters(3)
+    const engine = new SyncEngine(drawings, wire(), 9, ids())
+    engine.local({ add: 1 })
+    engine.reject('op-1')
+    expect([drawings.confirmed, drawings.local, engine.lastSeq]).toEqual([3, 3, 9])
+  })
+
+  it('for an op that isn\'t pending, or a repeated one, change nothing', () => {
+    const drawings = counters(0)
+    const engine = new SyncEngine(drawings, wire(), 0, ids())
+    engine.local({ add: 1 })
+    expect(engine.reject('nobody')).toBeNull()
+    engine.reject('op-1')
+    expect(engine.reject('op-1')).toBeNull()
+    expect(drawings.local).toBe(0)
   })
 })
