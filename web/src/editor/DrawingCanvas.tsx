@@ -1,6 +1,7 @@
 import { useEffect, useRef, type PointerEvent } from 'react'
 import { paint, type DrawCommand } from './paint'
 import type { Point } from './tools'
+import type { Bounds } from './useDrawing'
 
 // The size of every drawing, as the core saves it.
 export const drawingWidth = 800
@@ -11,8 +12,13 @@ export type PointerPhase = 'down' | 'move' | 'up' | 'cancel'
 // Shows a drawing. Sharp on high-density screens, and white like paper even in dark mode, since a
 // drawing's colours are its own. Reports pointer events in drawing coordinates, whatever size the canvas
 // is shown at.
-export default function DrawingCanvas({ commands, onPointer }: {
+// Clear of the shape's own outline.
+const outlinePadding = 4
+
+// `outline`, if set, is the box around the selected shape, drawn dashed over the drawing.
+export default function DrawingCanvas({ commands, outline, onPointer }: {
   commands: DrawCommand[]
+  outline?: Bounds | null
   onPointer?: (phase: PointerPhase, point: Point) => void
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -27,7 +33,19 @@ export default function DrawingCanvas({ commands, onPointer }: {
     context.fillStyle = '#ffffff'
     context.fillRect(0, 0, drawingWidth, drawingHeight)
     paint(context, commands)
-  }, [commands])
+    if (outline) {
+      context.setLineDash([6, 4])
+      context.lineWidth = 1
+      context.strokeStyle = '#1f6feb'
+      context.strokeRect(
+        outline.x - outlinePadding,
+        outline.y - outlinePadding,
+        outline.width + 2 * outlinePadding,
+        outline.height + 2 * outlinePadding,
+      )
+      context.setLineDash([])
+    }
+  }, [commands, outline])
 
   const report = (phase: PointerPhase) => (event: PointerEvent<HTMLCanvasElement>) => {
     if (!onPointer) return

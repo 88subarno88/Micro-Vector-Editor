@@ -158,3 +158,26 @@ button:disabled {
   touch-action: none; /* drags draw instead of scrolling the page */
   cursor: crosshair;
 }
+
+.tool-select .drawing {
+  cursor: default;
+}
+
+.toolbar .danger {
+  margin-left: auto;
+}
+
+.canvas-wrap {
+  position: relative;
+  width: 800px;
+  max-width: 100%;
+}
+
+.text-entry {
+  position: absolute;
+  min-width: 160px;
+  padding: 2px 4px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #000000;
+}

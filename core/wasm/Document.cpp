@@ -97,6 +97,15 @@ std::string Document::hitTest(double x, double y) const {
     return "";
 }
 
+std::string Document::boundsOf(const std::string& id) const {
+    const GraphicsObject* shape = diagram_.find(id);
+    if (!shape) return "null";
+    return dump({{"x", shape->getX()},
+                 {"y", shape->getY()},
+                 {"width", shape->getWidth()},
+                 {"height", shape->getHeight()}});
+}
+
 std::string Document::toSVG() const { return diagram_.toSVG(); }
 
 std::string Document::loadSVG(const std::string& svg) {

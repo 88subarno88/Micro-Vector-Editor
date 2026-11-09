@@ -3,6 +3,14 @@ import type { components } from '../api/schema'
 import type { Core } from '../core/core'
 import type { Document as CoreDocument } from '../wasm/vec.js'
 import type { DrawCommand } from './paint'
+import type { Point } from './tools'
+
+export interface Bounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
 
 export type LoadedDocument = components['schemas']['DocumentWithDrawing']
 
@@ -54,18 +62,29 @@ export function useDrawing(core: Core, loaded: LoadedDocument) {
     [drawing],
   )
 
-  // How the drawing would look with a shape added, without keeping it: for showing a shape while it's drawn.
+  // How the drawing would look after `op`, without keeping it: applies it, looks, then applies its inverse.
+  // For showing a shape while it's drawn or dragged. Unchanged if the op doesn't apply.
   const preview = useCallback(
-    (add: { id: string }): DrawCommand[] => {
+    (op: object): DrawCommand[] => {
       if (!drawing) return []
-      const added: Result = JSON.parse(drawing.applyOp(JSON.stringify(add)))
-      if ('error' in added) return commandsOf(drawing)
+      const text = JSON.stringify(op)
+      const inverse = JSON.parse(drawing.invertOp(text))
+      if (!inverse.op || 'error' in JSON.parse(drawing.applyOp(text))) return commandsOf(drawing)
       const shown = commandsOf(drawing)
-      drawing.applyOp(JSON.stringify({ kind: 'deleteShape', id: add.id }))
+      drawing.applyOp(JSON.stringify(inverse.op))
       return shown
     },
     [drawing],
   )
 
-  return { commands, error, ready: drawing !== null, apply, preview }
+  // The topmost shape at a point, or null.
+  const shapeAt = useCallback((point: Point) => (drawing?.hitTest(point.x, point.y) || null), [drawing])
+
+  // The box around a shape, or null if it's gone.
+  const boundsOf = useCallback(
+    (id: string): Bounds | null => (drawing ? JSON.parse(drawing.boundsOf(id)) : null),
+    [drawing],
+  )
+
+  return { commands, error, ready: drawing !== null, apply, preview, shapeAt, boundsOf }
 }

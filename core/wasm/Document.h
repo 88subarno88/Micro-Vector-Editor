@@ -24,6 +24,10 @@ public:
     // The ID of the topmost shape at (x, y), or "" if there's none.
     std::string hitTest(double x, double y) const;
 
+    // {"x", "y", "width", "height"}: the box around a shape, for outlining it when selected; "null" if
+    // there's no shape with that ID.
+    std::string boundsOf(const std::string& id) const;
+
     // The drawing as an SVG file.
     std::string toSVG() const;
 

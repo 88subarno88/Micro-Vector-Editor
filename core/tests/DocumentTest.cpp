@@ -210,3 +210,19 @@ TEST(DocumentTest, EachKindOfShapeDrawsWithItsPrimitive) {
 }
 
 TEST(DocumentTest, AnEmptyDrawingHasNoDrawCommands) { EXPECT_EQ(Document().drawCommands(), "[]"); }
+
+TEST(DocumentTest, BoundsOfAShapeIsTheBoxAroundIt) {
+    Document doc;
+    ASSERT_EQ(doc.applyOp(op("add-rect")), ok);  // x 10, y 20, 30 by 40
+    ASSERT_EQ(doc.applyOp(op("move")), ok);      // by 1.5, -2
+
+    EXPECT_EQ(json::parse(doc.boundsOf("s_1")),
+              (json{{"x", 11.5}, {"y", 18}, {"width", 30}, {"height", 40}}));
+
+    Document circle;
+    ASSERT_EQ(circle.applyOp(op("add-circle")), ok);  // centre (10, 20), radius 30
+    EXPECT_EQ(json::parse(circle.boundsOf("s_1")),
+              (json{{"x", -20}, {"y", -10}, {"width", 60}, {"height", 60}}));
+}
+
+TEST(DocumentTest, BoundsOfAnUnknownShapeIsNull) { EXPECT_EQ(Document().boundsOf("nope"), "null"); }
