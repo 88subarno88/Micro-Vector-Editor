@@ -13,6 +13,17 @@ export function setAccessToken(token: string | null) {
   accessToken = token
 }
 
+// For connections that can't go through authFetch, like the document WebSocket, which takes the token in
+// its URL.
+export function getAccessToken(): string | null {
+  return accessToken
+}
+
+// Gets a new access token with the refresh cookie, sharing a refresh already under way. True if it worked.
+export function renewAccessToken(): Promise<boolean> {
+  return refreshAccessToken(globalThis.location.origin)
+}
+
 // Called when the session can't be renewed and the user has to log in again. Returns an unsubscribe function.
 export function onSessionEnded(listener: () => void): () => void {
   sessionEndedListeners.add(listener)
