@@ -84,6 +84,13 @@ function fakeCore() {
           style: shape.style,
         })))
       }
+      shapesJson() {
+        return JSON.stringify({ shapes: [...shapes].map(([id, shape]) => ({ id, shape })) })
+      }
+      translatedShape(text: string, dx: number, dy: number) {
+        const shape = JSON.parse(text)
+        return JSON.stringify({ shape: { ...shape, x: shape.x + dx, y: shape.y + dy } })
+      }
       delete() {}
     },
   }
@@ -431,6 +438,116 @@ describe('the editor', () => {
       const { shapes } = await withSelected()
       await userEvent.type(width(), '{Backspace}')
       expect(shapes.size).toBe(1)
+    })
+  })
+
+  describe('shortcuts', () => {
+    // A rectangle at (100, 100), 100 by 100, selected.
+    async function withSelected() {
+      const fake = fakeCore()
+      render(
+        <>
+          <input aria-label="Somewhere else" />
+          <Editor core={fake.core} loaded={loaded} />
+        </>,
+      )
+      await chooseTool('Rectangle')
+      drag([50, 50], [100, 100])
+      await chooseTool('Select')
+      click([75, 75])
+      const id = [...fake.shapes.keys()][0]
+      const others = () => [...fake.shapes].filter(([key]) => key !== id).map(([, shape]) => shape)
+      return { ...fake, id, others }
+    }
+
+    it('copies and pastes beside the original, selecting the copy', async () => {
+      const { shapes, others } = await withSelected()
+      await userEvent.keyboard('{Control>}c{/Control}{Control>}v{/Control}')
+      expect(others()).toEqual([expect.objectContaining({ x: 120, y: 120, width: 100 })])
+      await userEvent.keyboard('{Delete}') // the copy is selected, so this removes it
+      expect(shapes.size).toBe(1)
+    })
+
+    it('steps each paste further along, instead of piling them up', async () => {
+      const { others } = await withSelected()
+      await userEvent.keyboard('{Control>}c{/Control}{Control>}v{/Control}{Control>}v{/Control}')
+      expect(others().map((shape) => shape.x)).toEqual([120, 140])
+    })
+
+    it('cuts, then pastes beside where the shape was', async () => {
+      const { shapes, id, others } = await withSelected()
+      await userEvent.keyboard('{Control>}x{/Control}')
+      expect(shapes.has(id)).toBe(false)
+      await userEvent.keyboard('{Control>}v{/Control}')
+      expect(others()).toEqual([expect.objectContaining({ x: 120, y: 120 })])
+    })
+
+    it('nudges the selected shape with the arrows, further with Shift', async () => {
+      const { shapes, id } = await withSelected()
+      await userEvent.keyboard('{ArrowRight}{Shift>}{ArrowDown}{/Shift}')
+      expect(shapes.get(id)).toMatchObject({ x: 101, y: 110 })
+    })
+
+    it('deselects with Escape', async () => {
+      await withSelected()
+      await userEvent.keyboard('{Escape}')
+      expect(deleteButton()).toBeDisabled()
+    })
+
+    it("chooses tools by letter, but not while typing", async () => {
+      await withSelected()
+      await userEvent.keyboard('r')
+      expect(screen.getByRole('button', { name: 'Rectangle' })).toHaveAttribute('aria-pressed', 'true')
+      await userEvent.type(screen.getByLabelText('Somewhere else'), 'v')
+      expect(screen.getByRole('button', { name: 'Rectangle' })).toHaveAttribute('aria-pressed', 'true')
+      screen.getByLabelText('Somewhere else').blur() // done typing
+      await userEvent.keyboard('v')
+      expect(screen.getByRole('button', { name: 'Select' })).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it("doesn't copy while typing", async () => {
+      const { shapes } = await withSelected()
+      await userEvent.type(screen.getByLabelText('Somewhere else'), '{Control>}c{/Control}{Control>}v{/Control}')
+      expect(shapes.size).toBe(1)
+    })
+  })
+
+  describe('zoom and pan', () => {
+    const zoomLabel = () => screen.getByRole('button', { name: 'Reset zoom' })
+
+    it('zooms in and out by the buttons and keys, and resets', async () => {
+      render(<Editor core={fakeCore().core} loaded={loaded} />)
+      expect(zoomLabel()).toHaveTextContent('100%')
+      await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+      expect(zoomLabel()).toHaveTextContent('125%')
+      await userEvent.keyboard('{Control>}={/Control}')
+      expect(zoomLabel()).toHaveTextContent('156%')
+      await userEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+      await userEvent.click(zoomLabel())
+      expect(zoomLabel()).toHaveTextContent('100%')
+    })
+
+    it('draws where the pointer is in the drawing, however it is zoomed', async () => {
+      const { core, shapes } = fakeCore()
+      render(<Editor core={core} loaded={loaded} />)
+      // Zoomed to 125% around the canvas's centre, (400, 300): its top left now shows (80, 60).
+      await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+      await chooseTool('Rectangle')
+      drag([50, 50], [100, 100]) // (100, 100) to (200, 200) on the canvas, before zoom
+
+      expect([...shapes.values()][0]).toMatchObject({ x: 160, y: 140, width: 80, height: 80 })
+    })
+
+    it('pans with the wheel, and zooms with Ctrl and the wheel', async () => {
+      const { core, shapes } = fakeCore()
+      render(<Editor core={core} loaded={loaded} />)
+      fireEvent.wheel(canvas(), { deltaY: 100 })
+      await chooseTool('Rectangle')
+      drag([50, 50], [100, 100])
+      expect([...shapes.values()][0]).toMatchObject({ x: 100, y: 200 }) // the view moved down by 100
+
+      fireEvent.wheel(canvas(), { deltaY: -100, ctrlKey: true, clientX: 200, clientY: 150 })
+      expect(zoomLabel()).toHaveTextContent('125%')
     })
   })
 

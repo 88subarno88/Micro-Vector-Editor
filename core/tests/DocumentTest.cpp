@@ -226,3 +226,47 @@ TEST(DocumentTest, BoundsOfAShapeIsTheBoxAroundIt) {
 }
 
 TEST(DocumentTest, BoundsOfAnUnknownShapeIsNull) { EXPECT_EQ(Document().boundsOf("nope"), "null"); }
+
+TEST(DocumentTest, ATranslatedShapeIsTheSameShapeMoved) {
+    const Document doc;
+    const auto moved = [&](const std::string& opName) {
+        const json shape = json::parse(op(opName))["shape"];
+        const json result = json::parse(doc.translatedShape(shape.dump(), 20, 20));
+        EXPECT_TRUE(result.contains("shape")) << opName << ": " << result;
+        return std::pair{shape, result["shape"]};
+    };
+
+    const auto [rect, movedRect] = moved("add-rect");
+    EXPECT_EQ(movedRect["x"], rect["x"].get<double>() + 20);
+    EXPECT_EQ(movedRect["y"], rect["y"].get<double>() + 20);
+    EXPECT_EQ(movedRect["width"], rect["width"]);
+    EXPECT_EQ(movedRect["style"], rect["style"]);
+
+    const auto [circle, movedCircle] = moved("add-circle");
+    EXPECT_EQ(movedCircle["center"], (json{{"x", 30}, {"y", 40}}));
+    EXPECT_EQ(movedCircle["radius"], circle["radius"]);
+
+    const auto [line, movedLine] = moved("add-line");
+    EXPECT_EQ(movedLine["start"], (json{{"x", 21}, {"y", 22}}));
+    EXPECT_EQ(movedLine["end"], (json{{"x", 23}, {"y", 24}}));
+
+    const auto [sketch, movedSketch] = moved("add-freehand");
+    EXPECT_EQ(movedSketch["points"],
+              (json::array({{{"x", 21}, {"y", 22}}, {{"x", 23.5}, {"y", 24.5}}, {{"x", 25}, {"y", 26}}})));
+
+    const auto [text, movedText] = moved("add-text");
+    EXPECT_EQ(movedText["position"], (json{{"x", 30}, {"y", 40}}));
+    EXPECT_EQ(movedText["text"], text["text"]);
+}
+
+TEST(DocumentTest, TranslatingABadShapeIsAnErrorAndLeavesTheDrawingAlone) {
+    Document doc;
+    ASSERT_EQ(doc.applyOp(op("add-rect")), ok);
+    const std::string before = doc.shapesJson();
+
+    EXPECT_EQ(errorCode(doc.translatedShape("not json", 1, 1)), "bad_shape");
+    EXPECT_EQ(errorCode(doc.translatedShape(R"({"kind":"rect"})", 1, 1)), "bad_shape");
+    EXPECT_EQ(errorCode(doc.translatedShape(json::parse(op("add-rect"))["shape"].dump(), 1e301, 0)),
+              "bad_shape");
+    EXPECT_EQ(doc.shapesJson(), before);
+}

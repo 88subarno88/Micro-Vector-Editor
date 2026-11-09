@@ -28,6 +28,11 @@ public:
     // there's no shape with that ID.
     std::string boundsOf(const std::string& id) const;
 
+    // {"shape": ...}: `shapeJson` (a shape as in an addShape op) moved by (dx, dy), for pasting a copy beside
+    // the original as a single addShape. Code bad_shape if it isn't a usable shape. The drawing isn't
+    // touched.
+    std::string translatedShape(const std::string& shapeJson, double dx, double dy) const;
+
     // The drawing as an SVG file.
     std::string toSVG() const;
 

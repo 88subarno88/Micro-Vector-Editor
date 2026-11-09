@@ -17,6 +17,7 @@ EMSCRIPTEN_BINDINGS(vec) {
         .function("invertOp", &Document::invertOp)
         .function("hitTest", &Document::hitTest)
         .function("boundsOf", &Document::boundsOf)
+        .function("translatedShape", &Document::translatedShape)
         .function("toSVG", &Document::toSVG)
         .function("loadSVG", &Document::loadSVG)
         .function("loadJson", &Document::loadJson)

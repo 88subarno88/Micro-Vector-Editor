@@ -103,5 +103,25 @@ export function useDrawing(core: Core, loaded: LoadedDocument) {
     [drawing],
   )
 
-  return { commands, error, ready: drawing !== null, apply, preview, shapeAt, boundsOf, anchorOf }
+  // A shape's data, as in an addShape op, for copying it. Null if it's gone.
+  const shapeOf = useCallback(
+    (id: string): object | null => {
+      if (!drawing) return null
+      const shapes: { id: string; shape: object }[] = JSON.parse(drawing.shapesJson()).shapes
+      return shapes.find((entry) => entry.id === id)?.shape ?? null
+    },
+    [drawing],
+  )
+
+  // `shape` moved by (dx, dy), by the core, which knows every kind of shape's geometry. Null if it can't be.
+  const translated = useCallback(
+    (shape: object, dx: number, dy: number): object | null => {
+      if (!drawing) return null
+      const result = JSON.parse(drawing.translatedShape(JSON.stringify(shape), dx, dy))
+      return result.shape ?? null
+    },
+    [drawing],
+  )
+
+  return { commands, error, ready: drawing !== null, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf, translated }
 }

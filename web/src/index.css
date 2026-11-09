@@ -206,3 +206,12 @@ button:disabled {
 .style-panel input[type='number'] {
   width: 72px;
 }
+
+.zoom {
+  display: flex;
+  gap: 2px;
+}
+
+.zoom button {
+  min-width: 40px;
+}

@@ -106,6 +106,21 @@ std::string Document::boundsOf(const std::string& id) const {
                  {"height", shape->getHeight()}});
 }
 
+std::string Document::translatedShape(const std::string& shapeJson, double dx, double dy) const {
+    // Decoded as an addShape, so it's checked exactly as one would be, then moved by the shape's own code.
+    const json shape = json::parse(shapeJson, nullptr, false);
+    const auto op = decodeOperation(json{{"kind", "addShape"}, {"id", "copy"}, {"shape", shape}});
+    if (!op) return error("bad_shape", op.error().message);
+    Diagram scratch;
+    if (const auto added = apply(scratch, *op); !added) {
+        return error("bad_shape", toString(added.error()));
+    }
+    if (const auto moved = apply(scratch, Move{"copy", dx, dy}); !moved) {
+        return error("bad_shape", toString(moved.error()));
+    }
+    return dump({{"shape", toShapeData(*scratch.find("copy"))}});
+}
+
 std::string Document::toSVG() const { return diagram_.toSVG(); }
 
 std::string Document::loadSVG(const std::string& svg) {

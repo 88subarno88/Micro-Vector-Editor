@@ -6,15 +6,16 @@ export type DrawingTool = BoxTool | 'freehand' | 'text'
 // Select picks shapes to move and delete; the rest draw.
 export type Tool = 'select' | DrawingTool
 
-export const tools: { tool: Tool; label: string }[] = [
-  { tool: 'select', label: 'Select' },
-  { tool: 'rect', label: 'Rectangle' },
-  { tool: 'roundedRect', label: 'Rounded rectangle' },
-  { tool: 'circle', label: 'Circle' },
-  { tool: 'line', label: 'Line' },
-  { tool: 'hexagon', label: 'Hexagon' },
-  { tool: 'freehand', label: 'Freehand' },
-  { tool: 'text', label: 'Text' },
+// Each tool with its keyboard shortcut.
+export const tools: { tool: Tool; label: string; key: string }[] = [
+  { tool: 'select', label: 'Select', key: 'v' },
+  { tool: 'rect', label: 'Rectangle', key: 'r' },
+  { tool: 'roundedRect', label: 'Rounded rectangle', key: 'u' },
+  { tool: 'circle', label: 'Circle', key: 'o' },
+  { tool: 'line', label: 'Line', key: 'l' },
+  { tool: 'hexagon', label: 'Hexagon', key: 'h' },
+  { tool: 'freehand', label: 'Freehand', key: 'p' },
+  { tool: 'text', label: 'Text', key: 't' },
 ]
 
 export interface Point {
