@@ -1,4 +1,4 @@
-import { closeCodes, type CommittedOp } from './messages'
+import { closeCodes, type CommittedOp, type PresenceUser } from './messages'
 import { SyncClient, type SocketLike, type SyncStatus } from './SyncClient'
 import { SyncEngine, type Drawings } from './SyncEngine'
 
@@ -23,6 +23,8 @@ export interface DocumentSyncEvents {
   // What the user sees may have changed: others' ops arrived, or an edit was rolled back.
   onChange?(): void
   onRejected?(op: object, reason: string, message: string): void
+  // Everyone looking at the document, this user included, whenever someone joins, leaves or moves.
+  onPresence?(users: PresenceUser[]): void
   // The drawing no longer matches the server's (see SyncEngine.diverged): syncing has stopped, and the
   // document should be opened afresh.
   onDiverged?(): void
@@ -73,6 +75,7 @@ export class DocumentSync {
           events.onRejected?.(op, reason, message)
           this.changed()
         },
+        onPresence: (users) => events.onPresence?.(users),
         onClosed: (code) => void this.closed(code),
       },
     })
@@ -91,6 +94,12 @@ export class DocumentSync {
   // Makes a local edit: null, or why the drawing refused it (see SyncEngine.local).
   edit(op: object): string | null {
     return this.engine.local(op)
+  }
+
+  // Tells the others where this user's pointer is, in drawing units. Dropped unless connected: only the
+  // latest position matters.
+  cursor(x: number, y: number) {
+    this.client.sendCursor(x, y)
   }
 
   stop() {

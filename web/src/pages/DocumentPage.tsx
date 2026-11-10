@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { api } from '../api/client'
 import { attempt, describeFailure } from '../api/errors'
+import { useAuth } from '../auth/auth'
 import { useCore } from '../core/useCore'
 import Editor from '../editor/Editor'
 import type { LoadedDocument } from '../editor/useDrawing'
@@ -9,6 +10,7 @@ import type { LoadedDocument } from '../editor/useDrawing'
 // One document, open in the editor.
 export default function DocumentPage() {
   const { core, error: coreError } = useCore()
+  const { user } = useAuth()
   const { id = '' } = useParams()
   const [doc, setDoc] = useState<LoadedDocument | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,7 +45,7 @@ export default function DocumentPage() {
           {coreError ? (
             <p className="error" role="alert">{coreError}</p>
           ) : core ? (
-            <Editor core={core} loaded={doc} />
+            <Editor core={core} loaded={doc} me={user?.id ?? ''} />
           ) : (
             <p className="loading">Loading the drawing engine…</p>
           )}

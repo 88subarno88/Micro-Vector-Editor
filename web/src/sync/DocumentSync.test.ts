@@ -8,7 +8,7 @@ function setUp({ renews = true } = {}) {
   let token = 'tok'
   let n = 0
   const events = {
-    onStatus: vi.fn(), onChange: vi.fn(), onRejected: vi.fn(), onDiverged: vi.fn(), onStopped: vi.fn(),
+    onStatus: vi.fn(), onChange: vi.fn(), onRejected: vi.fn(), onPresence: vi.fn(), onDiverged: vi.fn(), onStopped: vi.fn(),
   } satisfies DocumentSyncEvents
   const renewToken = vi.fn(async () => {
     if (renews) token = `renewed-${renewToken.mock.calls.length}`
@@ -166,6 +166,19 @@ describe('DocumentSync', () => {
     latest().opened()
     latest().receive({ type: 'ready', role: 'editor' })
     expect(latest().sent).toEqual([{ type: 'join', lastSeq: 0 }])
+  })
+
+  it("sends this user's pointer once live, and reports who else is there", () => {
+    const { sync, events, latest, join } = setUp()
+    sync.start()
+    sync.cursor(1, 2) // not connected yet: dropped
+    join()
+    sync.cursor(3, 4)
+    expect(latest().sent.filter((m) => (m as { type: string }).type === 'cursor')).toEqual([{ type: 'cursor', x: 3, y: 4 }])
+
+    const users = [{ id: 'u2', name: 'bob', cursor: { x: 5, y: 6 } }]
+    latest().receive({ type: 'presence', users })
+    expect(events.onPresence).toHaveBeenCalledExactlyOnceWith(users)
   })
 
   it('reports rejected edits with the op, and changes to what the user sees', () => {

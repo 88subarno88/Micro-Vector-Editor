@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Core } from '../core/core'
+import { colorFor } from './cursors'
 import DrawingCanvas, { drawingHeight, drawingWidth, handleSize, type PointerPhase } from './DrawingCanvas'
 import { coalescedMoves } from './moves'
+import OnlineUsers from './OnlineUsers'
 import type { DrawCommand } from './paint'
 import { factorFor, handleFor, scaleBounds } from './resize'
 import StylePanel, { type StyleChange } from './StylePanel'
@@ -30,10 +32,18 @@ type Change = { kind: 'move'; by: Point } | { kind: 'resize'; anchor: Point; fac
 
 // The editor: a toolbar above the drawing. The Select tool picks a shape to move, resize by its handle,
 // restyle in the style panel, copy or delete; the others draw. The view zooms and pans. Every edit shows at
-// once and is sent to the server, and others' edits appear as they're made.
-export default function Editor({ core, loaded, sync }: { core: Core; loaded: LoadedDocument; sync?: SyncOverrides }) {
-  const { commands, error, rejected, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf, translated } =
-    useDrawing(core, loaded, sync)
+// once and is sent to the server, and others' edits appear as they're made, along with their pointers.
+// `me` is the signed-in user's ID, whose own pointer isn't drawn.
+export default function Editor({ core, loaded, me, sync }: {
+  core: Core
+  loaded: LoadedDocument
+  me: string
+  sync?: SyncOverrides
+}) {
+  const {
+    commands, error, rejected, present, moveCursor, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf,
+    translated,
+  } = useDrawing(core, loaded, sync)
   const [tool, setTool] = useState<Tool>('select')
   const [selected, setSelected] = useState<string | null>(null)
   // The drag in progress. A ref, not state: pointer moves can arrive faster than React renders, and each
@@ -157,6 +167,7 @@ export default function Editor({ core, loaded, sync }: { core: Core; loaded: Loa
   })
 
   function onPointer(phase: PointerPhase, point: Point) {
+    if (phase === 'move' || phase === 'down') moveCursor(point)
     if (phase === 'down') {
       setProblem(null)
       if (tool === 'select' && selected && anchor && handle && onHandle(point)) {
@@ -229,6 +240,15 @@ export default function Editor({ core, loaded, sync }: { core: Core; loaded: Loa
 
   // Where the text being typed starts, on the canvas as it's zoomed.
   const textAtOnScreen = textAt && toScreen(view, textAt)
+  // As a position over the canvas, which is shown at whatever size the page allows.
+  const placed = (point: Point) => ({ left: `${(point.x / drawingWidth) * 100}%`, top: `${(point.y / drawingHeight) * 100}%` })
+  // Everyone else's pointer that's over the part of the drawing in view.
+  const pointers = present.flatMap(({ id, name, cursor }) => {
+    if (id === me || !cursor) return []
+    const at = toScreen(view, cursor)
+    const inView = at.x >= 0 && at.y >= 0 && at.x <= drawingWidth && at.y <= drawingHeight
+    return inView ? [{ id, name, at }] : []
+  })
 
   if (error) return <p className="error" role="alert">{error}</p>
   if (!ready) return <p className="loading">Loading the drawing…</p>
@@ -243,6 +263,7 @@ export default function Editor({ core, loaded, sync }: { core: Core; loaded: Loa
 
   return (
     <section className="editor">
+      <OnlineUsers users={present} me={me} />
       <div className="toolbar" role="toolbar" aria-label="Tools">
         {tools.map(({ tool: option, label, key }) => (
           <button key={option} aria-pressed={tool === option} title={`${label} (${key.toUpperCase()})`}
@@ -287,9 +308,19 @@ export default function Editor({ core, loaded, sync }: { core: Core; loaded: Loa
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onTextKey}
             onBlur={() => finishText(true)}
-            style={{ left: `${(textAtOnScreen!.x / drawingWidth) * 100}%`, top: `${(textAtOnScreen!.y / drawingHeight) * 100}%` }}
+            style={placed(textAtOnScreen!)}
           />
         )}
+        {pointers.map(({ id, name, at }, index) => (
+          // A user with two tabs open has two pointers, so the index keeps keys apart.
+          <div key={`${id}:${index}`} className="pointer" role="img" aria-label={`${name}'s pointer`}
+            style={{ ...placed(at), color: colorFor(id) }}>
+            <svg width="14" height="20" viewBox="0 0 14 20" aria-hidden="true">
+              <path d="M1 1 L1 16 L5 12 L8 19 L10 18 L7 11 L13 11 Z" fill="currentColor" stroke="#ffffff" />
+            </svg>
+            <span style={{ background: colorFor(id) }}>{name}</span>
+          </div>
+        ))}
       </div>
       {problem && <p className="error" role="alert">That edit didn't apply: {problem}</p>}
       {rejected && <p className="error" role="alert">{rejected}</p>}

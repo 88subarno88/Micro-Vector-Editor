@@ -3,9 +3,11 @@ import { getAccessToken, renewAccessToken } from '../api/client'
 import type { components } from '../api/schema'
 import type { Core } from '../core/core'
 import { DocumentSync, type DocumentSyncOptions } from '../sync/DocumentSync'
+import type { PresenceUser } from '../sync/messages'
 import { describeRejection } from '../sync/rejections'
 import type { Drawings } from '../sync/SyncEngine'
 import type { Document as CoreDocument } from '../wasm/vec.js'
+import { latestEvery } from './cursors'
 import type { DrawCommand } from './paint'
 import { anchorFrom } from './resize'
 import type { Point } from './tools'
@@ -56,6 +58,8 @@ const stopped = {
 export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncOverrides) {
   const [drawing, setDrawing] = useState<CoreDocument | null>(null)
   const [sync, setSync] = useState<DocumentSync | null>(null)
+  const [cursor, setCursor] = useState<ReturnType<typeof latestEvery> | null>(null) // this user's pointer
+  const [present, setPresent] = useState<PresenceUser[]>([]) // everyone looking, this user included
   const [commands, setCommands] = useState<DrawCommand[]>([])
   const [error, setError] = useState<string | null>(null)
   const [rejected, setRejected] = useState<string | null>(null) // why the server refused the latest edit
@@ -89,14 +93,18 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
       events: {
         onChange: () => setCommands(commandsOf(local)),
         onRejected: (_op, reason, message) => setRejected(describeRejection(reason, message)),
+        onPresence: setPresent,
         onDiverged: () => setError('This drawing got out of step with the server. Reload the page to carry on.'),
         onStopped: (reason) => setError(stopped[reason]),
       },
       ...syncOverrides,
     })
+    const pointer = latestEvery((point) => created.cursor(point.x, point.y))
     setSync(created)
+    setCursor(pointer)
     created.start()
     return () => {
+      pointer.stop()
       created.stop()
       local.delete()
       confirmed.delete()
@@ -114,6 +122,9 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
     },
     [drawing, sync],
   )
+
+  // Tells the others where this user's pointer is, in drawing units.
+  const moveCursor = useCallback((point: Point) => cursor?.to(point), [cursor])
 
   // How the drawing would look after `op`, without keeping it: applies it, looks, then applies its inverse.
   // For showing a shape while it's drawn or dragged. Unchanged if the op doesn't apply.
@@ -175,5 +186,19 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
     [drawing],
   )
 
-  return { commands, error, rejected, ready: drawing !== null, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf, translated }
+  return {
+    commands,
+    error,
+    rejected,
+    present,
+    moveCursor,
+    ready: drawing !== null,
+    apply,
+    preview,
+    shapeAt,
+    boundsOf,
+    anchorOf,
+    shapeOf,
+    translated,
+  }
 }
