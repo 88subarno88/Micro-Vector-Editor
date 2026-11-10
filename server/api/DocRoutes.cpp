@@ -2,8 +2,10 @@
 
 #include <drogon/drogon.h>
 
+#include <algorithm>
 #include <charconv>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <tl/expected.hpp>
@@ -27,6 +29,8 @@ using nlohmann::json;
 namespace {
 
 constexpr int defaultPageSize = 20;
+constexpr int defaultHistoryPageSize = 50;
+constexpr int maxHistoryPageSize = 200;
 constexpr const char* defaultImportTitle = "Imported drawing";
 
 json toJson(const vec::Document& doc) {
@@ -52,9 +56,10 @@ tl::expected<std::string, HttpResponsePtr> titleFrom(const HttpRequestPtr& reque
 
 HttpResponsePtr notFound() { return errorResponse(drogon::k404NotFound, "not_found", "no such document"); }
 
-// The whole of `text` as an int; nullopt if anything else is in it.
-std::optional<int> parseInt(const std::string& text) {
-    int value = 0;
+// The whole of `text` as a number; nullopt if anything else is in it.
+template <typename Number>
+std::optional<Number> parseNumber(const std::string& text) {
+    Number value = 0;
     const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
     if (error != std::errc() || end != text.data() + text.size()) return std::nullopt;
     return value;
@@ -113,7 +118,8 @@ void registerDocRoutes(const drogon::orm::DbClientPtr& database) {
         "/api/docs",
         [database](HttpRequestPtr request) -> drogon::Task<HttpResponsePtr> {
             const std::string& limitText = request->getParameter("limit");
-            const auto limit = limitText.empty() ? std::optional<int>(defaultPageSize) : parseInt(limitText);
+            const auto limit =
+                limitText.empty() ? std::optional<int>(defaultPageSize) : parseNumber<int>(limitText);
             if (!limit)
                 co_return errorResponse(drogon::k400BadRequest, "bad_request", "limit must be a number");
 
@@ -161,6 +167,41 @@ void registerDocRoutes(const drogon::orm::DbClientPtr& database) {
                   snapshot ? json{{"seq", snapshot->seq}, {"state", snapshot->state}} : json(nullptr)},
                  {"ops", opsJson},
                  {"opsComplete", static_cast<int>(ops.size()) < vec::OpRepo::maxOpsPerRead}});
+        },
+        drogon::Get);
+
+    registerProtected(
+        "/api/docs/{id}/ops",
+        [database](HttpRequestPtr request, std::string id) -> drogon::Task<HttpResponsePtr> {
+            const std::string& limitText = request->getParameter("limit");
+            const std::string& beforeText = request->getParameter("before");
+            const auto limit =
+                limitText.empty() ? std::optional<int>(defaultHistoryPageSize) : parseNumber<int>(limitText);
+            const auto before = beforeText.empty()
+                                    ? std::optional<int64_t>(std::numeric_limits<int64_t>::max())
+                                    : parseNumber<int64_t>(beforeText);
+            if (!limit || !before) {
+                co_return errorResponse(drogon::k400BadRequest, "bad_request",
+                                        "limit and before must be numbers");
+            }
+            const auto role = co_await requireRole(database, id, userIdOf(request), vec::Role::Viewer);
+            if (!role) co_return role.error();
+
+            const int pageSize = std::clamp(*limit, 1, maxHistoryPageSize);
+            const auto ops = co_await vec::OpRepo(database).history(id, *before, pageSize);
+            json opsJson = json::array();
+            for (const vec::HistoryRow& op : ops) {
+                opsJson.push_back({{"seq", op.seq},
+                                   {"userId", op.userId},
+                                   {"userEmail", op.userEmail},
+                                   {"op", op.payload},
+                                   {"createdAt", op.createdAt}});
+            }
+            // A full page may have more before it; seq 1 has nothing before it.
+            const bool more = static_cast<int>(ops.size()) == pageSize && ops.back().seq > 1;
+            co_return jsonResponse(
+                drogon::k200OK,
+                {{"ops", opsJson}, {"nextBefore", more ? json(ops.back().seq) : json(nullptr)}});
         },
         drogon::Get);
 

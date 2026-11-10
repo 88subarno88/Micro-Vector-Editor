@@ -29,8 +29,9 @@ export default function DocumentPage() {
 
   return (
     <main>
-      <p>
+      <p className="page-links">
         <Link to="/">← All documents</Link>
+        <Link to={`/docs/${id}/history`}>History</Link>
       </p>
       {error ? (
         <p className="error" role="alert">{error}</p>

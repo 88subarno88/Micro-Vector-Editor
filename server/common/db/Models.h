@@ -52,6 +52,15 @@ struct OpRow {
     std::string createdAt;
 };
 
+// An op as the document's history lists it: who made it, and when.
+struct HistoryRow {
+    int64_t seq = 0;
+    std::string userId;
+    std::string userEmail;
+    nlohmann::json payload;  // a vec_core Operation
+    std::string createdAt;
+};
+
 struct SnapshotRow {
     std::string documentId;
     int64_t seq = 0;       // the last operation included

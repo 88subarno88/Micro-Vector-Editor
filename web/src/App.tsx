@@ -4,6 +4,7 @@ import { useAuth } from './auth/auth'
 import AuthPage from './pages/AuthPage'
 import DocumentPage from './pages/DocumentPage'
 import DocumentsPage from './pages/DocumentsPage'
+import HistoryPage from './pages/HistoryPage'
 
 // Sends a signed-out visitor to the login page, remembering where they were going.
 function SignedInOnly({ children }: { children: ReactNode }) {
@@ -30,6 +31,7 @@ export default function App() {
       <Route path="/signup" element={<SignedOutOnly><AuthPage mode="signup" /></SignedOutOnly>} />
       <Route path="/" element={<SignedInOnly><DocumentsPage /></SignedInOnly>} />
       <Route path="/docs/:id" element={<SignedInOnly><DocumentPage /></SignedInOnly>} />
+      <Route path="/docs/:id/history" element={<SignedInOnly><HistoryPage /></SignedInOnly>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

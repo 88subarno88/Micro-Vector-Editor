@@ -303,3 +303,28 @@ button:disabled {
 .zoom button {
   min-width: 40px;
 }
+
+.page-links {
+  display: flex;
+  gap: 24px;
+}
+
+/* The history: one row per edit, newest first. */
+.history {
+  width: 100%;
+  margin-bottom: 16px;
+  border-collapse: collapse;
+}
+
+.history th,
+.history td {
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: top;
+}
+
+.history td:first-child {
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}

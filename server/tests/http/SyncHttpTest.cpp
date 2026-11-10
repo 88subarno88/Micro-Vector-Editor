@@ -106,3 +106,42 @@ TEST_F(LiveDocTest, AConnectionThatClosesWhileJoiningLeavesTheDocumentOpenToOthe
     next->send(Move{"missing", 1, 1});  // and it really works: the op gets an answer
     EXPECT_TRUE(next->waitUntilSettled(0));
 }
+
+// The history lists every op, newest first, with who made it, a page at a time.
+TEST_F(SyncHttpTest, TheHistoryListsEveryOpNewestFirstWithItsAuthor) {
+    alice->send(rect("a"));
+    bob->send(rect("b"));
+    alice->send(Move{"a", 1, 2});
+    expectEveryoneAgrees({alice.get(), bob.get()});
+
+    std::vector<json> listed;
+    std::string before;
+    int pages = 0;
+    do {
+        const Response page =
+            send(drogon::Get, "/api/docs/" + documentId + "/ops?limit=2" + before, nullptr, ownerToken);
+        ASSERT_EQ(page.status, 200);
+        for (const json& op : page.body["ops"]) listed.push_back(op);
+        before = page.body["nextBefore"].is_null()
+                     ? ""
+                     : "&before=" + std::to_string(page.body["nextBefore"].get<int64_t>());
+        ++pages;
+    } while (!before.empty() && pages < 10);
+
+    ASSERT_EQ(listed.size(), 3u);
+    EXPECT_EQ(pages, 2);
+    std::vector<int64_t> seqs;
+    for (const json& op : listed) seqs.push_back(op["seq"]);
+    EXPECT_EQ(seqs, (std::vector<int64_t>{3, 2, 1}));
+    EXPECT_EQ(listed[0]["op"], json(Operation{Move{"a", 1, 2}}));
+    EXPECT_EQ(listed[0]["userEmail"], "alice@example.com");
+    EXPECT_EQ(listed[1]["userEmail"], "bob@example.com");
+    EXPECT_TRUE(listed[2]["createdAt"].is_string());
+}
+
+TEST_F(SyncHttpTest, BadHistoryParametersAreRejected) {
+    const std::string ops = "/api/docs/" + documentId + "/ops";
+    EXPECT_EQ(send(drogon::Get, ops + "?limit=lots", nullptr, ownerToken).status, 400);
+    EXPECT_EQ(send(drogon::Get, ops + "?before=yesterday", nullptr, ownerToken).status, 400);
+    EXPECT_EQ(send(drogon::Get, ops + "?limit=100000", nullptr, ownerToken).status, 200);  // clamped
+}

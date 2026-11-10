@@ -181,6 +181,29 @@ export interface paths {
         patch: operations["renameDocument"];
         trace?: never;
     };
+    "/api/docs/{id}/ops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The document's ID. */
+                id: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Every edit to a document, newest first (viewer)
+         * @description Each with who made it and when. Follow `nextBefore` for older edits.
+         */
+        get: operations["listDocumentHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/docs/{id}/members": {
         parameters: {
             query?: never;
@@ -361,6 +384,25 @@ export interface components {
             op: Record<string, never>;
             /** Format: date-time */
             createdAt: string;
+        };
+        HistoryEntry: {
+            /** Format: int64 */
+            seq: number;
+            /** Format: uuid */
+            userId: string;
+            userEmail: string;
+            /** @description An operation, such as `{"kind": "move", "id": "s_1", "dx": 1, "dy": 0}`. */
+            op: Record<string, never>;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        HistoryPage: {
+            ops: components["schemas"]["HistoryEntry"][];
+            /**
+             * Format: int64
+             * @description Pass as `before` for the next, older page; null on the last page.
+             */
+            nextBefore: number | null;
         };
         MemberRequest: {
             email: string;
@@ -801,6 +843,37 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listDocumentHistory: {
+        parameters: {
+            query?: {
+                /** @description Page size, clamped to 1..200. */
+                limit?: number;
+                /** @description Only edits with a lower seq; the `nextBefore` of the previous page. */
+                before?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The document's ID. */
+                id: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
     };

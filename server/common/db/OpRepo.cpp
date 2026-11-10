@@ -98,6 +98,26 @@ drogon::Task<std::vector<OpRow>> OpRepo::opsAfter(const std::string& documentId,
     co_return ops;
 }
 
+drogon::Task<std::vector<HistoryRow>> OpRepo::history(const std::string& documentId, int64_t before,
+                                                      int limit) {
+    if (!isUuid(documentId)) co_return std::vector<HistoryRow>{};
+    const auto result = co_await database_->execSqlCoro(
+        "SELECT o.seq, o.user_id::text, u.email, o.payload::text, to_char(o.created_at AT TIME ZONE 'UTC', "
+        "'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') "
+        "FROM operations o JOIN users u ON u.id = o.user_id "
+        "WHERE o.document_id = $1::uuid AND o.seq < $2::bigint ORDER BY o.seq DESC LIMIT " +
+            std::to_string(std::clamp(limit, 1, maxOpsPerRead)),
+        documentId, before);
+
+    std::vector<HistoryRow> ops;
+    ops.reserve(result.size());
+    for (const auto& row : result) {
+        ops.push_back({row[0].as<int64_t>(), row[1].as<std::string>(), row[2].as<std::string>(),
+                       json::parse(row[3].as<std::string>()), row[4].as<std::string>()});
+    }
+    co_return ops;
+}
+
 drogon::Task<std::optional<SnapshotRow>> SnapshotRepo::latest(const std::string& documentId) {
     if (!isUuid(documentId)) co_return std::nullopt;
     const auto result = co_await database_->execSqlCoro(

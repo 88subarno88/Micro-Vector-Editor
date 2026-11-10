@@ -57,6 +57,10 @@ public:
     drogon::Task<std::vector<OpRow>> opsAfter(const std::string& documentId, int64_t seq,
                                               int limit = maxOpsPerRead);
 
+    // Ops with seq < `before`, newest first, at most `limit` (clamped to 1..maxOpsPerRead), with the
+    // email of the user who made each.
+    drogon::Task<std::vector<HistoryRow>> history(const std::string& documentId, int64_t before, int limit);
+
 private:
     drogon::orm::DbClientPtr database_;
 };

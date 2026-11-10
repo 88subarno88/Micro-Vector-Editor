@@ -315,6 +315,41 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/docs/{id}/ops:
+    parameters:
+      - $ref: '#/components/parameters/DocumentId'
+    get:
+      tags: [documents]
+      operationId: listDocumentHistory
+      summary: Every edit to a document, newest first (viewer)
+      description: Each with who made it and when. Follow `nextBefore` for older edits.
+      parameters:
+        - name: limit
+          in: query
+          description: Page size, clamped to 1..200.
+          schema:
+            type: integer
+            default: 50
+        - name: before
+          in: query
+          description: Only edits with a lower seq; the `nextBefore` of the previous page.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: One page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/docs/{id}/members:
     parameters:
       - $ref: '#/components/parameters/DocumentId'
@@ -729,6 +764,38 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    HistoryEntry:
+      type: object
+      required: [seq, userId, userEmail, op, createdAt]
+      properties:
+        seq:
+          type: integer
+          format: int64
+        userId:
+          type: string
+          format: uuid
+        userEmail:
+          type: string
+        op:
+          type: object
+          description: 'An operation, such as `{"kind": "move", "id": "s_1", "dx": 1, "dy": 0}`.'
+        createdAt:
+          type: string
+          format: date-time
+
+    HistoryPage:
+      type: object
+      required: [ops, nextBefore]
+      properties:
+        ops:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryEntry'
+        nextBefore:
+          type: [integer, 'null']
+          format: int64
+          description: Pass as `before` for the next, older page; null on the last page.
 
     MemberRequest:
       type: object

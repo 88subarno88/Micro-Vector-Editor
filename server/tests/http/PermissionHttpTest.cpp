@@ -36,6 +36,7 @@ protected:
     // Every route on the document, in an order that leaves it in place: deleting comes last.
     std::vector<Call> everyCall() const {
         return {{drogon::Get, doc, nullptr},
+                {drogon::Get, doc + "/ops", nullptr},
                 {drogon::Patch, doc, {{"title", "renamed"}}},
                 {drogon::Post, doc + "/members", {{"email", "stranger@example.com"}, {"role", "viewer"}}},
                 {drogon::Post, doc + "/exports", {{"format", "svg"}}},
@@ -55,13 +56,13 @@ protected:
 
 }  // namespace
 
-// Get, rename, share, export, delete.
+// Get, history, rename, share, export, delete.
 TEST_F(PermissionHttpTest, WithoutATokenEveryRouteIs401) {
-    EXPECT_EQ(statusesFor(""), (std::vector<int>{401, 401, 401, 401, 401}));
+    EXPECT_EQ(statusesFor(""), (std::vector<int>{401, 401, 401, 401, 401, 401}));
 }
 
 TEST_F(PermissionHttpTest, ANonMemberGets404EverywhereAsIfTheDocumentDidNotExist) {
-    EXPECT_EQ(statusesFor(stranger), (std::vector<int>{404, 404, 404, 404, 404}));
+    EXPECT_EQ(statusesFor(stranger), (std::vector<int>{404, 404, 404, 404, 404, 404}));
     // The same answer as for a document that really doesn't exist.
     EXPECT_EQ(send(drogon::Get, doc, nullptr, stranger).body,
               send(drogon::Get, "/api/docs/00000000-0000-0000-0000-000000000000", nullptr, stranger).body);
@@ -69,16 +70,16 @@ TEST_F(PermissionHttpTest, ANonMemberGets404EverywhereAsIfTheDocumentDidNotExist
 }
 
 TEST_F(PermissionHttpTest, AViewerCanReadAndExportOnly) {
-    EXPECT_EQ(statusesFor(viewer), (std::vector<int>{200, 403, 403, 202, 403}));
+    EXPECT_EQ(statusesFor(viewer), (std::vector<int>{200, 200, 403, 403, 202, 403}));
     EXPECT_EQ(send(drogon::Patch, doc, {{"title", "x"}}, viewer).body["error"]["code"], "forbidden");
 }
 
 TEST_F(PermissionHttpTest, AnEditorCanAlsoRenameButNotShareOrDelete) {
-    EXPECT_EQ(statusesFor(editor), (std::vector<int>{200, 200, 403, 202, 403}));
+    EXPECT_EQ(statusesFor(editor), (std::vector<int>{200, 200, 200, 403, 202, 403}));
 }
 
 TEST_F(PermissionHttpTest, TheOwnerCanDoEverything) {
-    EXPECT_EQ(statusesFor(owner), (std::vector<int>{200, 200, 201, 202, 204}));
+    EXPECT_EQ(statusesFor(owner), (std::vector<int>{200, 200, 200, 201, 202, 204}));
 }
 
 TEST_F(PermissionHttpTest, EachMemberSeesTheirOwnRole) {

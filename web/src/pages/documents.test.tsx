@@ -45,11 +45,14 @@ const failure = (status: number, code: string) => json(status, { error: { code, 
 // A fake server holding `docs`, newest first, logged in as ada unless `loggedIn` is false. Ada owns the
 // documents whose ownerId is u1; on the others she's a viewer, so the server refuses her renames.
 function server(docs: Doc[], { loggedIn = true } = {}) {
-  const state = { docs: [...docs], loggedIn, nextId: 100, ops: [addOp('s1'), addOp('s2')] as unknown[] }
+  const state = {
+    docs: [...docs], loggedIn, nextId: 100, ops: [addOp('s1'), addOp('s2')] as unknown[],
+    history: [] as { seq: number }[], // newest first
+  }
   vi.stubGlobal('fetch', async (input: Request | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(input, init)
     const url = new URL(request.url)
-    const route = `${request.method} ${url.pathname.replace(/^\/api\/docs\/[^/]+$/, '/api/docs/:id')}`
+    const route = `${request.method} ${url.pathname.replace(/^\/api\/docs\/[^/]+(\/ops)?$/, '/api/docs/:id$1')}`
     const id = url.pathname.split('/')[3]
     const doc = state.docs.find((d) => d.id === id)
     const authorized = request.headers.get('Authorization') === 'Bearer valid'
@@ -88,6 +91,14 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
       case 'DELETE /api/docs/:id':
         state.docs = state.docs.filter((d) => d !== doc)
         return new Response(null, { status: 204 })
+      case 'GET /api/docs/:id/ops': {
+        if (!doc) return failure(404, 'not_found')
+        // Two to a page, so a test can page through a short history.
+        const before = Number(url.searchParams.get('before') ?? Infinity)
+        const page = state.history.filter((entry) => entry.seq < before).slice(0, 2)
+        const more = page.length === 2 && page[1].seq > 1
+        return json(200, { ops: page, nextBefore: more ? page[1].seq : null })
+      }
       case 'GET /api/docs/:id':
         if (!doc) return failure(404, 'not_found')
         return json(200, { document: doc, role: doc.ownerId === me.id ? 'owner' : 'viewer', snapshot: null, ops: state.ops, opsComplete: true })
@@ -228,5 +239,46 @@ describe('the documents page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
     expect(await screen.findByRole('heading', { name: 'Plans' })).toBeInTheDocument()
+  })
+
+  describe('the history', () => {
+    const entry = (seq: number, userId: string, userEmail: string, op: object) =>
+      ({ seq, userId, userEmail, op, createdAt: '2026-11-10T09:30:00Z' })
+
+    it('lists every edit newest first, saying what, who and when, and loads older ones', async () => {
+      const state = server([doc('d1', 'Plans')])
+      state.history = [
+        entry(3, 'u2', 'bob@example.com', { kind: 'move', id: 'a', dx: 5, dy: 0 }),
+        entry(2, me.id, me.email, { kind: 'setStyle', id: 'a', fill: 'none' }),
+        entry(1, me.id, me.email, { kind: 'addShape', id: 'a', shape: { kind: 'circle' } }),
+      ]
+      renderAt('/docs/d1')
+      await userEvent.click(await screen.findByRole('link', { name: 'History' }))
+
+      const rows = async () => (await screen.findAllByRole('row')).slice(1).map((r) => within(r).getAllByRole('cell').map((c) => c.textContent))
+      expect((await rows()).map((cells) => cells.slice(0, 3))).toEqual([
+        ['3', 'Moved a shape by 5, 0', 'bob@example.com'],
+        ['2', "Changed a shape's style: no fill", 'You'],
+      ])
+      expect(screen.getAllByRole('row')[1].querySelector('time')).toHaveAttribute('dateTime', '2026-11-10T09:30:00Z')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Load older edits' }))
+
+      expect((await rows()).map((cells) => cells[0])).toEqual(['3', '2', '1'])
+      expect(screen.queryByRole('button', { name: 'Load older edits' })).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: '← Back to the drawing' })).toHaveAttribute('href', '/docs/d1')
+    })
+
+    it('says when there are no edits yet', async () => {
+      server([doc('d1', 'Plans')])
+      renderAt('/docs/d1/history')
+      expect(await screen.findByText('No edits yet.')).toBeInTheDocument()
+    })
+
+    it("says so when the document can't be seen", async () => {
+      server([])
+      renderAt('/docs/missing/history')
+      expect(await screen.findByRole('alert')).toHaveTextContent("That document doesn't exist")
+    })
   })
 })

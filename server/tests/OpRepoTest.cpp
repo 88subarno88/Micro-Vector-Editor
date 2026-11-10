@@ -246,3 +246,17 @@ TEST_F(OpRepoTest, SeqOfFindsAStoredClientOpId) {
     EXPECT_EQ(drogon::sync_wait(OpRepo::seqOf(database, document.id, "never-sent")), std::nullopt);
     EXPECT_EQ(drogon::sync_wait(OpRepo::seqOf(database, "not-a-uuid", "a")), std::nullopt);
 }
+
+TEST_F(OpRepoTest, HistoryListsOpsBeforeASeqNewestFirstWithTheirAuthors) {
+    for (const char* id : {"a", "b", "c", "d"}) appendNow(id);
+
+    const auto page = drogon::sync_wait(OpRepo(database).history(document.id, 4, 2));
+
+    ASSERT_EQ(page.size(), 2u);
+    EXPECT_EQ(page[0].seq, 3);
+    EXPECT_EQ(page[1].seq, 2);
+    EXPECT_EQ(page[0].userId, user.id);
+    EXPECT_EQ(page[0].userEmail, user.email);
+    EXPECT_EQ(page[0].payload, movePayload);
+    EXPECT_TRUE(drogon::sync_wait(OpRepo(database).history("not-a-uuid", 4, 2)).empty());
+}
