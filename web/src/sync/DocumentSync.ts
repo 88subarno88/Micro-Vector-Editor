@@ -102,6 +102,15 @@ export class DocumentSync {
     this.client.sendCursor(x, y)
   }
 
+  // Reconnects at once rather than waiting out the delay, as when the browser says it's back online. Does
+  // nothing unless a reconnect is waiting.
+  reconnectNow() {
+    if (this.retry === null) return
+    clearTimeout(this.retry)
+    this.retry = null
+    void this.client.connect(this.engine.lastSeq)
+  }
+
   stop() {
     this.stopped = true
     if (this.retry !== null) clearTimeout(this.retry)

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Core } from '../core/core'
+import ConnectionStatus from './ConnectionStatus'
 import { colorFor } from './cursors'
 import DrawingCanvas, { drawingHeight, drawingWidth, handleSize, type PointerPhase } from './DrawingCanvas'
 import { coalescedMoves } from './moves'
@@ -41,7 +42,7 @@ export default function Editor({ core, loaded, me, sync }: {
   sync?: SyncOverrides
 }) {
   const {
-    commands, error, rejected, present, moveCursor, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf,
+    commands, error, rejected, present, connection, moveCursor, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf,
     translated,
   } = useDrawing(core, loaded, sync)
   const [tool, setTool] = useState<Tool>('select')
@@ -263,7 +264,10 @@ export default function Editor({ core, loaded, me, sync }: {
 
   return (
     <section className="editor">
-      <OnlineUsers users={present} me={me} />
+      <div className="presence">
+        <ConnectionStatus {...connection} />
+        <OnlineUsers users={present} me={me} />
+      </div>
       <div className="toolbar" role="toolbar" aria-label="Tools">
         {tools.map(({ tool: option, label, key }) => (
           <button key={option} aria-pressed={tool === option} title={`${label} (${key.toUpperCase()})`}

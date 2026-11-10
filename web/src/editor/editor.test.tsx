@@ -632,6 +632,38 @@ describe('the editor', () => {
       )
     })
 
+    it('shows the connection: connecting, connected, then reconnecting with the edits that are waiting', async () => {
+      render(<Editor core={fakeCore().core} loaded={loaded} me="me" sync={sync} />)
+      const pill = () => screen.getByRole('status')
+      expect(pill()).toHaveTextContent('Connecting…')
+
+      const socket = goLive()
+      expect(pill()).toHaveTextContent('Connected')
+      await chooseTool('Rectangle')
+      drag([50, 50], [100, 75]) // sent, not yet acked
+      expect(pill()).toHaveTextContent(/^Connected$/)
+
+      act(() => socket.dropped(1006))
+      expect(pill()).toHaveTextContent('Reconnecting… · 1 edit not saved yet')
+    })
+
+    it("says offline when the browser loses its network, and reconnects as soon as it's back", () => {
+      render(<Editor core={fakeCore().core} loaded={loaded} me="me" sync={sync} />)
+      const socket = goLive()
+      const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      act(() => {
+        socket.dropped(1006)
+        window.dispatchEvent(new Event('offline'))
+      })
+      expect(screen.getByRole('status')).toHaveTextContent('Offline')
+      expect(sockets).toHaveLength(1) // waiting to retry
+
+      onLine.mockReturnValue(true)
+      act(() => window.dispatchEvent(new Event('online')))
+      expect(sockets).toHaveLength(2) // at once, not after the delay
+      expect(screen.getByRole('status')).toHaveTextContent('Reconnecting…')
+    })
+
     it("draws the others' pointers where they are, with their names, but not this user's", () => {
       render(<Editor core={fakeCore().core} loaded={loaded} me="me" sync={sync} />)
       const socket = goLive()

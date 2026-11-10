@@ -4,9 +4,11 @@ import type { components } from '../api/schema'
 import type { Core } from '../core/core'
 import { DocumentSync, type DocumentSyncOptions } from '../sync/DocumentSync'
 import type { PresenceUser } from '../sync/messages'
+import type { SyncStatus } from '../sync/SyncClient'
 import { describeRejection } from '../sync/rejections'
 import type { Drawings } from '../sync/SyncEngine'
 import type { Document as CoreDocument } from '../wasm/vec.js'
+import type { Connection } from './connection'
 import { latestEvery } from './cursors'
 import type { DrawCommand } from './paint'
 import { anchorFrom } from './resize'
@@ -60,6 +62,10 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
   const [sync, setSync] = useState<DocumentSync | null>(null)
   const [cursor, setCursor] = useState<ReturnType<typeof latestEvery> | null>(null) // this user's pointer
   const [present, setPresent] = useState<PresenceUser[]>([]) // everyone looking, this user included
+  const [status, setStatus] = useState<SyncStatus>('closed')
+  const [joinedOnce, setJoinedOnce] = useState(false)
+  const [online, setOnline] = useState(() => navigator.onLine)
+  const [pending, setPending] = useState(0) // edits the server hasn't confirmed
   const [commands, setCommands] = useState<DrawCommand[]>([])
   const [error, setError] = useState<string | null>(null)
   const [rejected, setRejected] = useState<string | null>(null) // why the server refused the latest edit
@@ -91,7 +97,14 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
       getToken: getAccessToken,
       renewToken: renewAccessToken,
       events: {
-        onChange: () => setCommands(commandsOf(local)),
+        onStatus: (next) => {
+          setStatus(next)
+          if (next === 'live') setJoinedOnce(true)
+        },
+        onChange: () => {
+          setCommands(commandsOf(local))
+          setPending(created.engine.pending.length)
+        },
         onRejected: (_op, reason, message) => setRejected(describeRejection(reason, message)),
         onPresence: setPresent,
         onDiverged: () => setError('This drawing got out of step with the server. Reload the page to carry on.'),
@@ -118,10 +131,27 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
       setRejected(null)
       const refused = sync.edit(op)
       if (!refused) setCommands(commandsOf(drawing))
+      setPending(sync.engine.pending.length)
       return refused
     },
     [drawing, sync],
   )
+
+  // Follows the browser's network. Back online, there's no point waiting out a reconnect delay.
+  useEffect(() => {
+    const changed = () => {
+      setOnline(navigator.onLine)
+      if (navigator.onLine) sync?.reconnectNow()
+    }
+    window.addEventListener('online', changed)
+    window.addEventListener('offline', changed)
+    return () => {
+      window.removeEventListener('online', changed)
+      window.removeEventListener('offline', changed)
+    }
+  }, [sync])
+
+  const connection: Connection = { status, joinedOnce, online, pending }
 
   // Tells the others where this user's pointer is, in drawing units.
   const moveCursor = useCallback((point: Point) => cursor?.to(point), [cursor])
@@ -191,6 +221,7 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
     error,
     rejected,
     present,
+    connection,
     moveCursor,
     ready: drawing !== null,
     apply,

@@ -182,15 +182,51 @@ button:disabled {
   color: #000000;
 }
 
-/* Who has the document open. Always this tall, so the drawing below never moves as people come and go. */
+/* The connection's state, then who has the document open. Always this tall, so the drawing below never
+   moves as people come and go. */
+.presence {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 32px;
+  margin-bottom: 8px;
+}
+
 .online {
   display: flex;
-  justify-content: flex-end;
   gap: 4px;
-  min-height: 32px;
-  margin: 0 0 8px;
+  margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.connection {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.connection::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.connection.good::before {
+  background: #16a34a;
+}
+
+.connection.waiting::before {
+  background: #d97706;
+}
+
+.connection.offline::before {
+  background: #9ca3af;
 }
 
 .avatar {

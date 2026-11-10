@@ -145,6 +145,20 @@ describe('DocumentSync', () => {
     expect(events.onStopped).toHaveBeenCalledExactlyOnceWith('signed_out')
   })
 
+  it('reconnects at once when asked, instead of waiting out the delay', async () => {
+    const { sync, sockets, latest, join } = setUp()
+    sync.start()
+    join()
+    sync.reconnectNow() // connected: nothing to do
+    expect(sockets).toHaveLength(1)
+
+    latest().dropped(1006)
+    sync.reconnectNow()
+    expect(sockets).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(sockets).toHaveLength(2) // the waiting reconnect was cancelled, not made as well
+  })
+
   it('stops retrying once stopped', async () => {
     const { sync, sockets, latest } = setUp()
     sync.start()
