@@ -10,6 +10,7 @@ import type { Drawings } from '../sync/SyncEngine'
 import type { Document as CoreDocument } from '../wasm/vec.js'
 import type { Connection } from './connection'
 import { latestEvery } from './cursors'
+import { History } from './history'
 import type { DrawCommand } from './paint'
 import { anchorFrom } from './resize'
 import type { Point } from './tools'
@@ -69,6 +70,8 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
   const [commands, setCommands] = useState<DrawCommand[]>([])
   const [error, setError] = useState<string | null>(null)
   const [rejected, setRejected] = useState<string | null>(null) // why the server refused the latest edit
+  const [history, setHistory] = useState<History | null>(null) // this user's undo and redo
+  const [undoable, setUndoable] = useState({ canUndo: false, canRedo: false })
   const [syncOverrides] = useState(overrides) // read once, when the drawing loads
 
   useEffect(() => {
@@ -83,6 +86,9 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
     setDrawing(failure ? null : local)
     if (failure) return () => [local, confirmed].forEach((document) => document.delete())
 
+    const steps = new History()
+    const showHistory = () => setUndoable({ canUndo: steps.canUndo, canRedo: steps.canRedo })
+    showHistory()
     const drawings: Drawings = {
       applyConfirmed: (op) => errorIn(confirmed.applyOp(JSON.stringify(op))),
       applyLocal: (op) => errorIn(local.applyOp(JSON.stringify(op))),
@@ -105,7 +111,11 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
           setCommands(commandsOf(local))
           setPending(created.engine.pending.length)
         },
-        onRejected: (_op, reason, message) => setRejected(describeRejection(reason, message)),
+        onRejected: (op, reason, message) => {
+          setRejected(describeRejection(reason, message))
+          steps.forget(op)
+          showHistory()
+        },
         onPresence: setPresent,
         onDiverged: () => setError('This drawing got out of step with the server. Reload the page to carry on.'),
         onStopped: (reason) => setError(stopped[reason]),
@@ -115,6 +125,7 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
     const pointer = latestEvery((point) => created.cursor(point.x, point.y))
     setSync(created)
     setCursor(pointer)
+    setHistory(steps)
     created.start()
     return () => {
       pointer.stop()
@@ -124,18 +135,56 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
     }
   }, [core, loaded, syncOverrides])
 
-  // Makes an edit, and sends it to the server. Null, or why the drawing refused it.
-  const apply = useCallback(
-    (op: object): string | null => {
-      if (!drawing || !sync) return 'The drawing is still loading.'
+  // Makes an edit and sends it, having first worked out the op that would reverse it (null if none can).
+  const send = useCallback(
+    (op: object): { refused: string | null; reverse: object | null } => {
+      if (!drawing || !sync) return { refused: 'The drawing is still loading.', reverse: null }
       setRejected(null)
+      const reverse = JSON.parse(drawing.invertOp(JSON.stringify(op))).op ?? null
       const refused = sync.edit(op)
       if (!refused) setCommands(commandsOf(drawing))
       setPending(sync.engine.pending.length)
-      return refused
+      return { refused, reverse }
     },
     [drawing, sync],
   )
+
+  const showHistory = useCallback(
+    () => history && setUndoable({ canUndo: history.canUndo, canRedo: history.canRedo }),
+    [history],
+  )
+
+  // Makes an edit, which can be undone. Moves from one drag share a `group`, and are undone together. Null,
+  // or why the drawing refused it.
+  const apply = useCallback(
+    (op: object, group?: object): string | null => {
+      const { refused, reverse } = send(op)
+      if (!refused && reverse) history?.record(op, reverse, group)
+      showHistory()
+      return refused
+    },
+    [send, history, showHistory],
+  )
+
+  // Reverses this user's latest step, or redoes the latest one undone, by sending a new edit. Null, or why it
+  // couldn't be: the step is then dropped.
+  const travel = useCallback(
+    (direction: 'undo' | 'redo'): string | null => {
+      const step = direction === 'undo' ? history?.takeUndo() : history?.takeRedo()
+      if (!history || !step) return null
+      const { refused, reverse } = send(step.reverse)
+      if (!refused && reverse) {
+        const back = { made: [step.reverse], reverse }
+        if (direction === 'undo') history.pushRedo(back)
+        else history.pushUndo(back)
+      }
+      showHistory()
+      return refused && `That can't be ${direction === 'undo' ? 'undone' : 'redone'} any more: someone else has changed it.`
+    },
+    [send, history, showHistory],
+  )
+  const undo = useCallback(() => travel('undo'), [travel])
+  const redo = useCallback(() => travel('redo'), [travel])
 
   // Follows the browser's network. Back online, there's no point waiting out a reconnect delay.
   useEffect(() => {
@@ -222,6 +271,9 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
     rejected,
     present,
     connection,
+    ...undoable,
+    undo,
+    redo,
     moveCursor,
     ready: drawing !== null,
     apply,

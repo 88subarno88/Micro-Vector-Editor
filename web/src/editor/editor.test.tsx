@@ -9,7 +9,8 @@ import Editor from './Editor'
 import type { LoadedDocument, SyncOverrides } from './useDrawing'
 
 // A stand-in for the core: keeps shapes by ID, refuses a duplicate ID or a shape starting past x = 700,
-// moves rectangles, hit-tests and outlines them by their box, inverts adds and moves, and draws one rect
+// moves rectangles, hit-tests and outlines them by their box, inverts adds, deletes and moves, refuses to
+// delete a shape that isn't there, and draws one rect
 // command per shape. Each document has its own shapes; `shapes` and `ops` are those of the first one made,
 // which is the drawing the editor shows (the second is the server's, as this client knows it).
 // The box around a fake shape: a rectangle's own, or the one around a line's two ends.
@@ -47,7 +48,7 @@ function fakeCore() {
           if ((op.shape.x ?? op.shape.center?.x ?? op.shape.position?.x ?? 0) > 700) return refuse('out of range')
           shapes.set(op.id, op.shape)
         } else if (op.kind === 'deleteShape') {
-          shapes.delete(op.id)
+          if (!shapes.delete(op.id)) return refuse('no such shape')
         } else if (op.kind === 'move') {
           const shape = shapes.get(op.id) as { x: number; y: number }
           shape.x += op.dx
@@ -67,6 +68,10 @@ function fakeCore() {
         const { shapes } = this
         const op = JSON.parse(text)
         if (op.kind === 'addShape') return JSON.stringify({ op: { kind: 'deleteShape', id: op.id } })
+        if (op.kind === 'deleteShape') {
+          const shape = shapes.get(op.id)
+          return shape ? JSON.stringify({ op: { kind: 'addShape', id: op.id, shape: structuredClone(shape) } }) : refuse('no such shape')
+        }
         if (op.kind === 'move') return JSON.stringify({ op: { ...op, dx: -op.dx, dy: -op.dy } })
         if (op.kind === 'resize') return JSON.stringify({ op: { ...op, factor: 1 / op.factor } })
         if (op.kind === 'setStyle') {
@@ -748,6 +753,123 @@ describe('the editor', () => {
       act(() => vi.advanceTimersByTime(1000))
       expect(moves()).toHaveLength(2)
       vi.useRealTimers()
+    })
+  })
+
+  describe('undo and redo', () => {
+    function goLive() {
+      const socket = sockets[0]
+      act(() => {
+        socket.opened()
+        socket.receive({ type: 'ready', role: 'editor' })
+        socket.receive({ type: 'joined', headSeq: 0, ops: [] })
+      })
+      return socket
+    }
+    const sent = (socket: FakeSocket) =>
+      socket.sent.filter((m) => (m as { type: string }).type === 'op') as { clientOpId: string; op: Record<string, unknown> }[]
+    const key = (k: string, shift = false) => act(() => void fireEvent.keyDown(document.body, { key: k, ctrlKey: true, shiftKey: shift }))
+    const button = (name: string) => screen.getByRole('button', { name })
+
+    async function withRectangle() {
+      const fake = fakeCore()
+      render(<Editor core={fake.core} loaded={loaded} me="me" sync={sync} />)
+      const socket = goLive()
+      await chooseTool('Rectangle')
+      drag([50, 50], [100, 100]) // (100, 100) to (200, 200)
+      await chooseTool('Select')
+      return { ...fake, socket, id: [...fake.shapes.keys()][0] }
+    }
+
+    it('undoes and redoes with the keys, each by sending a new edit', async () => {
+      const { shapes, socket, id } = await withRectangle()
+
+      key('z')
+      expect(shapes.size).toBe(0)
+      key('z', true)
+      expect(shapes.get(id)).toMatchObject({ x: 100, width: 100 })
+      key('z')
+      key('y') // Ctrl+Y redoes too
+      expect(shapes.size).toBe(1)
+
+      expect(sent(socket).map((m) => m.op.kind)).toEqual(['addShape', 'deleteShape', 'addShape', 'deleteShape', 'addShape'])
+    })
+
+    it('has buttons, available only when there is something to undo or redo', async () => {
+      render(<Editor core={fakeCore().core} loaded={loaded} me="me" sync={sync} />)
+      expect(button('Undo')).toBeDisabled()
+      expect(button('Redo')).toBeDisabled()
+      cleanup()
+
+      const { shapes } = await withRectangle()
+      expect(button('Undo')).toBeEnabled()
+      await userEvent.click(button('Undo'))
+      expect(shapes.size).toBe(0)
+      expect(button('Undo')).toBeDisabled()
+      await userEvent.click(button('Redo'))
+      expect(shapes.size).toBe(1)
+      expect(button('Redo')).toBeDisabled()
+    })
+
+    it('forgets what was undone once a new edit is made', async () => {
+      await withRectangle()
+      await userEvent.click(button('Undo'))
+      await chooseTool('Circle')
+      drag([10, 10], [30, 10])
+      expect(button('Redo')).toBeDisabled()
+    })
+
+    it('undoes a whole drag in one step, with one move back', async () => {
+      const { shapes, socket, id } = await withRectangle()
+      vi.useFakeTimers()
+      fireEvent.pointerDown(canvas(), { clientX: 75, clientY: 75, pointerId: 1 })
+      fireEvent.pointerMove(canvas(), { clientX: 85, clientY: 80, pointerId: 1 })
+      act(() => vi.advanceTimersByTime(50)) // a move sent mid-drag
+      fireEvent.pointerMove(canvas(), { clientX: 95, clientY: 90, pointerId: 1 })
+      fireEvent.pointerUp(canvas(), { clientX: 95, clientY: 90, pointerId: 1 }) // and the rest
+      vi.useRealTimers()
+      expect(shapes.get(id)).toMatchObject({ x: 140, y: 130 })
+
+      key('z')
+
+      expect(shapes.get(id)).toMatchObject({ x: 100, y: 100 })
+      expect(sent(socket).map((m) => m.op).filter((op) => op.kind === 'move')).toEqual([
+        { kind: 'move', id, dx: 20, dy: 10 },
+        { kind: 'move', id, dx: 20, dy: 20 },
+        { kind: 'move', id, dx: -40, dy: -30 },
+      ])
+      expect(button('Undo')).toBeEnabled() // the add is still there to undo
+    })
+
+    it("doesn't undo an edit the server refused: it never happened", async () => {
+      const { shapes, socket, id } = await withRectangle()
+      click([75, 75])
+      fireEvent.keyDown(document.body, { key: 'ArrowRight' }) // a nudge, which the server will refuse
+      const [add, nudge] = sent(socket)
+      act(() => {
+        socket.receive({ type: 'ack', clientOpId: add.clientOpId, seq: 1 })
+        socket.receive({ type: 'reject', clientOpId: nudge.clientOpId, reason: 'rate_limited', message: '' })
+      })
+      expect(shapes.get(id)).toMatchObject({ x: 100 })
+
+      key('z') // undoes the add, not the nudge
+
+      expect(shapes.size).toBe(0)
+      expect(sent(socket).at(-1)?.op).toEqual({ kind: 'deleteShape', id })
+    })
+
+    it("says so when someone else's edit means a step can't be undone any more", async () => {
+      const { socket, id } = await withRectangle()
+      act(() => {
+        socket.receive({ type: 'ack', clientOpId: sent(socket)[0].clientOpId, seq: 1 })
+        socket.receive({ type: 'op', seq: 2, userId: 'bob', clientOpId: 'b1', op: { kind: 'deleteShape', id } })
+      })
+
+      key('z')
+
+      expect(screen.getByRole('alert')).toHaveTextContent("That can't be undone any more: someone else has changed it.")
+      expect(sent(socket)).toHaveLength(1) // nothing sent
+      expect(button('Undo')).toBeDisabled()
     })
   })
 })

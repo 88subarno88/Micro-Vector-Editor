@@ -42,7 +42,7 @@ export default function Editor({ core, loaded, me, sync }: {
   sync?: SyncOverrides
 }) {
   const {
-    commands, error, rejected, present, connection, moveCursor, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf,
+    commands, error, rejected, present, connection, canUndo, canRedo, undo, redo, moveCursor, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf,
     translated,
   } = useDrawing(core, loaded, sync)
   const [tool, setTool] = useState<Tool>('select')
@@ -59,7 +59,8 @@ export default function Editor({ core, loaded, me, sync }: {
   // The shape last copied, as in an addShape op. Only this editor's; not the system clipboard.
   const clipboard = useRef<object | null>(null)
 
-  const run = (op: object) => setProblem(apply(op))
+  const failed = (refused: string | null) => refused && `That edit didn't apply: ${refused}`
+  const run = (op: object, group?: object) => setProblem(failed(apply(op, group)))
 
   // Where the selected shape is, what it scales around, and so where its handle goes. Read from the core
   // on every render, since any edit can move or reshape it; each is a few small calls.
@@ -94,7 +95,7 @@ export default function Editor({ core, loaded, me, sync }: {
     if (!shape) return setProblem("The copied shape can't be pasted.")
     const id = newShapeId()
     const refused = apply({ kind: 'addShape', id, shape })
-    setProblem(refused)
+    setProblem(failed(refused))
     if (refused) return
     clipboard.current = shape
     setTool('select')
@@ -118,8 +119,8 @@ export default function Editor({ core, loaded, me, sync }: {
   const moveOp = (id: string, by: Point) => ({ kind: 'move', id, dx: by.x, dy: by.y })
   // Part of a drag made into an edit while the pointer is still moving: the shape is now drawn there, so
   // nothing is left to preview.
-  function moved(id: string, by: Point) {
-    run(moveOp(id, by))
+  function moved(id: string, by: Point, group: object) {
+    run(moveOp(id, by), group)
     if (drag.current?.mode !== 'move') return // the drag's last part: it has ended
     setChange({ kind: 'move', by: { x: 0, y: 0 } })
     setShown(null)
@@ -138,7 +139,9 @@ export default function Editor({ core, loaded, me, sync }: {
       const key = event.key.toLowerCase()
       const handled = (() => {
         if (command) {
-          if (key === 'c') copySelected()
+          if (key === 'z' && !event.shiftKey) setProblem(undo())
+          else if (key === 'z' || key === 'y') setProblem(redo())
+          else if (key === 'c') copySelected()
           else if (key === 'x') { copySelected(); deleteSelected() }
           else if (key === 'v') paste()
           else if (key === '=' || key === '+') zoomBy(zoomStep)
@@ -176,7 +179,8 @@ export default function Editor({ core, loaded, me, sync }: {
       } else if (tool === 'select') {
         const hit = shapeAt(point)
         setSelected(hit)
-        const moves = hit && coalescedMoves((by) => moved(hit, by), minimumMove)
+        const group = {} // this drag, undone in one step
+        const moves = hit && coalescedMoves((by) => moved(hit, by, group), minimumMove)
         drag.current = hit && moves ? { mode: 'move', id: hit, start: point, moves } : null
       } else {
         drag.current = { mode: 'draw', id: newShapeId(), points: [point] }
@@ -275,6 +279,8 @@ export default function Editor({ core, loaded, me, sync }: {
             {label}
           </button>
         ))}
+        <button onClick={() => setProblem(undo())} disabled={!canUndo} title="Undo (Ctrl Z)">Undo</button>
+        <button onClick={() => setProblem(redo())} disabled={!canRedo} title="Redo (Ctrl Shift Z)">Redo</button>
         <button className="danger" onClick={deleteSelected} disabled={!outline} title="Delete shape (Delete)">
           Delete shape
         </button>
@@ -326,7 +332,7 @@ export default function Editor({ core, loaded, me, sync }: {
           </div>
         ))}
       </div>
-      {problem && <p className="error" role="alert">That edit didn't apply: {problem}</p>}
+      {problem && <p className="error" role="alert">{problem}</p>}
       {rejected && <p className="error" role="alert">{rejected}</p>}
     </section>
   )
