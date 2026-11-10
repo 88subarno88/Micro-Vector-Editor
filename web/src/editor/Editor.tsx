@@ -9,6 +9,7 @@ import type { DrawCommand } from './paint'
 import { factorFor, handleFor, scaleBounds } from './resize'
 import StylePanel, { type StyleChange } from './StylePanel'
 import { newShapeId, shapeForDrag, shapeForStroke, textShape, tools, type Point, type Tool } from './tools'
+import type { RestoreRequest } from '../pages/VersionPage'
 import { useDrawing, type LoadedDocument, type SyncOverrides } from './useDrawing'
 import { fitted, toScreen, zoomAround, zoomStep, type Viewport } from './viewport'
 
@@ -34,15 +35,18 @@ type Change = { kind: 'move'; by: Point } | { kind: 'resize'; anchor: Point; fac
 // The editor: a toolbar above the drawing. The Select tool picks a shape to move, resize by its handle,
 // restyle in the style panel, copy or delete; the others draw. The view zooms and pans. Every edit shows at
 // once and is sent to the server, and others' edits appear as they're made, along with their pointers.
-// `me` is the signed-in user's ID, whose own pointer isn't drawn.
-export default function Editor({ core, loaded, me, sync }: {
+// `me` is the signed-in user's ID, whose own pointer isn't drawn. With `restore`, the drawing is changed back
+// to that version as soon as it's live, and `onRestored` is called.
+export default function Editor({ core, loaded, me, sync, restore: restoreTo, onRestored }: {
   core: Core
   loaded: LoadedDocument
   me: string
   sync?: SyncOverrides
+  restore?: RestoreRequest
+  onRestored?: () => void
 }) {
   const {
-    commands, error, rejected, present, connection, canUndo, canRedo, undo, redo, moveCursor, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf,
+    commands, error, rejected, present, connection, canUndo, canRedo, undo, redo, restore, moveCursor, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf,
     translated,
   } = useDrawing(core, loaded, sync)
   const [tool, setTool] = useState<Tool>('select')
@@ -55,6 +59,7 @@ export default function Editor({ core, loaded, me, sync }: {
   const [textAt, setTextAt] = useState<Point | null>(null) // where text is being typed
   const [text, setText] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
+  const [restored, setRestored] = useState<number | null>(null) // the version just restored
   const [view, setView] = useState<Viewport>(fitted)
   // The shape last copied, as in an addShape op. Only this editor's; not the system clipboard.
   const clipboard = useRef<object | null>(null)
@@ -130,6 +135,19 @@ export default function Editor({ core, loaded, me, sync }: {
   const grab = handleSize / view.scale
   const onHandle = (point: Point) =>
     handle !== null && Math.abs(point.x - handle.x) <= grab && Math.abs(point.y - handle.y) <= grab
+
+  // Restores a version once live, so the edits are made against the drawing as it is now, not as it loaded.
+  const live = connection.status === 'live'
+  const restoring = useRef<RestoreRequest | null>(null) // the request already carried out: never twice
+  useEffect(() => {
+    if (!restoreTo || !live || restoring.current === restoreTo) return
+    restoring.current = restoreTo
+    const refused = restore(restoreTo.shapes)
+    // oxlint-disable-next-line react/set-state-in-effect -- it reports on edits the effect has just made
+    setProblem(refused && `The version couldn't be fully restored: ${refused}`)
+    setRestored(refused ? null : restoreTo.seq)
+    onRestored?.()
+  }, [restoreTo, live, restore, onRestored])
 
   // Keyboard shortcuts, except while the user is typing somewhere.
   useEffect(() => {
@@ -334,6 +352,9 @@ export default function Editor({ core, loaded, me, sync }: {
       </div>
       {problem && <p className="error" role="alert">{problem}</p>}
       {rejected && <p className="error" role="alert">{rejected}</p>}
+      {restored !== null && (
+        <p className="hint">Restored the drawing as it was after edit {restored}. Undo takes it back.</p>
+      )}
     </section>
   )
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DocumentSync, reconnectDelayMs, type DocumentSyncEvents } from './DocumentSync'
+import { DocumentSync, opBurst, opsPerSecond, reconnectDelayMs, type DocumentSyncEvents } from './DocumentSync'
 import { counters, FakeSocket } from './testing'
 
 function setUp({ renews = true } = {}) {
@@ -157,6 +157,21 @@ describe('DocumentSync', () => {
     expect(sockets).toHaveLength(2)
     await vi.advanceTimersByTimeAsync(10_000)
     expect(sockets).toHaveLength(2) // the waiting reconnect was cancelled, not made as well
+  })
+
+  it("never sends ops faster than the server takes them: a burst waits its turn, in order", async () => {
+    const { sync, latest, join, opsSent } = setUp()
+    sync.start()
+    join()
+    for (let i = 0; i < opBurst + 20; i++) sync.edit({ add: 1 })
+    expect(opsSent(latest())).toHaveLength(opBurst) // a burst at once, no more
+
+    await vi.advanceTimersByTimeAsync(400) // 10 more ops' worth of time
+    expect(opsSent(latest())).toHaveLength(opBurst + 0.4 * opsPerSecond)
+    await vi.advanceTimersByTimeAsync(1000)
+    const sent = opsSent(latest())
+    expect(sent).toHaveLength(opBurst + 20)
+    expect(sent).toEqual(Array.from({ length: opBurst + 20 }, (_, i) => `op-${i + 1}`))
   })
 
   it('stops retrying once stopped', async () => {

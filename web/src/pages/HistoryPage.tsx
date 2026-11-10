@@ -65,6 +65,7 @@ export default function HistoryPage() {
               <th scope="col">What</th>
               <th scope="col">Who</th>
               <th scope="col">When</th>
+              <th scope="col"><span className="visually-hidden">Version</span></th>
             </tr>
           </thead>
           <tbody>
@@ -75,6 +76,11 @@ export default function HistoryPage() {
                 <td>{entry.userId === user?.id ? 'You' : entry.userEmail}</td>
                 <td>
                   <time dateTime={entry.createdAt}>{when.format(new Date(entry.createdAt))}</time>
+                </td>
+                <td>
+                  <Link to={`/docs/${id}/history/${entry.seq}`} aria-label={`View the drawing after edit ${entry.seq}`}>
+                    View
+                  </Link>
                 </td>
               </tr>
             ))}

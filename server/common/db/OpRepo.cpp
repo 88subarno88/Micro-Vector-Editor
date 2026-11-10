@@ -118,13 +118,14 @@ drogon::Task<std::vector<HistoryRow>> OpRepo::history(const std::string& documen
     co_return ops;
 }
 
-drogon::Task<std::optional<SnapshotRow>> SnapshotRepo::latest(const std::string& documentId) {
+drogon::Task<std::optional<SnapshotRow>> SnapshotRepo::latest(const std::string& documentId,
+                                                              int64_t atOrBefore) {
     if (!isUuid(documentId)) co_return std::nullopt;
     const auto result = co_await database_->execSqlCoro(
         "SELECT document_id::text, seq, state::text, to_char(created_at AT TIME ZONE 'UTC', "
         "'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') FROM snapshots "
-        "WHERE document_id = $1::uuid ORDER BY seq DESC LIMIT 1",
-        documentId);
+        "WHERE document_id = $1::uuid AND seq <= $2::bigint ORDER BY seq DESC LIMIT 1",
+        documentId, atOrBefore);
     if (result.empty()) co_return std::nullopt;
     const auto row = result[0];
     co_return SnapshotRow{row[0].as<std::string>(), row[1].as<int64_t>(),

@@ -5,6 +5,7 @@
 #include <drogon/utils/coroutine.h>
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -70,8 +71,9 @@ class SnapshotRepo {
 public:
     explicit SnapshotRepo(drogon::orm::DbClientPtr database) : database_(std::move(database)) {}
 
-    // The newest snapshot, if the document has one.
-    drogon::Task<std::optional<SnapshotRow>> latest(const std::string& documentId);
+    // The newest snapshot taken at or before `atOrBefore`, if there is one.
+    drogon::Task<std::optional<SnapshotRow>> latest(const std::string& documentId,
+                                                    int64_t atOrBefore = std::numeric_limits<int64_t>::max());
 
     // False, changing nothing, if the document already has a snapshot at `seq`.
     drogon::Task<bool> insert(const std::string& documentId, int64_t seq, const nlohmann::json& state);

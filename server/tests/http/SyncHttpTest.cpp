@@ -6,6 +6,7 @@
 #include <string>
 
 #include "LiveDocTest.h"
+#include "db/OpRepo.h"
 
 using namespace vec;
 using nlohmann::json;
@@ -109,8 +110,11 @@ TEST_F(LiveDocTest, AConnectionThatClosesWhileJoiningLeavesTheDocumentOpenToOthe
 
 // The history lists every op, newest first, with who made it, a page at a time.
 TEST_F(SyncHttpTest, TheHistoryListsEveryOpNewestFirstWithItsAuthor) {
+    // One at a time: sent at once on two connections, the server could commit them in either order.
     alice->send(rect("a"));
+    ASSERT_TRUE(alice->waitUntilSettled(1));
     bob->send(rect("b"));
+    ASSERT_TRUE(bob->waitUntilSettled(2));
     alice->send(Move{"a", 1, 2});
     expectEveryoneAgrees({alice.get(), bob.get()});
 
@@ -144,4 +148,42 @@ TEST_F(SyncHttpTest, BadHistoryParametersAreRejected) {
     EXPECT_EQ(send(drogon::Get, ops + "?limit=lots", nullptr, ownerToken).status, 400);
     EXPECT_EQ(send(drogon::Get, ops + "?before=yesterday", nullptr, ownerToken).status, 400);
     EXPECT_EQ(send(drogon::Get, ops + "?limit=100000", nullptr, ownerToken).status, 200);  // clamped
+}
+
+// A version is the newest snapshot from then and the ops after it up to the seq asked for: replayed, the
+// drawing as it was.
+TEST_F(SyncHttpTest, AVersionReplaysToTheDrawingAsItWasThen) {
+    alice->send(rect("a"));
+    alice->send(Move{"a", 5, 0});
+    bob->send(DeleteShape{"a"});
+    expectEveryoneAgrees({alice.get(), bob.get()});
+    // A snapshot at 2, as the server takes every so often, marked so the test can tell it was used:
+    // version 2 starts from it, version 1 from nothing.
+    ASSERT_TRUE(drogon::sync_wait(SnapshotRepo(server->database).insert(documentId, 2, {{"marker", 2}})));
+
+    const auto versionAt = [&](int seq) {
+        return send(drogon::Get, "/api/docs/" + documentId + "/versions/" + std::to_string(seq), nullptr,
+                    editorTokens[0]);
+    };
+    const Response one = versionAt(1);
+    ASSERT_EQ(one.status, 200);
+    EXPECT_EQ(one.body["role"], "editor");  // what the reader may do with it
+    EXPECT_TRUE(one.body["snapshot"].is_null());
+    ASSERT_EQ(one.body["ops"].size(), 1u);
+    EXPECT_EQ(one.body["ops"][0]["seq"], 1);
+    EXPECT_EQ(one.body["opsComplete"], true);
+
+    const Response two = versionAt(2);
+    EXPECT_EQ(two.body["snapshot"], json({{"seq", 2}, {"state", {{"marker", 2}}}}));
+    EXPECT_EQ(two.body["ops"], json::array());  // the snapshot is already at 2: no op after it
+
+    const Response three = versionAt(3);
+    EXPECT_EQ(three.body["snapshot"]["seq"], 2);
+    ASSERT_EQ(three.body["ops"].size(), 1u);
+    EXPECT_EQ(three.body["ops"][0]["seq"], 3);
+
+    EXPECT_EQ(versionAt(4).body["error"]["code"], "no_such_version");
+    EXPECT_EQ(send(drogon::Get, "/api/docs/" + documentId + "/versions/-1", nullptr, ownerToken).status, 400);
+    EXPECT_EQ(send(drogon::Get, "/api/docs/" + documentId + "/versions/latest", nullptr, ownerToken).status,
+              400);
 }

@@ -32,11 +32,13 @@ TEST_F(HttpTest, TablesAreEmptiedBeforeEachTestToo) {
 }
 
 TEST_F(HttpTest, RateLimitsStartAgainInEachTest) {
-    // Auth routes allow 10 requests a minute per IP, and every test comes from 127.0.0.1.
+    // Auth routes allow 10 requests a minute per IP, and every test comes from 127.0.0.1. The requests are
+    // malformed, so each is answered at once: real logins take about half a second each to check the
+    // password, slow enough under load for the limit to refill one before the eleventh.
     for (int i = 0; i < 10; ++i) {
-        EXPECT_EQ(send(drogon::Post, "/api/auth/login", credentials).status, 401) << i;
+        EXPECT_EQ(send(drogon::Post, "/api/auth/login", json::object()).status, 400) << i;
     }
-    EXPECT_EQ(send(drogon::Post, "/api/auth/login", credentials).status, 429);
+    EXPECT_EQ(send(drogon::Post, "/api/auth/login", json::object()).status, 429);
 }
 
 TEST_F(HttpTest, ProtectedRoutesNeedAToken) { EXPECT_EQ(send(drogon::Get, "/api/docs").status, 401); }

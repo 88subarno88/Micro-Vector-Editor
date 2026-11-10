@@ -21,7 +21,7 @@ vi.mock('../core/core', () => ({
         return '{"ok":true}'
       }
       drawCommands() { return JSON.stringify(Array(this.shapes).fill({ kind: 'rect' })) }
-      shapesJson() { return '{"shapes":[]}' }
+      shapesJson() { return JSON.stringify({ shapes: Array.from({ length: this.shapes }, (_, i) => ({ id: `s${i}`, shape: {} })) }) }
       delete() {}
     },
   }),
@@ -52,7 +52,9 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
   vi.stubGlobal('fetch', async (input: Request | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(input, init)
     const url = new URL(request.url)
-    const route = `${request.method} ${url.pathname.replace(/^\/api\/docs\/[^/]+(\/ops)?$/, '/api/docs/:id$1')}`
+    const route = `${request.method} ${url.pathname
+      .replace(/^\/api\/docs\/[^/]+(\/ops)?$/, '/api/docs/:id$1')
+      .replace(/^\/api\/docs\/[^/]+\/versions\/[^/]+$/, '/api/docs/:id/versions/:seq')}`
     const id = url.pathname.split('/')[3]
     const doc = state.docs.find((d) => d.id === id)
     const authorized = request.headers.get('Authorization') === 'Bearer valid'
@@ -91,6 +93,12 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
       case 'DELETE /api/docs/:id':
         state.docs = state.docs.filter((d) => d !== doc)
         return new Response(null, { status: 204 })
+      case 'GET /api/docs/:id/versions/:seq':
+        if (!doc) return failure(404, 'not_found')
+        return json(200, {
+          seq: Number(url.pathname.split('/')[5]), role: doc.ownerId === me.id ? 'owner' : 'viewer',
+          snapshot: null, ops: state.ops, opsComplete: true,
+        })
       case 'GET /api/docs/:id/ops': {
         if (!doc) return failure(404, 'not_found')
         // Two to a page, so a test can page through a short history.
@@ -278,6 +286,37 @@ describe('the documents page', () => {
     it("says so when the document can't be seen", async () => {
       server([])
       renderAt('/docs/missing/history')
+      expect(await screen.findByRole('alert')).toHaveTextContent("That document doesn't exist")
+    })
+  
+    it('shows the drawing as it was after an edit, from the history', async () => {
+      const state = server([doc('d1', 'Plans')])
+      state.history = [entry(2, me.id, me.email, { kind: 'addShape', id: 's2', shape: { kind: 'circle' } })]
+      renderAt('/docs/d1/history')
+      await userEvent.click(await screen.findByRole('link', { name: 'View the drawing after edit 2' }))
+
+      expect(await screen.findByRole('heading', { name: 'As it was after edit 2' })).toBeInTheDocument()
+      expect(await screen.findByRole('img', { name: 'The drawing' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: '← Back to the history' })).toHaveAttribute('href', '/docs/d1/history')
+    })
+
+    it('restores a version by opening the document with it, for those who can edit', async () => {
+      server([doc('d1', 'Plans')])
+      renderAt('/docs/d1/history/2')
+      await userEvent.click(await screen.findByRole('button', { name: 'Restore this version' }))
+      expect(await screen.findByRole('heading', { name: 'Plans' })).toBeInTheDocument() // the editor, restoring once live
+    })
+
+    it("doesn't offer to restore to a viewer", async () => {
+      server([doc('d2', 'Theirs', 'someone-else')])
+      renderAt('/docs/d2/history/2')
+      expect(await screen.findByRole('img', { name: 'The drawing' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Restore this version' })).not.toBeInTheDocument()
+    })
+
+    it('says so for a version that no longer exists', async () => {
+      server([])
+      renderAt('/docs/missing/history/2')
       expect(await screen.findByRole('alert')).toHaveTextContent("That document doesn't exist")
     })
   })

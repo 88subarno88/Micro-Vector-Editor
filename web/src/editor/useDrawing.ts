@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { getAccessToken, renewAccessToken } from '../api/client'
 import type { components } from '../api/schema'
 import type { Core } from '../core/core'
+import { restoreOps, type ShapeEntry } from '../history/restore'
 import { DocumentSync, type DocumentSyncOptions } from '../sync/DocumentSync'
 import type { PresenceUser } from '../sync/messages'
 import type { SyncStatus } from '../sync/SyncClient'
@@ -10,7 +11,7 @@ import type { Drawings } from '../sync/SyncEngine'
 import type { Document as CoreDocument } from '../wasm/vec.js'
 import type { Connection } from './connection'
 import { latestEvery } from './cursors'
-import { History } from './history'
+import { History, type Step } from './history'
 import type { DrawCommand } from './paint'
 import { anchorFrom } from './resize'
 import type { Point } from './tools'
@@ -36,7 +37,7 @@ const errorIn = (result: string): string | null => {
 }
 
 // Rebuilds the drawing from what the server sent, its snapshot then the ops after it. Null, or why not.
-function rebuild(drawing: CoreDocument, loaded: LoadedDocument): string | null {
+export function rebuild(drawing: CoreDocument, loaded: Pick<LoadedDocument, 'snapshot' | 'ops'>): string | null {
   if (loaded.snapshot) {
     const failure = errorIn(drawing.loadJson(JSON.stringify(loaded.snapshot.state)))
     if (failure) return `The drawing couldn't be read: ${failure}`
@@ -166,23 +167,44 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
     [send, history, showHistory],
   )
 
-  // Reverses this user's latest step, or redoes the latest one undone, by sending a new edit. Null, or why it
-  // couldn't be: the step is then dropped.
+  // Reverses this user's latest step, or redoes the latest one undone, by sending new edits. Null, or why it
+  // couldn't be: the step is then dropped, and any of its edits already sent stay.
   const travel = useCallback(
     (direction: 'undo' | 'redo'): string | null => {
       const step = direction === 'undo' ? history?.takeUndo() : history?.takeRedo()
       if (!history || !step) return null
-      const { refused, reverse } = send(step.reverse)
-      if (!refused && reverse) {
-        const back = { made: [step.reverse], reverse }
-        if (direction === 'undo') history.pushRedo(back)
-        else history.pushUndo(back)
+      const back: Step = { made: [], reverse: [] }
+      for (const op of step.reverse) {
+        const { refused, reverse } = send(op)
+        if (refused) {
+          showHistory()
+          return `That can't be ${direction === 'undo' ? 'undone' : 'redone'} any more: someone else has changed it.`
+        }
+        back.made.push(op)
+        if (reverse) back.reverse.unshift(reverse)
       }
+      if (direction === 'undo') history.pushRedo(back)
+      else history.pushUndo(back)
       showHistory()
-      return refused && `That can't be ${direction === 'undo' ? 'undone' : 'redone'} any more: someone else has changed it.`
+      return null
     },
     [send, history, showHistory],
   )
+  // Makes the drawing `target` again, with edits that are undone in one step. Null, or why an edit couldn't
+  // be made: those before it stay.
+  const restore = useCallback(
+    (target: ShapeEntry[]): string | null => {
+      if (!drawing) return 'The drawing is still loading.'
+      const group = {}
+      for (const op of restoreOps(JSON.parse(drawing.shapesJson()).shapes, target)) {
+        const refused = apply(op, group)
+        if (refused) return refused
+      }
+      return null
+    },
+    [drawing, apply],
+  )
+
   const undo = useCallback(() => travel('undo'), [travel])
   const redo = useCallback(() => travel('redo'), [travel])
 
@@ -274,6 +296,7 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
     ...undoable,
     undo,
     redo,
+    restore,
     moveCursor,
     ready: drawing !== null,
     apply,

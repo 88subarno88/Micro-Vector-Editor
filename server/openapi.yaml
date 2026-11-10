@@ -350,6 +350,43 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/docs/{id}/versions/{seq}:
+    parameters:
+      - $ref: '#/components/parameters/DocumentId'
+      - name: seq
+        in: path
+        required: true
+        description: The edit to stop after; 0 for the document as it was created.
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+    get:
+      tags: [documents]
+      operationId: getDocumentVersion
+      summary: A document as it was after a given edit (viewer)
+      description: >
+        The newest snapshot taken at or before `seq`, then the ops after it up to `seq`, oldest first:
+        apply them to the snapshot to get the drawing as it was. If there were too many ops to send,
+        `opsComplete` is false.
+      responses:
+        '200':
+          description: The version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentVersion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: '`not_found` for the document, or `no_such_version` for a seq past its newest edit.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/docs/{id}/members:
     parameters:
       - $ref: '#/components/parameters/DocumentId'
@@ -764,6 +801,34 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    DocumentVersion:
+      type: object
+      required: [seq, role, snapshot, ops, opsComplete]
+      properties:
+        seq:
+          type: integer
+          format: int64
+        role:
+          $ref: '#/components/schemas/Role'
+        snapshot:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [seq, state]
+              properties:
+                seq:
+                  type: integer
+                  format: int64
+                state:
+                  type: object
+                  description: 'The whole drawing: `{"version": 1, "shapes": [{"id", "shape"}, ...]}`.'
+        ops:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpRecord'
+        opsComplete:
+          type: boolean
 
     HistoryEntry:
       type: object

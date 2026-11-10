@@ -227,6 +227,10 @@ TEST_F(OpRepoTest, LatestSnapshotIsTheNewestByLogPosition) {
     EXPECT_EQ(latest->documentId, document.id);
     EXPECT_EQ(latest->seq, 400);
     EXPECT_EQ(latest->state.at("at"), 400);
+
+    EXPECT_EQ(drogon::sync_wait(snapshots.latest(document.id, 399))->seq, 200);  // as the document was then
+    EXPECT_EQ(drogon::sync_wait(snapshots.latest(document.id, 200))->seq, 200);
+    EXPECT_EQ(drogon::sync_wait(snapshots.latest(document.id, 199)), std::nullopt);
 }
 
 TEST_F(OpRepoTest, ASecondSnapshotAtTheSameSeqChangesNothing) {

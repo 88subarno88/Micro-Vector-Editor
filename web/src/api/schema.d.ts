@@ -204,6 +204,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/docs/{id}/versions/{seq}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The document's ID. */
+                id: components["parameters"]["DocumentId"];
+                /** @description The edit to stop after; 0 for the document as it was created. */
+                seq: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * A document as it was after a given edit (viewer)
+         * @description The newest snapshot taken at or before `seq`, then the ops after it up to `seq`, oldest first: apply them to the snapshot to get the drawing as it was. If there were too many ops to send, `opsComplete` is false.
+         */
+        get: operations["getDocumentVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/docs/{id}/members": {
         parameters: {
             query?: never;
@@ -384,6 +409,19 @@ export interface components {
             op: Record<string, never>;
             /** Format: date-time */
             createdAt: string;
+        };
+        DocumentVersion: {
+            /** Format: int64 */
+            seq: number;
+            role: components["schemas"]["Role"];
+            snapshot: null | {
+                /** Format: int64 */
+                seq: number;
+                /** @description The whole drawing: `{"version": 1, "shapes": [{"id", "shape"}, ...]}`. */
+                state: Record<string, never>;
+            };
+            ops: components["schemas"]["OpRecord"][];
+            opsComplete: boolean;
         };
         HistoryEntry: {
             /** Format: int64 */
@@ -875,6 +913,42 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getDocumentVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The document's ID. */
+                id: components["parameters"]["DocumentId"];
+                /** @description The edit to stop after; 0 for the document as it was created. */
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentVersion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description `not_found` for the document, or `no_such_version` for a seq past its newest edit. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     addMember: {

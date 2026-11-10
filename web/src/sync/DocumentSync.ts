@@ -14,6 +14,12 @@ export function reconnectDelayMs(attempt: number, random = Math.random): number 
   return ceiling / 2 + random() * (ceiling / 2)
 }
 
+// The server refuses ops beyond 30 a second, in bursts of up to 60. Sending a little slower, and in smaller
+// bursts, leaves room for network jitter bunching them up on the way. A burst of edits, such as a restore,
+// then waits its turn instead of being refused.
+export const opsPerSecond = 25
+export const opBurst = 50
+
 export type StopReason =
   | 'not_found' // the document is gone, or the user is no longer a member
   | 'signed_out' // no access token could be had
@@ -51,6 +57,9 @@ export class DocumentSync {
   private attempt = 0 // reconnects since the last successful join
   private retry: ReturnType<typeof setTimeout> | null = null
   private stopped = false
+  private tokens = opBurst // ops that may be sent now
+  private refilledAt = Date.now()
+  private paced: ReturnType<typeof setTimeout> | null = null // a flush waiting for the next token
 
   constructor(options: DocumentSyncOptions) {
     this.options = options
@@ -81,7 +90,7 @@ export class DocumentSync {
     })
     this.engine = new SyncEngine(
       options.drawings,
-      { send: (clientOpId, baseSeq, op) => this.client.sendOp(clientOpId, baseSeq, op) },
+      { send: (clientOpId, baseSeq, op) => this.maySend() && this.client.sendOp(clientOpId, baseSeq, op) },
       options.lastSeq,
       options.newClientOpId,
     )
@@ -115,6 +124,8 @@ export class DocumentSync {
     this.stopped = true
     if (this.retry !== null) clearTimeout(this.retry)
     this.retry = null
+    if (this.paced !== null) clearTimeout(this.paced)
+    this.paced = null
     this.client.close()
   }
 
@@ -143,6 +154,23 @@ export class DocumentSync {
       this.retry = null
       void this.client.connect(this.engine.lastSeq)
     }, delay)
+  }
+
+  // Whether an op may go now, within the rate. If not, the engine keeps it, and the rest behind it, and is
+  // flushed again once there's room.
+  private maySend(): boolean {
+    const now = Date.now()
+    this.tokens = Math.min(opBurst, this.tokens + ((now - this.refilledAt) / 1000) * opsPerSecond)
+    this.refilledAt = now
+    if (this.tokens >= 1) {
+      this.tokens -= 1
+      return true
+    }
+    this.paced ??= setTimeout(() => {
+      this.paced = null
+      this.engine.flush()
+    }, Math.ceil(((1 - this.tokens) / opsPerSecond) * 1000))
+    return false
   }
 
   private changed() {

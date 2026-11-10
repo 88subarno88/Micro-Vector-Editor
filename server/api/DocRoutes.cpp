@@ -171,6 +171,50 @@ void registerDocRoutes(const drogon::orm::DbClientPtr& database) {
         drogon::Get);
 
     registerProtected(
+        "/api/docs/{id}/versions/{seq}",
+        [database](HttpRequestPtr request, std::string id,
+                   std::string seqText) -> drogon::Task<HttpResponsePtr> {
+            const auto seq = parseNumber<int64_t>(seqText);
+            if (!seq || *seq < 0)
+                co_return errorResponse(drogon::k400BadRequest, "bad_request",
+                                        "seq must be a number, 0 or more");
+            const auto role = co_await requireRole(database, id, userIdOf(request), vec::Role::Viewer);
+            if (!role) co_return role.error();
+            const auto doc = co_await vec::DocRepo(database).get(id);
+            if (!doc) co_return notFound();
+            if (*seq > doc->headSeq)
+                co_return errorResponse(drogon::k404NotFound, "no_such_version",
+                                        "the document has no edit with that seq");
+
+            // The newest snapshot from then, and the ops after it up to `seq`: replayed, the drawing as it
+            // was.
+            const auto snapshot = co_await vec::SnapshotRepo(database).latest(id, *seq);
+            const int64_t since = snapshot ? snapshot->seq : 0;
+            std::vector<vec::OpRow> ops;
+            if (*seq > since) {  // a limit of 0 would be read as 1
+                ops = co_await vec::OpRepo(database).opsAfter(
+                    id, since, static_cast<int>(std::min<int64_t>(*seq - since, vec::OpRepo::maxOpsPerRead)));
+            }
+            json opsJson = json::array();
+            for (const vec::OpRow& op : ops) {
+                opsJson.push_back({{"seq", op.seq},
+                                   {"userId", op.userId},
+                                   {"clientOpId", op.clientOpId},
+                                   {"op", op.payload},
+                                   {"createdAt", op.createdAt}});
+            }
+            co_return jsonResponse(
+                drogon::k200OK,
+                {{"seq", *seq},
+                 {"role", vec::toString(*role)},
+                 {"snapshot",
+                  snapshot ? json{{"seq", snapshot->seq}, {"state", snapshot->state}} : json(nullptr)},
+                 {"ops", opsJson},
+                 {"opsComplete", since + static_cast<int64_t>(ops.size()) == *seq}});
+        },
+        drogon::Get);
+
+    registerProtected(
         "/api/docs/{id}/ops",
         [database](HttpRequestPtr request, std::string id) -> drogon::Task<HttpResponsePtr> {
             const std::string& limitText = request->getParameter("limit");

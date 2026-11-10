@@ -858,6 +858,43 @@ describe('the editor', () => {
       expect(sent(socket).at(-1)?.op).toEqual({ kind: 'deleteShape', id })
     })
 
+    it('restores a version once live, as one step that undo takes back', async () => {
+      const fake = fakeCore()
+      const onRestored = vi.fn()
+      const version = { seq: 7, shapes: [{ id: 'old', shape: { kind: 'rect', x: 1, y: 1, width: 5, height: 5, style: {} } }] }
+      const { rerender } = render(<Editor core={fake.core} loaded={loaded} me="me" sync={sync} />)
+      const socket = goLive()
+      await chooseTool('Rectangle')
+      drag([50, 50], [100, 100]) // a shape the version doesn't have
+      const added = [...fake.shapes.keys()][0]
+
+      rerender(<Editor core={fake.core} loaded={loaded} me="me" sync={sync} restore={version} onRestored={() => onRestored()} />)
+
+      expect([...fake.shapes.keys()]).toEqual(['old'])
+      expect(sent(socket).slice(1).map((m) => m.op)).toEqual([
+        { kind: 'deleteShape', id: added },
+        { kind: 'addShape', id: 'old', shape: version.shapes[0].shape, position: 0 },
+      ])
+      expect(screen.getByText('Restored the drawing as it was after edit 7. Undo takes it back.')).toBeInTheDocument()
+      expect(onRestored).toHaveBeenCalledOnce()
+
+      rerender(<Editor core={fake.core} loaded={loaded} me="me" sync={sync} restore={version} onRestored={() => onRestored()} />)
+      expect(onRestored).toHaveBeenCalledOnce() // the same request isn't carried out twice
+      expect(sent(socket)).toHaveLength(3)
+
+      key('z') // one step
+      expect([...fake.shapes.keys()]).toEqual([added])
+    })
+
+    it("waits to restore until it's live, so it works from the drawing as it is then", () => {
+      const fake = fakeCore()
+      const version = { seq: 1, shapes: [] }
+      render(<Editor core={fake.core} loaded={loaded} me="me" sync={sync} restore={version} />)
+      expect(screen.queryByText(/Restored the drawing/)).not.toBeInTheDocument()
+      goLive()
+      expect(screen.getByText(/Restored the drawing as it was after edit 1/)).toBeInTheDocument()
+    })
+
     it("says so when someone else's edit means a step can't be undone any more", async () => {
       const { socket, id } = await withRectangle()
       act(() => {

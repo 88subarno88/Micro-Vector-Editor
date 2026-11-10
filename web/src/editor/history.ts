@@ -5,8 +5,8 @@
 
 export interface Step {
   made: object[] // the ops that made this change, as sent: if the server refuses any of them, the step goes
-  reverse: object // the op that takes it back
-  group?: object // the drag it came from, if any: a drag is undone in one step
+  reverse: object[] // the ops that take it back, in the order to send them
+  group?: object // the drag or restore it came from, if any, which is undone in one step
 }
 
 type Move = { kind: 'move'; id: string; dx: number; dy: number }
@@ -24,18 +24,23 @@ export class History {
     return this.redos.length > 0
   }
 
-  // A new edit, with the op that reverses it. Moves from the same drag (`group`) join one step, whose
-  // reverse is a single move by their total, so undoing a drag sends one op, not dozens. A new edit ends
-  // any redoing.
+  // A new edit, with the op that reverses it. Edits with the same `group` join one step, undone in reverse
+  // order. Moves of one drag merge into a single move by their total, so undoing a drag sends one op, not
+  // dozens. A new edit ends any redoing.
   record(op: object, reverse: object, group?: object) {
     this.redos = []
     const last = this.undos.at(-1)
-    if (group && last?.group === group && isMove(last.reverse) && isMove(reverse)) {
-      last.made.push(op)
-      last.reverse = { ...last.reverse, dx: last.reverse.dx + reverse.dx, dy: last.reverse.dy + reverse.dy }
+    if (!group || last?.group !== group) {
+      this.undos.push({ made: [op], reverse: [reverse], group })
       return
     }
-    this.undos.push({ made: [op], reverse, group })
+    last.made.push(op)
+    const [first] = last.reverse
+    if (last.reverse.length === 1 && isMove(first) && isMove(reverse) && first.id === reverse.id) {
+      last.reverse = [{ ...first, dx: first.dx + reverse.dx, dy: first.dy + reverse.dy }]
+    } else {
+      last.reverse.unshift(reverse)
+    }
   }
 
   takeUndo(): Step | undefined {
