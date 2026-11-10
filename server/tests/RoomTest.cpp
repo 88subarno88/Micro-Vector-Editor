@@ -441,9 +441,9 @@ TEST_F(RoomTest, ApplyCommittedAdvancesInOrderOnly) {
         room.finishLoad(Diagram(), 5);
         const Operation add = AddShape{"a", {RectGeom{0, 0, 1, 1}, {}}, std::nullopt};
 
-        EXPECT_FALSE(room.applyCommitted(add, 7, "u"));  // skips 6
-        EXPECT_FALSE(room.applyCommitted(add, 5, "u"));  // already applied
-        EXPECT_TRUE(room.applyCommitted(add, 6, "u"));
+        EXPECT_FALSE(room.applyCommitted(add, 7, "u", "c7"));  // skips 6
+        EXPECT_FALSE(room.applyCommitted(add, 5, "u", "c5"));  // already applied
+        EXPECT_TRUE(room.applyCommitted(add, 6, "u", "c6"));
         EXPECT_EQ(room.lastSeq(), 6);
         EXPECT_EQ(room.diagram().getObjectCount(), 1);
     });
@@ -454,7 +454,7 @@ TEST_F(RoomTest, ApplyCommittedRefusesAnOpThatDoesNotApply) {
         Room room("doc", loop());
         room.finishLoad(Diagram(), 0);
 
-        EXPECT_FALSE(room.applyCommitted(Move{"missing", 1, 1}, 1, "u"));
+        EXPECT_FALSE(room.applyCommitted(Move{"missing", 1, 1}, 1, "u", "c1"));
         EXPECT_EQ(room.lastSeq(), 0);
     });
 }
@@ -468,7 +468,8 @@ void moveRepeatedly(Room& room, int moves) {
     Diagram diagram;
     diagram.addObject(std::move(shape));
     room.finishLoad(std::move(diagram), 0);
-    for (int i = 1; i <= moves; ++i) ASSERT_TRUE(room.applyCommitted(Move{"a", 1, 0}, i, "u"));
+    for (int i = 1; i <= moves; ++i)
+        ASSERT_TRUE(room.applyCommitted(Move{"a", 1, 0}, i, "u", "c" + std::to_string(i)));
 }
 
 }  // namespace
@@ -484,6 +485,7 @@ TEST_F(RoomTest, OpsSinceReturnsWhatTheCallerMissed) {
         EXPECT_EQ((*missed)[0].seq, 3);
         EXPECT_EQ((*missed)[2].seq, 5);
         EXPECT_EQ((*missed)[0].userId, "u");
+        EXPECT_EQ((*missed)[0].clientOpId, "c3");
         EXPECT_TRUE(room.opsSince(5)->empty());
         EXPECT_EQ(room.opsSince(0)->size(), 5u);
     });

@@ -32,7 +32,9 @@ protected:
             room->finishLoad(std::move(drawing), 0);
             room->join(1, {"watcher", [this](const std::string& m) {
                                const std::lock_guard lock(mutex);
-                               received.push_back(json::parse(m).at("seq").get<int64_t>());
+                               const json parsed = json::parse(m);
+                               received.push_back(parsed.at("seq").get<int64_t>());
+                               receivedIds.push_back(parsed.at("clientOpId").get<std::string>());
                            }});
             room->markJoined(1);
         });
@@ -56,8 +58,11 @@ protected:
     }
 
     std::string published(int64_t seq, double dx, const std::string& instance = "other") {
-        return json{
-            {"seq", seq}, {"userId", user.id}, {"op", Operation{Move{"a", dx, 0}}}, {"instance", instance}}
+        return json{{"seq", seq},
+                    {"userId", user.id},
+                    {"clientOpId", "op-" + std::to_string(seq)},
+                    {"op", Operation{Move{"a", dx, 0}}},
+                    {"instance", instance}}
             .dump();
     }
 
@@ -82,6 +87,7 @@ protected:
     std::shared_ptr<Room> room;
     std::mutex mutex;
     std::vector<int64_t> received;
+    std::vector<std::string> receivedIds;  // the clientOpId each broadcast carried
 };
 
 }  // namespace
@@ -94,6 +100,7 @@ TEST_F(RemoteOpsTest, TheNextOpIsAppliedAndBroadcast) {
     EXPECT_EQ(lastSeq(), 1);
     EXPECT_DOUBLE_EQ(xOfA(), 5);
     EXPECT_EQ(received, std::vector<int64_t>{1});
+    EXPECT_EQ(receivedIds, std::vector<std::string>{"op-1"});
 }
 
 TEST_F(RemoteOpsTest, OurOwnMessagesAreIgnored) {
@@ -125,6 +132,7 @@ TEST_F(RemoteOpsTest, AGapIsFilledFromTheDatabaseInOrder) {
     EXPECT_EQ(lastSeq(), 3);
     EXPECT_DOUBLE_EQ(xOfA(), 111);
     EXPECT_EQ(received, (std::vector<int64_t>{1, 2, 3}));
+    EXPECT_EQ(receivedIds, (std::vector<std::string>{"op-1", "op-2", "op-3"}));  // read from the log
 }
 
 TEST_F(RemoteOpsTest, MessagesArrivingOutOfOrderEndUpApplyingEachOpOnce) {

@@ -103,10 +103,14 @@ void DocClient::handle(const std::string& message) {
             if (snapshot) diagram_ = std::move(*snapshot);
             lastSeq_ = m["headSeq"];
         } else {
-            for (const json& op : m["ops"]) confirm(op["seq"], op["op"]);
+            for (const json& op : m["ops"]) {
+                if (!op.contains("clientOpId")) problem_ += "a caught-up op without its clientOpId\n";
+                confirm(op["seq"], op["op"]);
+            }
         }
         joined_ = true;
     } else if (type == "op") {
+        if (!m.contains("clientOpId")) problem_ += "an op without its clientOpId\n";
         confirm(m["seq"], m["op"]);
     } else if (type == "ack") {
         const auto sent = pending_.find(m["clientOpId"]);

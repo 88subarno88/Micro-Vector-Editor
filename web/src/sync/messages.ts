@@ -7,6 +7,7 @@ export type Role = 'owner' | 'editor' | 'viewer'
 export interface CommittedOp {
   seq: number
   userId: string
+  clientOpId: string // as its sender chose it: a client that missed the ack recognises its own op by this
   op: object
 }
 
@@ -48,7 +49,7 @@ const isSeq = (value: unknown): value is number => Number.isInteger(value) && (v
 const isString = (value: unknown): value is string => typeof value === 'string'
 
 function isCommittedOp(value: unknown): value is CommittedOp {
-  return isObject(value) && isSeq(value.seq) && isString(value.userId) && isObject(value.op)
+  return isObject(value) && isSeq(value.seq) && isString(value.userId) && isString(value.clientOpId) && isObject(value.op)
 }
 
 function isPresenceUser(value: unknown): value is PresenceUser {
@@ -77,7 +78,7 @@ export function parseServerMessage(text: string): ServerMessage | null {
       if (isObject(m.snapshot)) return { type: 'joined', headSeq: m.headSeq, snapshot: m.snapshot }
       return null
     case 'op':
-      return isCommittedOp(m) ? { type: 'op', seq: m.seq, userId: m.userId, op: m.op } : null
+      return isCommittedOp(m) ? { type: 'op', seq: m.seq, userId: m.userId, clientOpId: m.clientOpId, op: m.op } : null
     case 'ack':
       return isString(m.clientOpId) && isSeq(m.seq) ? { type: 'ack', clientOpId: m.clientOpId, seq: m.seq } : null
     case 'reject':

@@ -7,13 +7,13 @@ const op = { kind: 'move', id: 's_1', dx: 1, dy: 2 }
 describe('parseServerMessage', () => {
   it('reads every message the server sends', () => {
     expect(parse({ type: 'ready', role: 'editor' })).toEqual({ type: 'ready', role: 'editor' })
-    expect(parse({ type: 'joined', headSeq: 2, ops: [{ seq: 2, userId: 'u', op }] })).toEqual({
-      type: 'joined', headSeq: 2, ops: [{ seq: 2, userId: 'u', op }],
+    expect(parse({ type: 'joined', headSeq: 2, ops: [{ seq: 2, userId: 'u', clientOpId: 'c', op }] })).toEqual({
+      type: 'joined', headSeq: 2, ops: [{ seq: 2, userId: 'u', clientOpId: 'c', op }],
     })
     expect(parse({ type: 'joined', headSeq: 900, snapshot: { version: 1, shapes: [] } })).toEqual({
       type: 'joined', headSeq: 900, snapshot: { version: 1, shapes: [] },
     })
-    expect(parse({ type: 'op', seq: 3, userId: 'u', op })).toEqual({ type: 'op', seq: 3, userId: 'u', op })
+    expect(parse({ type: 'op', seq: 3, userId: 'u', clientOpId: 'c', op })).toEqual({ type: 'op', seq: 3, userId: 'u', clientOpId: 'c', op })
     expect(parse({ type: 'ack', clientOpId: 'c1', seq: 4 })).toEqual({ type: 'ack', clientOpId: 'c1', seq: 4 })
     expect(parse({ type: 'reject', clientOpId: 'c1', reason: 'forbidden', message: 'no' })).toEqual({
       type: 'reject', clientOpId: 'c1', reason: 'forbidden', message: 'no',
@@ -34,8 +34,9 @@ describe('parseServerMessage', () => {
       { type: 'ready', role: 'admin' },
       { type: 'joined', headSeq: -1, ops: [] },
       { type: 'joined', headSeq: 1 },
-      { type: 'joined', headSeq: 1, ops: [{ seq: 1, userId: 'u', op: 'not an object' }] },
-      { type: 'op', seq: 1.5, userId: 'u', op },
+      { type: 'joined', headSeq: 1, ops: [{ seq: 1, userId: 'u', clientOpId: 'c', op: 'not an object' }] },
+      { type: 'op', seq: 1.5, userId: 'u', clientOpId: 'c', op },
+      { type: 'op', seq: 1, userId: 'u', op }, // without its clientOpId
       { type: 'ack', clientOpId: 7, seq: 1 },
       { type: 'presence', users: [{ id: 'u', name: 'ada', cursor: { x: 'left' } }] },
       { type: 'error' },

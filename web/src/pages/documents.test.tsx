@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setAccessToken } from '../api/client'
 import App from '../App'
 import { AuthProvider } from '../auth/AuthProvider'
+import { FakeSocket } from '../sync/testing'
 
 // A stand-in for the WebAssembly core: every op it's given adds a shape, except one of kind "broken".
 vi.mock('../core/core', () => ({
@@ -20,6 +21,7 @@ vi.mock('../core/core', () => ({
         return '{"ok":true}'
       }
       drawCommands() { return JSON.stringify(Array(this.shapes).fill({ kind: 'rect' })) }
+      shapesJson() { return '{"shapes":[]}' }
       delete() {}
     },
   }),
@@ -117,6 +119,8 @@ beforeEach(() => {
   setAccessToken(null)
   // jsdom has no canvas; the drawing component copes without one.
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+  // The editor's live connection, which never opens here.
+  vi.stubGlobal('WebSocket', FakeSocket)
 })
 afterEach(() => {
   cleanup()

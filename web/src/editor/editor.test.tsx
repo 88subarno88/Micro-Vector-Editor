@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Core } from '../core/core'
+import { FakeSocket } from '../sync/testing'
 import Editor from './Editor'
-import type { LoadedDocument } from './useDrawing'
+import type { LoadedDocument, SyncOverrides } from './useDrawing'
 
 // A stand-in for the core: keeps shapes by ID, refuses a duplicate ID or a shape starting past x = 700,
 // moves rectangles, hit-tests and outlines them by their box, inverts adds and moves, and draws one rect
-// command per shape. Records every op it's applied.
+// command per shape. Each document has its own shapes; `shapes` and `ops` are those of the first one made,
+// which is the drawing the editor shows (the second is the server's, as this client knows it).
 // The box around a fake shape: a rectangle's own, or the one around a line's two ends.
 function boxOf(shape: Record<string, unknown>) {
   if (shape.start && shape.end) {
@@ -20,14 +22,24 @@ function boxOf(shape: Record<string, unknown>) {
   return { x: r.x, y: r.y, width: r.width, height: r.height }
 }
 
+type FakeOp = { kind: string; id: string; shape?: Record<string, unknown> & { kind: string } }
+
 function fakeCore() {
-  const ops: { kind: string; id: string; shape?: Record<string, unknown> & { kind: string } }[] = []
-  const shapes = new Map<string, Record<string, unknown>>()
+  const shown = { ops: [] as FakeOp[], shapes: new Map<string, Record<string, unknown>>() }
+  let made = 0
   const ok = '{"ok":true}'
   const refuse = (message: string) => JSON.stringify({ error: { code: 'invalid_value', message } })
   const core = {
     Document: class {
+      ops: FakeOp[]
+      shapes: Map<string, Record<string, unknown>>
+      constructor() {
+        const own = made++ === 0 ? shown : { ops: [], shapes: new Map() }
+        this.ops = own.ops
+        this.shapes = own.shapes
+      }
       applyOp(text: string) {
+        const { ops, shapes } = this
         const op = JSON.parse(text)
         ops.push(op)
         if (op.kind === 'addShape') {
@@ -52,6 +64,7 @@ function fakeCore() {
         return ok
       }
       invertOp(text: string) {
+        const { shapes } = this
         const op = JSON.parse(text)
         if (op.kind === 'addShape') return JSON.stringify({ op: { kind: 'deleteShape', id: op.id } })
         if (op.kind === 'move') return JSON.stringify({ op: { ...op, dx: -op.dx, dy: -op.dy } })
@@ -65,19 +78,23 @@ function fakeCore() {
         return refuse('no inverse')
       }
       hitTest(x: number, y: number) {
-        const hits = [...shapes].filter(([, s]) => {
+        const hits = [...this.shapes].filter(([, s]) => {
           const r = boxOf(s)
           return x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height
         })
         return hits.length ? hits[hits.length - 1][0] : ''
       }
       boundsOf(id: string) {
-        const shape = shapes.get(id)
+        const shape = this.shapes.get(id)
         return shape ? JSON.stringify(boxOf(shape)) : 'null'
       }
-      loadJson() { return ok }
+      loadJson(text: string) {
+        this.shapes.clear()
+        for (const { id, shape } of JSON.parse(text).shapes ?? []) this.shapes.set(id, shape)
+        return ok
+      }
       drawCommands() {
-        return JSON.stringify([...shapes].map(([id, shape]) => ({
+        return JSON.stringify([...this.shapes].map(([id, shape]) => ({
           id,
           kind: shape.kind === 'line' || shape.kind === 'freehand' ? 'polyline' : 'rect',
           closed: false,
@@ -85,7 +102,7 @@ function fakeCore() {
         })))
       }
       shapesJson() {
-        return JSON.stringify({ shapes: [...shapes].map(([id, shape]) => ({ id, shape })) })
+        return JSON.stringify({ shapes: [...this.shapes].map(([id, shape]) => ({ id, shape })) })
       }
       translatedShape(text: string, dx: number, dy: number) {
         const shape = JSON.parse(text)
@@ -94,7 +111,7 @@ function fakeCore() {
       delete() {}
     },
   }
-  return { core: core as unknown as Core, ops, shapes }
+  return { core: core as unknown as Core, ops: shown.ops, shapes: shown.shapes }
 }
 
 const loaded: LoadedDocument = {
@@ -119,7 +136,22 @@ function drag(from: [number, number], to: [number, number]) {
   fireEvent.pointerUp(canvas(), { clientX: to[0], clientY: to[1], pointerId: 1 })
 }
 
+// The editor's connection to the server, which a test can play through `sockets`. Never opened unless a
+// test opens it, so edits wait to be sent.
+let sockets: FakeSocket[]
+let sync: SyncOverrides
+
 beforeEach(() => {
+  sockets = []
+  sync = {
+    getToken: () => 'tok',
+    renewToken: async () => true,
+    openSocket: (url) => {
+      const socket = new FakeSocket(url)
+      sockets.push(socket)
+      return socket
+    },
+  }
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   // Shown at half size, so pointer positions must be scaled up to drawing units.
   vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue({
@@ -133,13 +165,13 @@ afterEach(() => {
 
 describe('the editor', () => {
   it('starts with the select tool', () => {
-    render(<Editor core={fakeCore().core} loaded={loaded} />)
+    render(<Editor core={fakeCore().core} loaded={loaded} sync={sync} />)
     expect(screen.getByRole('button', { name: 'Select' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('adds one shape per drag, in drawing units, however big the canvas is shown', async () => {
     const { core, ops, shapes } = fakeCore()
-    render(<Editor core={core} loaded={loaded} />)
+    render(<Editor core={core} loaded={loaded} sync={sync} />)
     await chooseTool('Rectangle')
 
     drag([50, 50], [100, 75])
@@ -153,7 +185,7 @@ describe('the editor', () => {
 
   it('draws with the chosen tool', async () => {
     const { core, shapes } = fakeCore()
-    render(<Editor core={core} loaded={loaded} />)
+    render(<Editor core={core} loaded={loaded} sync={sync} />)
     await userEvent.click(screen.getByRole('button', { name: 'Circle' }))
     expect(screen.getByRole('button', { name: 'Circle' })).toHaveAttribute('aria-pressed', 'true')
 
@@ -164,7 +196,7 @@ describe('the editor', () => {
 
   it('gives every shape its own ID', async () => {
     const { core, shapes } = fakeCore()
-    render(<Editor core={core} loaded={loaded} />)
+    render(<Editor core={core} loaded={loaded} sync={sync} />)
     await chooseTool('Rectangle')
     drag([10, 10], [60, 30])
     drag([10, 10], [60, 30])
@@ -173,7 +205,7 @@ describe('the editor', () => {
 
   it('ignores a click without a drag', async () => {
     const { core, ops } = fakeCore()
-    render(<Editor core={core} loaded={loaded} />)
+    render(<Editor core={core} loaded={loaded} sync={sync} />)
     await chooseTool('Rectangle')
     fireEvent.pointerDown(canvas(), { clientX: 10, clientY: 10, pointerId: 1 })
     fireEvent.pointerUp(canvas(), { clientX: 10, clientY: 10, pointerId: 1 })
@@ -182,7 +214,7 @@ describe('the editor', () => {
 
   it('says why an edit was refused', async () => {
     const { core, shapes } = fakeCore()
-    render(<Editor core={core} loaded={loaded} />)
+    render(<Editor core={core} loaded={loaded} sync={sync} />)
     await chooseTool('Rectangle')
     drag([360, 10], [390, 30]) // starts at x = 720 in drawing units
     expect(await screen.findByRole('alert')).toHaveTextContent("That edit didn't apply: out of range")
@@ -191,7 +223,7 @@ describe('the editor', () => {
 
   it('draws a hexagon', async () => {
     const { core, shapes } = fakeCore()
-    render(<Editor core={core} loaded={loaded} />)
+    render(<Editor core={core} loaded={loaded} sync={sync} />)
     await userEvent.click(screen.getByRole('button', { name: 'Hexagon' }))
     drag([0, 0], [50, 20])
     expect([...shapes.values()]).toEqual([expect.objectContaining({ kind: 'hexagon', center: { x: 50, y: 20 }, radius: 20 })])
@@ -199,7 +231,7 @@ describe('the editor', () => {
 
   it('keeps every point of a freehand stroke, in order', async () => {
     const { core, shapes } = fakeCore()
-    render(<Editor core={core} loaded={loaded} />)
+    render(<Editor core={core} loaded={loaded} sync={sync} />)
     await userEvent.click(screen.getByRole('button', { name: 'Freehand' }))
 
     drag([10, 10], [30, 20]) // down, two moves, up
@@ -220,7 +252,7 @@ describe('the editor', () => {
 
     it('asks for text where you click, and adds it on Enter', async () => {
       const { core, shapes } = fakeCore()
-      render(<Editor core={core} loaded={loaded} />)
+      render(<Editor core={core} loaded={loaded} sync={sync} />)
 
       const entry = await clickWithText([200, 150]) // the middle of the canvas, shown at half size
       expect(entry).toHaveStyle({ left: '50%', top: '50%' })
@@ -232,7 +264,7 @@ describe('the editor', () => {
 
     it('keeps what was typed when you click away', async () => {
       const { core, shapes } = fakeCore()
-      render(<Editor core={core} loaded={loaded} />)
+      render(<Editor core={core} loaded={loaded} sync={sync} />)
       await userEvent.type(await clickWithText([10, 10]), 'Kept')
       fireEvent.blur(screen.getByLabelText('Text'))
       expect([...shapes.values()]).toEqual([expect.objectContaining({ text: 'Kept' })])
@@ -240,7 +272,7 @@ describe('the editor', () => {
 
     it('adds nothing on Escape, or for empty text', async () => {
       const { core, shapes } = fakeCore()
-      render(<Editor core={core} loaded={loaded} />)
+      render(<Editor core={core} loaded={loaded} sync={sync} />)
       await userEvent.type(await clickWithText([10, 10]), 'Gone{Escape}')
       await userEvent.type(await clickWithText([10, 10]), '{Enter}')
       expect(shapes.size).toBe(0)
@@ -251,7 +283,7 @@ describe('the editor', () => {
     // A rectangle from (100, 100) to (200, 200) in drawing units: (50, 50) to (100, 100) on screen.
     async function withRectangle() {
       const fake = fakeCore()
-      render(<Editor core={fake.core} loaded={loaded} />)
+      render(<Editor core={fake.core} loaded={loaded} sync={sync} />)
       await chooseTool('Rectangle')
       drag([50, 50], [100, 100])
       await chooseTool('Select')
@@ -341,7 +373,7 @@ describe('the editor', () => {
       render(
         <>
           <input aria-label="Somewhere else" />
-          <Editor core={fake.core} loaded={loaded} />
+          <Editor core={fake.core} loaded={loaded} sync={sync} />
         </>,
       )
       await chooseTool('Rectangle')
@@ -367,7 +399,7 @@ describe('the editor', () => {
   describe('the style panel', () => {
     async function withSelected(toolName = 'Rectangle') {
       const fake = fakeCore()
-      render(<Editor core={fake.core} loaded={loaded} />)
+      render(<Editor core={fake.core} loaded={loaded} sync={sync} />)
       await chooseTool(toolName)
       drag([50, 50], [100, 100])
       await chooseTool('Select')
@@ -381,7 +413,7 @@ describe('the editor', () => {
     const width = () => screen.getByLabelText('Width')
 
     it("shows only with a shape selected, with that shape's style", async () => {
-      render(<Editor core={fakeCore().core} loaded={loaded} />)
+      render(<Editor core={fakeCore().core} loaded={loaded} sync={sync} />)
       expect(screen.queryByRole('group', { name: 'Style' })).not.toBeInTheDocument()
       cleanup()
 
@@ -448,7 +480,7 @@ describe('the editor', () => {
       render(
         <>
           <input aria-label="Somewhere else" />
-          <Editor core={fake.core} loaded={loaded} />
+          <Editor core={fake.core} loaded={loaded} sync={sync} />
         </>,
       )
       await chooseTool('Rectangle')
@@ -516,7 +548,7 @@ describe('the editor', () => {
     const zoomLabel = () => screen.getByRole('button', { name: 'Reset zoom' })
 
     it('zooms in and out by the buttons and keys, and resets', async () => {
-      render(<Editor core={fakeCore().core} loaded={loaded} />)
+      render(<Editor core={fakeCore().core} loaded={loaded} sync={sync} />)
       expect(zoomLabel()).toHaveTextContent('100%')
       await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
       expect(zoomLabel()).toHaveTextContent('125%')
@@ -529,7 +561,7 @@ describe('the editor', () => {
 
     it('draws where the pointer is in the drawing, however it is zoomed', async () => {
       const { core, shapes } = fakeCore()
-      render(<Editor core={core} loaded={loaded} />)
+      render(<Editor core={core} loaded={loaded} sync={sync} />)
       // Zoomed to 125% around the canvas's centre, (400, 300): its top left now shows (80, 60).
       await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
       await chooseTool('Rectangle')
@@ -540,7 +572,7 @@ describe('the editor', () => {
 
     it('pans with the wheel, and zooms with Ctrl and the wheel', async () => {
       const { core, shapes } = fakeCore()
-      render(<Editor core={core} loaded={loaded} />)
+      render(<Editor core={core} loaded={loaded} sync={sync} />)
       fireEvent.wheel(canvas(), { deltaY: 100 })
       await chooseTool('Rectangle')
       drag([50, 50], [100, 100])
@@ -551,8 +583,92 @@ describe('the editor', () => {
     })
   })
 
-  it("says that changes aren't saved yet", () => {
-    render(<Editor core={fakeCore().core} loaded={loaded} />)
-    expect(screen.getByText(/Changes aren't saved yet/)).toBeInTheDocument()
+  describe('with the server', () => {
+    // Plays the server up to joined, with an empty drawing.
+    function goLive() {
+      const socket = sockets[0]
+      act(() => {
+        socket.opened()
+        socket.receive({ type: 'ready', role: 'editor' })
+        socket.receive({ type: 'joined', headSeq: 0, ops: [] })
+      })
+      return socket
+    }
+    const opsSent = (socket: FakeSocket) =>
+      socket.sent.filter((m) => (m as { type: string }).type === 'op') as { clientOpId: string; op: Record<string, unknown> }[]
+
+    it('sends each edit', async () => {
+      const { core } = fakeCore()
+      render(<Editor core={core} loaded={loaded} sync={sync} />)
+      const socket = goLive()
+      await chooseTool('Rectangle')
+      drag([50, 50], [100, 75])
+      expect(opsSent(socket).map((m) => m.op)).toEqual([expect.objectContaining({ kind: 'addShape' })])
+    })
+
+    it('shows edits others make', () => {
+      const { core, shapes } = fakeCore()
+      render(<Editor core={core} loaded={loaded} sync={sync} />)
+      const socket = goLive()
+      const shape = { kind: 'rect', x: 1, y: 2, width: 3, height: 4, style: {} }
+      act(() => socket.receive({ type: 'op', seq: 1, userId: 'bob', clientOpId: 'b1', op: { kind: 'addShape', id: 'b', shape } }))
+      expect(shapes.get('b')).toEqual(shape)
+    })
+
+    it('takes back an edit the server refuses, and says why', async () => {
+      const { core, shapes } = fakeCore()
+      render(<Editor core={core} loaded={loaded} sync={sync} />)
+      const socket = goLive()
+      await chooseTool('Rectangle')
+      drag([50, 50], [100, 75])
+      expect(shapes.size).toBe(1)
+
+      const { clientOpId } = opsSent(socket)[0]
+      act(() => socket.receive({ type: 'reject', clientOpId, reason: 'duplicate_id', message: 'id taken' }))
+
+      expect(shapes.size).toBe(0)
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        "That edit wasn't saved: a shape with the same ID was added at the same moment.",
+      )
+    })
+
+    it("sends a dragged shape's move every 50 ms while it moves, and the rest when it's let go", async () => {
+      const { core, shapes } = fakeCore()
+      // A canvas that records only the boxes it strokes: the last is the selected shape's dashed outline.
+      const stroked: number[][] = []
+      const context = new Proxy({}, {
+        get: (_, key) => (key === 'strokeRect' ? (...box: number[]) => stroked.push(box) : () => {}),
+        set: () => true,
+      })
+      vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as CanvasRenderingContext2D)
+      render(<Editor core={core} loaded={loaded} sync={sync} />)
+      const socket = goLive()
+      await chooseTool('Rectangle')
+      drag([50, 50], [100, 100]) // (100, 100) to (200, 200) in drawing units
+      await chooseTool('Select')
+      const id = [...shapes.keys()][0]
+      vi.useFakeTimers()
+      const moves = () => opsSent(socket).filter((m) => m.op.kind === 'move').map((m) => m.op)
+      const pointer = (kind: 'pointerDown' | 'pointerMove' | 'pointerUp', x: number) =>
+        fireEvent[kind](canvas(), { clientX: x, clientY: 75, pointerId: 1 })
+
+      pointer('pointerDown', 75)
+      pointer('pointerMove', 80)
+      pointer('pointerMove', 85)
+      expect(moves()).toEqual([]) // not one per pointer event
+      act(() => vi.advanceTimersByTime(50))
+      expect(moves()).toEqual([{ kind: 'move', id, dx: 20, dy: 0 }]) // 10 on screen, at half size
+      expect(shapes.get(id)).toMatchObject({ x: 120 }) // others see it there too
+      expect(stroked.at(-1)?.[0]).toBe(120 - 4) // the outline, 4 outside the shape, is drawn there once
+
+      pointer('pointerMove', 90)
+      pointer('pointerUp', 92)
+
+      expect(moves()).toEqual([{ kind: 'move', id, dx: 20, dy: 0 }, { kind: 'move', id, dx: 14, dy: 0 }])
+      expect(shapes.get(id)).toMatchObject({ x: 134, y: 100 })
+      act(() => vi.advanceTimersByTime(1000))
+      expect(moves()).toHaveLength(2)
+      vi.useRealTimers()
+    })
   })
 })

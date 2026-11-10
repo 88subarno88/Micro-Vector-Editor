@@ -1,35 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { SyncEngine, type Drawings, type Transport } from './SyncEngine'
-
-// Drawings that are just numbers: {add: n} adds n, {set: n} sets it. Anything that would go below 0 is
-// refused. `confirmed` is what the server has; `local` is what the user sees.
-function counters(start = 0) {
-  const step = (value: number, op: object): number | null => {
-    const { add, set } = op as { add?: number; set?: number }
-    const next = set ?? value + (add ?? 0)
-    return next < 0 ? null : next
-  }
-  const drawings: Drawings & { confirmed: number; local: number } = {
-    confirmed: start,
-    local: start,
-    applyConfirmed(op) {
-      const next = step(drawings.confirmed, op)
-      if (next === null) return 'would go below zero'
-      drawings.confirmed = next
-      return null
-    },
-    applyLocal(op) {
-      const next = step(drawings.local, op)
-      if (next === null) return 'would go below zero'
-      drawings.local = next
-      return null
-    },
-    resetLocal() {
-      drawings.local = drawings.confirmed
-    },
-  }
-  return drawings
-}
+import { SyncEngine, type Transport } from './SyncEngine'
+import { counters } from './testing'
 
 // A connection that records what it sends, and can be taken down.
 function wire() {
@@ -127,13 +98,6 @@ describe('acks', () => {
 
     expect(engine.lastSeq).toBe(6)
     expect(drawings.confirmed).toBe(1) // applied once
-  })
-
-  it('never move the last seq backwards', () => {
-    const engine = new SyncEngine(counters(), wire(), 20, ids())
-    engine.local({ add: 1 })
-    engine.ack('op-1', 3)
-    expect(engine.lastSeq).toBe(20)
   })
 })
 
@@ -358,5 +322,75 @@ describe('rejects', () => {
     engine.reject('op-1')
     expect(engine.reject('op-1')).toBeNull()
     expect(drawings.local).toBe(0)
+  })
+})
+
+describe('after reconnecting', () => {
+  it("takes its own op in the catch-up as the ack it missed, so the op is applied once", () => {
+    const drawings = counters(0)
+    const engine = new SyncEngine(drawings, wire(), 0, ids())
+    engine.local({ add: 2 }) // sent, but the connection dropped before the ack
+
+    // The catch-up: someone else's op, then this client's own.
+    engine.remote(1, { set: 10 }, 'theirs')
+    expect(engine.remote(2, { add: 2 }, 'op-1')).toBe('applied')
+
+    expect([drawings.confirmed, drawings.local]).toEqual([12, 12]) // not 14
+    expect(engine.synced).toBe(true)
+    expect(engine.lastSeq).toBe(2)
+    engine.ack('op-1', 2) // the original ack, should it still turn up, changes nothing
+    expect(drawings.confirmed).toBe(12)
+  })
+
+  it('sends every pending op again, with the same client op IDs, oldest first', () => {
+    const transport = wire()
+    const engine = new SyncEngine(counters(), transport, 0, ids())
+    engine.local({ add: 1 })
+    engine.local({ add: 2 })
+    engine.local({ add: 3 })
+    engine.ack('op-1', 1)
+
+    engine.resend()
+
+    expect(transport.sent.slice(3)).toEqual([
+      { clientOpId: 'op-2', baseSeq: 1, op: { add: 2 } },
+      { clientOpId: 'op-3', baseSeq: 1, op: { add: 3 } },
+    ])
+  })
+
+  it("follows the server's order when an op is acked ahead of older pending ones whose rejects were lost", () => {
+    const drawings = counters(0)
+    const engine = new SyncEngine(drawings, wire(), 0, ids())
+    engine.local({ set: 5 }) // refused, but the reject was lost with the connection
+    engine.local({ add: 1 }) // 6
+
+    engine.remote(1, { add: 1 }, 'op-2')
+
+    // The server has 1; the set waits on top to be sent again.
+    expect([drawings.confirmed, drawings.local]).toEqual([1, 5])
+    expect(engine.pending.map((p) => p.clientOpId)).toEqual(['op-1'])
+    expect(engine.diverged).toBe(false)
+  })
+
+  it('restarts from a snapshot, and a resent op the snapshot already holds is not applied twice', () => {
+    const drawings = counters(0)
+    const engine = new SyncEngine(drawings, wire(), 0, ids())
+    engine.local({ add: 2 }) // stored as seq 5, but the ack was lost
+
+    engine.loadSnapshot(7, { value: 2 }) // the server's drawing at 7, which includes it
+    expect([drawings.confirmed, drawings.local, engine.lastSeq]).toEqual([2, 4, 7]) // shown twice, for now
+
+    engine.resend()
+    engine.ack('op-1', 5) // recognised: acked with its original seq
+
+    expect([drawings.confirmed, drawings.local, engine.lastSeq]).toEqual([2, 2, 7])
+    expect(engine.synced).toBe(true)
+  })
+
+  it("marks the drawing as out of step if the server's snapshot can't be loaded", () => {
+    const engine = new SyncEngine(counters(0), wire(), 0, ids())
+    engine.loadSnapshot(3, {})
+    expect(engine.diverged).toBe(true)
+    expect(engine.lastSeq).toBe(0)
   })
 })

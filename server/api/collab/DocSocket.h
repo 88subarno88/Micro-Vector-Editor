@@ -31,7 +31,8 @@ struct DocSession;
 //
 // Then the client sends messages (see collab/Messages.h):
 //   {"type": "join", "lastSeq": N} -> once the drawing is loaded, {"type": "joined", "headSeq": H} with
-//                                     either "ops": [{"seq", "userId", "op"}] for every op after N, or,
+//                                     either "ops": [{"seq", "userId", "clientOpId", "op"}] for every op
+//                                     after N, or,
 //                                     when the room no longer has them all, "snapshot": the whole drawing
 //                                     at H. Ops are broadcast to a connection only after this, from H+1.
 //                                     {"type": "error", "code": "load_failed"} and close 1011 if the

@@ -41,11 +41,12 @@ void Room::finishLoad(Diagram diagram, int64_t lastSeq, int64_t snapshotSeq) {
     loadState_ = LoadState::Loaded;
 }
 
-bool Room::applyCommitted(const Operation& op, int64_t seq, const std::string& userId) {
+bool Room::applyCommitted(const Operation& op, int64_t seq, const std::string& userId,
+                          const std::string& clientOpId) {
     assertOnLoop();
     if (seq != lastSeq_ + 1 || !vec::apply(diagram_, op)) return false;
     lastSeq_ = seq;
-    recentOps_.push_back({seq, userId, op});
+    recentOps_.push_back({seq, userId, clientOpId, op});
     if (recentOps_.size() > maxRecentOps) recentOps_.pop_front();
     return true;
 }

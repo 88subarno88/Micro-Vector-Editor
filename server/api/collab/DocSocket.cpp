@@ -158,6 +158,10 @@ void DocSocket::joinRoom(const WebSocketConnectionPtr& connection,
                           }});
         if (result == vec::Room::JoinResult::Unloaded) return joinRoom(connection, session);  // a fresh room
 
+        // Queued first, so that every join message waits for the drawing. Even if this connection has
+        // already closed: the room now counts as loading, and whoever joins next relies on this load.
+        if (result == vec::Room::JoinResult::JoinedAndMustLoad) loadRoom(room);
+
         session->setRoom(room);
         session->ready = true;
         // If the connection closed while joining, its close handler saw `ready` false and left this to us.
@@ -165,8 +169,6 @@ void DocSocket::joinRoom(const WebSocketConnectionPtr& connection,
 
         vec::logInfo("joined room", {},
                      {{"document", session->documentId}, {"members", room->memberCount()}});
-        // Queued first, so that every join message waits for the drawing.
-        if (result == vec::Room::JoinResult::JoinedAndMustLoad) loadRoom(room);
         sendJson(connection, {{"type", "ready"}, {"role", vec::toString(session->role)}});
     });
 }
@@ -232,7 +234,10 @@ void DocSocket::handleJoin(const WebSocketConnectionPtr& connection,
                 if (const auto missed = room->opsSince(lastSeq)) {
                     json ops = json::array();
                     for (const vec::RecentOp& recent : *missed) {
-                        ops.push_back({{"seq", recent.seq}, {"userId", recent.userId}, {"op", recent.op}});
+                        ops.push_back({{"seq", recent.seq},
+                                       {"userId", recent.userId},
+                                       {"clientOpId", recent.clientOpId},
+                                       {"op", recent.op}});
                     }
                     reply["ops"] = std::move(ops);
                 } else {

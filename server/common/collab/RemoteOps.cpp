@@ -15,9 +15,10 @@ namespace {
 
 // Applies and broadcasts one committed op. False if it isn't the next one or doesn't apply, which would
 // mean the room and the log disagree.
-bool applyAndBroadcast(Room& room, int64_t seq, const std::string& userId, const Operation& op) {
-    if (!room.applyCommitted(op, seq, userId)) return false;
-    room.broadcast(opBroadcast(seq, userId, op));
+bool applyAndBroadcast(Room& room, int64_t seq, const std::string& userId, const std::string& clientOpId,
+                       const Operation& op) {
+    if (!room.applyCommitted(op, seq, userId, clientOpId)) return false;
+    room.broadcast(opBroadcast(seq, userId, clientOpId, op));
     return true;
 }
 
@@ -36,7 +37,9 @@ drogon::Task<> applyRemoteOp(drogon::orm::DbClientPtr database, std::shared_ptr<
 
         if (seq == room->lastSeq() + 1) {
             const auto op = decodeOperation(parsed.value("op", json()));
-            if (op && applyAndBroadcast(*room, seq, parsed.value("userId", ""), *op)) co_return;
+            if (op && applyAndBroadcast(*room, seq, parsed.value("userId", ""),
+                                        parsed.value("clientOpId", ""), *op))
+                co_return;
             // A message that doesn't apply as sent: fall through and trust the log instead.
         }
 
@@ -50,7 +53,7 @@ drogon::Task<> applyRemoteOp(drogon::orm::DbClientPtr database, std::shared_ptr<
             for (const OpRow& row : rows) {
                 if (row.seq <= room->lastSeq()) continue;  // applied meanwhile
                 const auto op = decodeOperation(row.payload);
-                if (!op || !applyAndBroadcast(*room, row.seq, row.userId, *op)) {
+                if (!op || !applyAndBroadcast(*room, row.seq, row.userId, row.clientOpId, *op)) {
                     logError("remote op didn't apply", {},
                              {{"document", room->documentId()}, {"seq", row.seq}});
                     co_return;

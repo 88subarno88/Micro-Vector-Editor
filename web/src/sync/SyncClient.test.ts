@@ -1,24 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { closeWithoutToken, pingIntervalMs, socketUrl, SyncClient, type SocketLike, type SyncEvents } from './SyncClient'
-
-// A stand-in for a WebSocket: records what's sent, and lets the test play the server.
-class FakeSocket implements SocketLike {
-  readyState = 0
-  sent: unknown[] = []
-  closedWith: number | null = null
-  onopen: ((event: Event) => void) | null = null
-  onmessage: ((event: MessageEvent) => void) | null = null
-  onclose: ((event: CloseEvent) => void) | null = null
-  readonly url: string
-  constructor(url: string) { this.url = url }
-
-  send(data: string) { this.sent.push(JSON.parse(data)) }
-  close(code = 1000) { this.closedWith = code; this.readyState = 3 }
-
-  opened() { this.readyState = 1; this.onopen?.(new Event('open')) }
-  receive(message: unknown) { this.onmessage?.({ data: JSON.stringify(message) } as MessageEvent) }
-  dropped(code: number, reason = '') { this.readyState = 3; this.onclose?.({ code, reason } as CloseEvent) }
-}
+import { closeWithoutToken, pingIntervalMs, socketUrl, SyncClient, type SyncEvents } from './SyncClient'
+import { FakeSocket } from './testing'
 
 function setUp({ token = 'tok' as string | null, renews = true } = {}) {
   const sockets: FakeSocket[] = []
@@ -81,15 +63,15 @@ describe('SyncClient', () => {
     expect(client.status).toBe('joining')
     expect(events.onReady).toHaveBeenCalledWith('editor')
 
-    socket.receive({ type: 'joined', headSeq: 43, ops: [{ seq: 43, userId: 'u', op: { kind: 'deleteShape', id: 'a' } }] })
+    socket.receive({ type: 'joined', headSeq: 43, ops: [{ seq: 43, userId: 'u', clientOpId: 'c', op: { kind: 'deleteShape', id: 'a' } }] })
     expect(client.status).toBe('live')
-    expect(events.onJoined).toHaveBeenCalledWith({ headSeq: 43, ops: [{ seq: 43, userId: 'u', op: { kind: 'deleteShape', id: 'a' } }] })
+    expect(events.onJoined).toHaveBeenCalledWith({ headSeq: 43, ops: [{ seq: 43, userId: 'u', clientOpId: 'c', op: { kind: 'deleteShape', id: 'a' } }] })
     expect(events.onStatus.mock.calls.map(([status]) => status)).toEqual(['connecting', 'joining', 'live'])
   })
 
   it('passes on what arrives, and ignores what it cannot read', async () => {
     const { socket, events } = await joined()
-    socket.receive({ type: 'op', seq: 6, userId: 'u', op: { kind: 'deleteShape', id: 'a' } })
+    socket.receive({ type: 'op', seq: 6, userId: 'u', clientOpId: 'c', op: { kind: 'deleteShape', id: 'a' } })
     socket.receive({ type: 'ack', clientOpId: 'c1', seq: 7 })
     socket.receive({ type: 'reject', clientOpId: 'c2', reason: 'forbidden', message: 'viewers cannot edit' })
     socket.receive({ type: 'presence', users: [] })
@@ -97,7 +79,7 @@ describe('SyncClient', () => {
     socket.receive({ type: 'op', seq: 'eight' })
     socket.onmessage?.({ data: '{oops' } as MessageEvent)
 
-    expect(events.onOp).toHaveBeenCalledExactlyOnceWith({ seq: 6, userId: 'u', op: { kind: 'deleteShape', id: 'a' } })
+    expect(events.onOp).toHaveBeenCalledExactlyOnceWith({ seq: 6, userId: 'u', clientOpId: 'c', op: { kind: 'deleteShape', id: 'a' } })
     expect(events.onAck).toHaveBeenCalledWith('c1', 7)
     expect(events.onReject).toHaveBeenCalledWith('c2', 'forbidden', 'viewers cannot edit')
     expect(events.onPresence).toHaveBeenCalledWith([])
@@ -156,7 +138,7 @@ describe('SyncClient', () => {
     const { client, socket, events } = await joined()
     client.close()
     socket.dropped(1000)
-    socket.receive({ type: 'op', seq: 6, userId: 'u', op: {} })
+    socket.receive({ type: 'op', seq: 6, userId: 'u', clientOpId: 'c', op: {} })
     expect(socket.closedWith).toBe(1000)
     expect(events.onClosed).not.toHaveBeenCalled()
     expect(events.onOp).not.toHaveBeenCalled()

@@ -14,6 +14,12 @@
 // core on the same state in the same order, will refuse it too; a reject then drops it. Refused ops are
 // dropped whatever the reason, even "too many edits" or a server error: the server has moved on without them,
 // and resending one later would put it out of order.
+//
+// When the connection drops, answers can be lost with it. On rejoining, the server sends what was missed,
+// which may include this client's own ops: each carries its clientOpId, so it's taken as the lost ack. Then
+// every op still pending is sent again with the same clientOpId; the server recognises any it already stored
+// and acks it with the original seq instead of applying it twice. A lost reject can't be recovered: that op
+// is sent again and the server decides afresh, after what came since.
 
 export interface Drawings {
   // Each applies an op: null, or why it doesn't apply (and nothing changed).
@@ -21,6 +27,8 @@ export interface Drawings {
   applyLocal(op: object): string | null
   // Makes the local drawing a copy of the confirmed one.
   resetLocal(): void
+  // Replaces the confirmed drawing with the server's whole drawing: null, or why it couldn't be loaded.
+  loadConfirmed(snapshot: object): string | null
 }
 
 // How ops reach the server.
@@ -87,16 +95,30 @@ export class SyncEngine {
     const index = this.pending.findIndex((pending) => pending.clientOpId === clientOpId)
     if (index === -1) return
     const [acked] = this.pending.splice(index, 1)
+    if (seq <= this.lastSeq) {
+      // A resent op the server had already stored, before the snapshot this client restarted from: the
+      // confirmed drawing has it, so only the local one, which applied it again, needs rebuilding.
+      this.rebuildLocal()
+      return
+    }
     // The server applied it, after everything it committed earlier, which this client has already received.
     // If it couldn't be applied here too, the two drawings differ.
-    if (!acked.applied || this.drawings.applyConfirmed(acked.op)) this.diverged = true
-    this.lastSeq = Math.max(this.lastSeq, seq)
+    if (this.drawings.applyConfirmed(acked.op) || (index === 0 && !acked.applied)) this.diverged = true
+    this.lastSeq = seq
+    // Acked ahead of older pending ops, which only happens when their rejects were lost with a connection:
+    // the server's order isn't the local one, so the local drawing follows the server's.
+    if (index > 0) this.rebuildLocal()
   }
 
-  // Someone else's op, committed as `seq`, arrives.
-  remote(seq: number, op: object): RemoteResult {
+  // An op committed as `seq` arrives: someone else's, or one of this client's own whose ack was lost, which
+  // its clientOpId tells apart.
+  remote(seq: number, op: object, clientOpId = ''): RemoteResult {
     if (seq <= this.lastSeq) return 'duplicate'
     if (seq !== this.lastSeq + 1) return 'gap'
+    if (this.pending.some((pending) => pending.clientOpId === clientOpId)) {
+      this.ack(clientOpId, seq)
+      return this.diverged ? 'diverged' : 'applied'
+    }
     if (this.drawings.applyConfirmed(op)) return this.diverge()
     this.lastSeq = seq
 
@@ -119,6 +141,25 @@ export class SyncEngine {
     // already left out isn't showing, so there's nothing to take out.
     if (rejected.applied) this.rebuildLocal()
     return rejected.op
+  }
+
+  // Starts again from the server's whole drawing at `seq`, as when rejoining too far behind for the server to
+  // send what was missed. Pending ops stay on top, to be resent; any the drawing already holds is shown
+  // twice until its ack comes back with an older seq.
+  loadSnapshot(seq: number, snapshot: object) {
+    if (this.drawings.loadConfirmed(snapshot)) {
+      this.diverged = true
+      return
+    }
+    this.lastSeq = seq
+    this.rebuildLocal()
+  }
+
+  // Sends every pending op again, oldest first, as after reconnecting: whatever was sent before may have
+  // been lost with the connection.
+  resend() {
+    for (const pending of this.pending) pending.sent = false
+    this.flush()
   }
 
   // Sends the pending ops not sent yet, oldest first, stopping at the first that can't go: a later op must

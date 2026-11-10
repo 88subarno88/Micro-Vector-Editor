@@ -31,6 +31,7 @@ using SessionId = uint64_t;
 struct RecentOp {
     int64_t seq = 0;
     std::string userId;
+    std::string clientOpId;  // so a rejoining client can recognise its own op whose ack it missed
     Operation op;
 };
 
@@ -82,9 +83,11 @@ public:
     }
     void failLoad();
 
-    // Applies an op already committed to the log at `seq` by `userId`, the next one after lastSeq(), and
-    // advances lastSeq(). False, changing nothing, if `seq` isn't the next one or the op doesn't apply.
-    bool applyCommitted(const Operation& op, int64_t seq, const std::string& userId);
+    // Applies an op already committed to the log at `seq` by `userId` as `clientOpId`, the next one after
+    // lastSeq(), and advances lastSeq(). False, changing nothing, if `seq` isn't the next one or the op
+    // doesn't apply.
+    bool applyCommitted(const Operation& op, int64_t seq, const std::string& userId,
+                        const std::string& clientOpId);
 
     // The ops after `seq`, oldest first, if the room still remembers all of them: it keeps the last
     // maxRecentOps it applied, but none from before it loaded. nullopt otherwise, and for a `seq` ahead of

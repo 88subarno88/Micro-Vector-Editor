@@ -1,3 +1,7 @@
+#include <drogon/HttpRequest.h>
+#include <drogon/WebSocketClient.h>
+
+#include <future>
 #include <memory>
 #include <string>
 
@@ -76,4 +80,29 @@ TEST_F(SyncHttpTest, AClientThatJoinsLaterGetsTheSameDrawing) {
     const auto late = connect(editorTokens[0]);
 
     expectEveryoneAgrees({alice.get(), bob.get(), late.get()});
+}
+
+// The first connection to a document closes while it's still joining, as when a page opens the document
+// and is closed or reloaded at once. The next client must still be able to open it.
+TEST_F(LiveDocTest, AConnectionThatClosesWhileJoiningLeavesTheDocumentOpenToOthers) {
+    createSharedDocument("alice@example.com", {});
+    for (int i = 0; i < 3;
+         ++i) {  // the close must beat the join, which waits on the database: it nearly always does
+        const auto quitter = drogon::WebSocketClient::newWebSocketClient("127.0.0.1", server->port);
+        auto request = drogon::HttpRequest::newHttpRequest();
+        request->setPath("/ws/docs/" + documentId);
+        request->setParameter("token", ownerToken);
+        std::promise<void> connected;
+        quitter->connectToServer(request, [&](drogon::ReqResult, const drogon::HttpResponsePtr&,
+                                              const drogon::WebSocketClientPtr& client) {
+            if (const auto connection = client->getConnection()) connection->forceClose();
+            connected.set_value();
+        });
+        connected.get_future().wait();
+    }
+
+    const auto next = connect(ownerToken);  // fails here if the room is stuck loading
+
+    next->send(Move{"missing", 1, 1});  // and it really works: the op gets an answer
+    EXPECT_TRUE(next->waitUntilSettled(0));
 }

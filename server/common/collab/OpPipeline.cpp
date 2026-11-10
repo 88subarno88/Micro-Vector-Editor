@@ -41,8 +41,9 @@ drogon::Task<bool> catchUp(const std::shared_ptr<drogon::orm::Transaction>& tran
         if (rows.empty()) co_return false;
         for (const vec::OpRow& row : rows) {
             const auto decoded = vec::decodeOperation(row.payload);
-            if (!decoded || !room->applyCommitted(*decoded, row.seq, row.userId)) co_return false;
-            room->broadcast(opBroadcast(row.seq, row.userId, *decoded));
+            if (!decoded || !room->applyCommitted(*decoded, row.seq, row.userId, row.clientOpId))
+                co_return false;
+            room->broadcast(opBroadcast(row.seq, row.userId, row.clientOpId, *decoded));
         }
         vec::logInfo("room caught up", {},
                      {{"document", room->documentId()}, {"ops", rows.size()}, {"lastSeq", room->lastSeq()}});
@@ -52,8 +53,10 @@ drogon::Task<bool> catchUp(const std::shared_ptr<drogon::orm::Transaction>& tran
 
 }  // namespace
 
-std::string opBroadcast(int64_t seq, const std::string& userId, const Operation& op) {
-    return json{{"type", "op"}, {"seq", seq}, {"userId", userId}, {"op", op}}.dump();
+std::string opBroadcast(int64_t seq, const std::string& userId, const std::string& clientOpId,
+                        const Operation& op) {
+    return json{{"type", "op"}, {"seq", seq}, {"userId", userId}, {"clientOpId", clientOpId}, {"op", op}}
+        .dump();
 }
 
 drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec::Room> room, OpSender sender,
@@ -122,16 +125,19 @@ drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<vec:
         }
 
         // Only now, with the op committed, does the room change and the sender hear back.
-        if (!room->applyCommitted(op.op, inserted.seq, sender.userId)) {
+        if (!room->applyCommitted(op.op, inserted.seq, sender.userId, op.clientOpId)) {
             vec::logError("committed op didn't apply to the room", {},
                           {{"document", room->documentId()}, {"seq", inserted.seq}});
         }
         ack(sender, op, inserted.seq);
-        room->broadcast(opBroadcast(inserted.seq, sender.userId, op.op), sender.session);
+        room->broadcast(opBroadcast(inserted.seq, sender.userId, op.clientOpId, op.op), sender.session);
         // After the commit, like the ack: other instances only ever hear of ops that are in the log.
         if (publish)
-            publish(room->documentId(),
-                    json{{"seq", inserted.seq}, {"userId", sender.userId}, {"op", op.op}}.dump());
+            publish(room->documentId(), json{{"seq", inserted.seq},
+                                             {"userId", sender.userId},
+                                             {"clientOpId", op.clientOpId},
+                                             {"op", op.op}}
+                                            .dump());
         snapshotIfDue(database, room);
         timing.timer.mark("apply_and_send");
         timing.outcome = "ack";

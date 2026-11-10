@@ -121,6 +121,7 @@ TEST_F(OpPipelineTest, AnOpIsStoredAppliedAckedAndBroadcast) {
     EXPECT_DOUBLE_EQ(xOfA(), 5);
     EXPECT_EQ(watcher.last().at("type"), "op");
     EXPECT_EQ(watcher.last().at("seq"), 1);
+    EXPECT_EQ(watcher.last().at("clientOpId"), "c1");  // so the sender, rejoining, can recognise it
 }
 
 TEST_F(OpPipelineTest, ADuplicateClientOpIdGetsTheOriginalAckAndChangesNothing) {
@@ -188,6 +189,7 @@ TEST_F(OpPipelineTest, OpsFromAnotherInstanceAreCaughtUpAndBroadcastFirst) {
     EXPECT_DOUBLE_EQ(xOfA(), 105);
     ASSERT_EQ(watcher.size(), 2u);
     EXPECT_EQ(watcher.messages[0].at("seq"), 1);
+    EXPECT_EQ(watcher.messages[0].at("clientOpId"), "elsewhere");
     EXPECT_EQ(watcher.messages[1].at("seq"), 2);
 }
 
@@ -241,7 +243,8 @@ TEST_F(OpPipelineTest, EachCommittedOpIsPublishedOnceForOtherInstances) {
 
     ASSERT_EQ(published.size(), 1u);
     EXPECT_EQ(published[0].first, document.id);
-    EXPECT_EQ(published[0].second, json({{"seq", 1}, {"userId", user.id}, {"op", json(moveA)}}));
+    EXPECT_EQ(published[0].second,
+              json({{"seq", 1}, {"userId", user.id}, {"clientOpId", "c1"}, {"op", json(moveA)}}));
 }
 
 TEST_F(OpPipelineTest, OpsCaughtUpFromOtherInstancesAreNotPublishedAgain) {

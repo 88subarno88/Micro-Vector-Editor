@@ -1,6 +1,7 @@
 // The engine with the real WebAssembly core: a simulated server and two clients make random edits to the
-// same shapes, and messages arrive in random orders. Once everything has been delivered, both clients
-// must hold exactly the server's drawing. Needs the core copied in with `npm run wasm`; skipped without it.
+// same shapes, and messages arrive in random orders. Connections drop at random, losing whatever was in
+// flight, and come back with a catch-up: the missed ops, or now and then the whole drawing. Once everything
+// has been delivered, both clients must hold exactly the server's drawing. Needs the core copied in with `npm run wasm`; skipped without it.
 import { describe, expect, it } from 'vitest'
 import { SyncEngine, type Drawings } from './SyncEngine'
 
@@ -43,10 +44,9 @@ function randomOp(next: () => number): object {
   }
 }
 
-const applyTo = (doc: CoreDocument, op: object): string | null => {
-  const result = JSON.parse(doc.applyOp(JSON.stringify(op)))
-  return result.error ? result.error.message : null
-}
+// The core answers with JSON: an error, or not.
+const errorIn = (result: string): string | null => JSON.parse(result).error?.message ?? null
+const applyTo = (doc: CoreDocument, op: object) => errorIn(doc.applyOp(JSON.stringify(op)))
 
 // A client's two drawings in the core. The local one is reset by copying the confirmed one's JSON, whose
 // numbers round-trip exactly.
@@ -56,6 +56,7 @@ const drawingsOf = (confirmed: CoreDocument, local: CoreDocument): Drawings => (
   resetLocal: () => {
     local.loadJson(confirmed.shapesJson())
   },
+  loadConfirmed: (snapshot) => errorIn(confirmed.loadJson(JSON.stringify(snapshot))),
 })
 
 type ToServer = { from: number; clientOpId: string; op: object }
@@ -64,7 +65,8 @@ type ToClient =
   | { kind: 'op'; seq: number; op: object }
   | { kind: 'reject'; clientOpId: string; reason: 'refused' | 'rate_limited' }
 
-let rolledBack = 0 // visible edits taken back, across all runs: the test must really exercise this
+// Across all runs, so the test can check it really exercised each of these.
+const seen = { rolledBack: 0, ownOpsCaughtUp: 0, resendsRecognised: 0, snapshots: 0 }
 
 async function simulate(seed: number, steps: number) {
   const vec = await (await loadCore()).default()
@@ -72,28 +74,62 @@ async function simulate(seed: number, steps: number) {
 
   const server = new vec.Document()
   let seq = 0
+  const log: { seq: number; clientOpId: string; op: object }[] = [] // every committed op
   const inbound: ToServer[] = [] // one queue into the server: the room runs ops one at a time
   const outbound: ToClient[][] = [[], []] // in order, per client, as on a WebSocket
+  const online = [true, true]
 
   const clients = [0, 1].map((index) => {
     const confirmed = new vec.Document()
     const doc = new vec.Document() // what the user sees
     const engine = new SyncEngine(drawingsOf(confirmed, doc), {
-      send: (clientOpId, _baseSeq, op) => (inbound.push({ from: index, clientOpId, op }), true),
+      send: (clientOpId, _baseSeq, op) => online[index] && (inbound.push({ from: index, clientOpId, op }), true),
     }, 0)
     return { confirmed, doc, engine }
   })
 
   const serverStep = () => {
     const message = inbound.shift()!
+    const answers = outbound[message.from]
+    // A resend of an op already stored: acked again with its seq, not applied twice.
+    const stored = log.find((committed) => committed.clientOpId === message.clientOpId)
+    if (stored) return seen.resendsRecognised++, answers.push({ kind: 'ack', clientOpId: message.clientOpId, seq: stored.seq })
     // Now and then the server turns an op away without looking at it, as when rate limited: the client
     // must then take back an edit that applied fine and may have others on top.
-    if (next() < 0.05) return outbound[message.from].push({ kind: 'reject', clientOpId: message.clientOpId, reason: 'rate_limited' })
+    if (next() < 0.05) return answers.push({ kind: 'reject', clientOpId: message.clientOpId, reason: 'rate_limited' })
     const refused = JSON.parse(server.applyOp(JSON.stringify(message.op))).error
-    if (refused) return outbound[message.from].push({ kind: 'reject', clientOpId: message.clientOpId, reason: 'refused' })
+    if (refused) return answers.push({ kind: 'reject', clientOpId: message.clientOpId, reason: 'refused' })
     seq += 1
-    outbound[message.from].push({ kind: 'ack', clientOpId: message.clientOpId, seq })
-    outbound[1 - message.from].push({ kind: 'op', seq, op: message.op })
+    log.push({ seq, clientOpId: message.clientOpId, op: message.op })
+    answers.push({ kind: 'ack', clientOpId: message.clientOpId, seq })
+    if (online[1 - message.from]) outbound[1 - message.from].push({ kind: 'op', seq, op: message.op })
+  }
+
+  // The connection drops: what the client sent and the server hasn't read is lost, and so is everything the
+  // server sent and the client hasn't read.
+  const disconnect = (index: number) => {
+    online[index] = false
+    outbound[index].length = 0
+    for (let i = inbound.length - 1; i >= 0; i--) if (inbound[i].from === index) inbound.splice(i, 1)
+  }
+  // Rejoining: the server sends what the client missed, its own ops included, or now and then its whole
+  // drawing instead, as when the client is too far behind; then everything pending goes again.
+  const reconnect = (index: number) => {
+    const { engine } = clients[index]
+    online[index] = true
+    if (next() < 0.3) {
+      seen.snapshots++
+      engine.loadSnapshot(seq, JSON.parse(server.shapesJson()))
+    } else {
+      const missed = log.filter((c) => c.seq > engine.lastSeq)
+      for (const committed of missed) {
+        if (engine.pending.some((p) => p.clientOpId === committed.clientOpId)) seen.ownOpsCaughtUp++
+        expect(engine.remote(committed.seq, committed.op, committed.clientOpId)).toBe('applied')
+      }
+      // Its own ops in the catch-up were recognised: none is still pending, which would show it twice.
+      expect(engine.pending.filter((p) => missed.some((c) => c.clientOpId === p.clientOpId))).toEqual([])
+    }
+    engine.resend()
   }
   const clientStep = (index: number) => {
     const message = outbound[index].shift()!
@@ -105,7 +141,7 @@ async function simulate(seed: number, steps: number) {
       // client has already received in order and rebased onto, so it must already be left out here too.
       const rejected = engine.pending.find((p) => p.clientOpId === message.clientOpId)!
       if (message.reason === 'refused') expect(rejected.applied).toBe(false)
-      if (rejected.applied) rolledBack++
+      if (rejected.applied) seen.rolledBack++
       engine.reject(message.clientOpId)
     }
   }
@@ -114,12 +150,17 @@ async function simulate(seed: number, steps: number) {
     const choice = next()
     if (choice < 0.4) clients[Math.floor(next() * 2)].engine.local(randomOp(next))
     else if (choice < 0.7 && inbound.length) serverStep()
-    else {
+    else if (choice < 0.73) {
+      const index = Math.floor(next() * 2)
+      if (online[index]) disconnect(index)
+      else reconnect(index)
+    } else {
       const ready = [0, 1].filter((i) => outbound[i].length)
       if (ready.length) clientStep(ready[Math.floor(next() * ready.length)])
     }
   }
-  // Deliver everything still in flight.
+  // Bring everyone back, and deliver everything still in flight.
+  for (const index of [0, 1]) if (!online[index]) reconnect(index)
   while (inbound.length || outbound[0].length || outbound[1].length) {
     if (inbound.length) serverStep()
     else clientStep(outbound[0].length ? 0 : 1)
@@ -141,6 +182,9 @@ describe.skipIf(!loadCore)('rebasing with the real core', () => {
         expect(result.drawing, `seed ${seed}`).toBe(expected)
       }
     }
-    expect(rolledBack).toBeGreaterThan(10)
+    expect(seen.rolledBack).toBeGreaterThan(10)
+    expect(seen.ownOpsCaughtUp).toBeGreaterThan(10)
+    expect(seen.resendsRecognised).toBeGreaterThan(10)
+    expect(seen.snapshots).toBeGreaterThan(10)
   }, 60_000)
 })

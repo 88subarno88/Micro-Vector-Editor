@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Core } from '../core/core'
 import DrawingCanvas, { drawingHeight, drawingWidth, handleSize, type PointerPhase } from './DrawingCanvas'
+import { coalescedMoves } from './moves'
 import type { DrawCommand } from './paint'
 import { factorFor, handleFor, scaleBounds } from './resize'
 import StylePanel, { type StyleChange } from './StylePanel'
 import { newShapeId, shapeForDrag, shapeForStroke, textShape, tools, type Point, type Tool } from './tools'
-import { useDrawing, type LoadedDocument } from './useDrawing'
+import { useDrawing, type LoadedDocument, type SyncOverrides } from './useDrawing'
 import { fitted, toScreen, zoomAround, zoomStep, type Viewport } from './viewport'
 
 // A move this small, in drawing units, is a click on the shape, not a move; likewise a resize this close to 1.
@@ -20,20 +21,19 @@ const canvasCentre = { x: drawingWidth / 2, y: drawingHeight / 2 }
 
 type Drag =
   | { mode: 'draw'; id: string; points: Point[] } // drawing a new shape
-  | { mode: 'move'; id: string; start: Point } // moving the selected shape
+  | { mode: 'move'; id: string; start: Point; moves: ReturnType<typeof coalescedMoves> } // moving the selected shape
   | { mode: 'resize'; id: string; anchor: Point; handle: Point } // resizing it by its handle
 
-// How the selected shape is being changed mid-drag, for drawing its outline there.
+// How the selected shape is being changed mid-drag, beyond the edits already made, for drawing its outline
+// there.
 type Change = { kind: 'move'; by: Point } | { kind: 'resize'; anchor: Point; factor: number }
 
 // The editor: a toolbar above the drawing. The Select tool picks a shape to move, resize by its handle,
-// restyle in the style panel, copy or delete; the others draw. The view zooms and pans. Edits change the
-// drawing in this browser only, until edits are sent to the server (step 31).
-export default function Editor({ core, loaded }: { core: Core; loaded: LoadedDocument }) {
-  const { commands, error, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf, translated } = useDrawing(
-    core,
-    loaded,
-  )
+// restyle in the style panel, copy or delete; the others draw. The view zooms and pans. Every edit shows at
+// once and is sent to the server, and others' edits appear as they're made.
+export default function Editor({ core, loaded, sync }: { core: Core; loaded: LoadedDocument; sync?: SyncOverrides }) {
+  const { commands, error, rejected, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf, translated } =
+    useDrawing(core, loaded, sync)
   const [tool, setTool] = useState<Tool>('select')
   const [selected, setSelected] = useState<string | null>(null)
   // The drag in progress. A ref, not state: pointer moves can arrive faster than React renders, and each
@@ -105,6 +105,14 @@ export default function Editor({ core, loaded }: { core: Core; loaded: LoadedDoc
   }
 
   const moveOp = (id: string, by: Point) => ({ kind: 'move', id, dx: by.x, dy: by.y })
+  // Part of a drag made into an edit while the pointer is still moving: the shape is now drawn there, so
+  // nothing is left to preview.
+  function moved(id: string, by: Point) {
+    run(moveOp(id, by))
+    if (drag.current?.mode !== 'move') return // the drag's last part: it has ended
+    setChange({ kind: 'move', by: { x: 0, y: 0 } })
+    setShown(null)
+  }
   const resizeOp = (id: string, factor: number) => ({ kind: 'resize', id, factor })
   // The handle's size on screen, in drawing units at this zoom.
   const grab = handleSize / view.scale
@@ -156,7 +164,8 @@ export default function Editor({ core, loaded }: { core: Core; loaded: LoadedDoc
       } else if (tool === 'select') {
         const hit = shapeAt(point)
         setSelected(hit)
-        drag.current = hit ? { mode: 'move', id: hit, start: point } : null
+        const moves = hit && coalescedMoves((by) => moved(hit, by), minimumMove)
+        drag.current = hit && moves ? { mode: 'move', id: hit, start: point, moves } : null
       } else {
         drag.current = { mode: 'draw', id: newShapeId(), points: [point] }
       }
@@ -167,7 +176,8 @@ export default function Editor({ core, loaded }: { core: Core; loaded: LoadedDoc
     if (!current) return
     if (phase === 'move') {
       if (current.mode === 'move') {
-        const by = { x: point.x - current.start.x, y: point.y - current.start.y }
+        current.moves.to({ x: point.x - current.start.x, y: point.y - current.start.y })
+        const by = current.moves.unsent()
         setChange({ kind: 'move', by })
         setShown(preview(moveOp(current.id, by)))
       } else if (current.mode === 'resize') {
@@ -185,12 +195,12 @@ export default function Editor({ core, loaded }: { core: Core; loaded: LoadedDoc
     drag.current = null
     setShown(null)
     setChange(null)
-    if (phase === 'cancel') return
     if (current.mode === 'move') {
-      const by = { x: point.x - current.start.x, y: point.y - current.start.y }
-      if (Math.abs(by.x) > minimumMove || Math.abs(by.y) > minimumMove) run(moveOp(current.id, by))
+      // A cancelled move stops where it got to: some of it may already be on the server.
+      current.moves.end(phase === 'cancel' ? undefined : { x: point.x - current.start.x, y: point.y - current.start.y })
       return
     }
+    if (phase === 'cancel') return
     if (current.mode === 'resize') {
       const factor = factorFor(current.anchor, current.handle, point)
       if (Math.abs(factor - 1) > minimumResize) run(resizeOp(current.id, factor))
@@ -282,7 +292,7 @@ export default function Editor({ core, loaded }: { core: Core; loaded: LoadedDoc
         )}
       </div>
       {problem && <p className="error" role="alert">That edit didn't apply: {problem}</p>}
-      <p className="hint">Changes aren't saved yet: they stay in this browser tab until live editing arrives.</p>
+      {rejected && <p className="error" role="alert">{rejected}</p>}
     </section>
   )
 }

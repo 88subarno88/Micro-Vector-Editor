@@ -15,11 +15,13 @@
 namespace vec {
 
 // Announces a committed op to the other server instances: (documentId, message), where the message is
-// JSON {"seq", "userId", "op", "instance"}. Called on the room's loop, once per op this instance commits.
+// JSON {"seq", "userId", "clientOpId", "op", "instance"}. Called on the room's loop, once per op this
+// instance commits.
 using OpPublisher = std::function<void(const std::string& documentId, const std::string& message)>;
 
-// An op as room members receive it: {"type": "op", "seq", "userId", "op"}.
-std::string opBroadcast(int64_t seq, const std::string& userId, const Operation& op);
+// An op as room members receive it: {"type": "op", "seq", "userId", "clientOpId", "op"}.
+std::string opBroadcast(int64_t seq, const std::string& userId, const std::string& clientOpId,
+                        const Operation& op);
 
 // Who sent an op, and how to answer them.
 struct OpSender {
@@ -30,13 +32,12 @@ struct OpSender {
 
 // Handles one op for `room`, answering the sender with {"type": "ack", "clientOpId", "seq"} once it is
 // committed, or {"type": "reject", "clientOpId", "reason", "message"}. Every other member of the room gets
-// {"type": "op", "seq", "userId", "op"}, as they do for ops caught up from other instances; each member
-// receives ops in seq order. Run it as one of the room's tasks,
-// so that ops never overlap: each locks the document's row in a transaction, which also keeps ops from
-// other server instances in order, and first applies any ops those instances committed that this room
-// hasn't seen. A retry of a stored op (same clientOpId) gets the original ack. Never throws.
-// Logs "op timing" with the microseconds spent in each stage, from `queuedAt`, when the op entered the
-// room's queue.
+// {"type": "op", "seq", "userId", "clientOpId", "op"}, as they do for ops caught up from other instances;
+// each member receives ops in seq order. Run it as one of the room's tasks, so that ops never overlap: each
+// locks the document's row in a transaction, which also keeps ops from other server instances in order, and
+// first applies any ops those instances committed that this room hasn't seen. A retry of a stored op (same
+// clientOpId) gets the original ack. Never throws. Logs "op timing" with the microseconds spent in each
+// stage, from `queuedAt`, when the op entered the room's queue.
 drogon::Task<> processOp(drogon::orm::DbClientPtr database, std::shared_ptr<Room> room, OpSender sender,
                          OpMessage op, std::chrono::steady_clock::time_point queuedAt, OpPublisher publish);
 

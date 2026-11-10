@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import { getAccessToken, renewAccessToken } from '../api/client'
 import type { components } from '../api/schema'
 import type { Core } from '../core/core'
+import { DocumentSync, type DocumentSyncOptions } from '../sync/DocumentSync'
+import { describeRejection } from '../sync/rejections'
+import type { Drawings } from '../sync/SyncEngine'
 import type { Document as CoreDocument } from '../wasm/vec.js'
 import type { DrawCommand } from './paint'
 import { anchorFrom } from './resize'
@@ -15,52 +19,100 @@ export interface Bounds {
 
 export type LoadedDocument = components['schemas']['DocumentWithDrawing']
 
+// Replaces how the drawing connects to the server, as tests do.
+export type SyncOverrides = Partial<Omit<DocumentSyncOptions, 'drawings' | 'lastSeq' | 'events'>>
+
 // What applyOp and loadJson return.
 type Result = { ok: true } | { error: { code: string; message: string } }
+
+const errorIn = (result: string): string | null => {
+  const parsed: Result = JSON.parse(result)
+  return 'error' in parsed ? parsed.error.message : null
+}
 
 // Rebuilds the drawing from what the server sent, its snapshot then the ops after it. Null, or why not.
 function rebuild(drawing: CoreDocument, loaded: LoadedDocument): string | null {
   if (loaded.snapshot) {
-    const result: Result = JSON.parse(drawing.loadJson(JSON.stringify(loaded.snapshot.state)))
-    if ('error' in result) return `The drawing couldn't be read: ${result.error.message}`
+    const failure = errorIn(drawing.loadJson(JSON.stringify(loaded.snapshot.state)))
+    if (failure) return `The drawing couldn't be read: ${failure}`
   }
   for (const op of loaded.ops) {
-    const result: Result = JSON.parse(drawing.applyOp(JSON.stringify(op.op)))
-    if ('error' in result) return `Edit ${op.seq} didn't apply: ${result.error.message}`
+    const failure = errorIn(drawing.applyOp(JSON.stringify(op.op)))
+    if (failure) return `Edit ${op.seq} didn't apply: ${failure}`
   }
   return null
 }
 
 const commandsOf = (drawing: CoreDocument): DrawCommand[] => JSON.parse(drawing.drawCommands())
 
-// A document's drawing, held in the WebAssembly core while the page is open.
-export function useDrawing(core: Core, loaded: LoadedDocument) {
+const stopped = {
+  not_found: 'This document has been deleted, or you no longer have access to it.',
+  signed_out: 'You have been signed out. Sign in again to keep editing.',
+}
+
+// A document's drawing, held in the WebAssembly core while the page is open and kept in step with the
+// server's. Two copies are kept (see SyncEngine): the one the user sees, which every other function here
+// reads, and the server's as far as this client knows it.
+export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncOverrides) {
   const [drawing, setDrawing] = useState<CoreDocument | null>(null)
+  const [sync, setSync] = useState<DocumentSync | null>(null)
   const [commands, setCommands] = useState<DrawCommand[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [rejected, setRejected] = useState<string | null>(null) // why the server refused the latest edit
+  const [syncOverrides] = useState(overrides) // read once, when the drawing loads
 
   useEffect(() => {
-    const created = new core.Document()
-    const failure = rebuild(created, loaded)
-    // Creates an object in WebAssembly memory, which must be freed when the page closes, so it can't be
-    // made during render.
+    // Objects in WebAssembly memory, which must be freed when the page closes, so they can't be made during
+    // render.
+    const local = new core.Document()
+    const confirmed = new core.Document()
+    const failure = rebuild(confirmed, loaded) ?? errorIn(local.loadJson(confirmed.shapesJson()))
     // oxlint-disable-next-line react/set-state-in-effect
     setError(failure)
-    setCommands(failure ? [] : commandsOf(created))
-    setDrawing(failure ? null : created)
-    return () => created.delete()
-  }, [core, loaded])
+    setCommands(failure ? [] : commandsOf(local))
+    setDrawing(failure ? null : local)
+    if (failure) return () => [local, confirmed].forEach((document) => document.delete())
 
-  // Applies an edit. Null, or why it was refused.
+    const drawings: Drawings = {
+      applyConfirmed: (op) => errorIn(confirmed.applyOp(JSON.stringify(op))),
+      applyLocal: (op) => errorIn(local.applyOp(JSON.stringify(op))),
+      // A copy through JSON, whose numbers round-trip exactly.
+      resetLocal: () => void local.loadJson(confirmed.shapesJson()),
+      loadConfirmed: (snapshot) => errorIn(confirmed.loadJson(JSON.stringify(snapshot))),
+    }
+    const created = new DocumentSync({
+      documentId: loaded.document.id,
+      drawings,
+      lastSeq: loaded.ops.at(-1)?.seq ?? loaded.snapshot?.seq ?? 0,
+      getToken: getAccessToken,
+      renewToken: renewAccessToken,
+      events: {
+        onChange: () => setCommands(commandsOf(local)),
+        onRejected: (_op, reason, message) => setRejected(describeRejection(reason, message)),
+        onDiverged: () => setError('This drawing got out of step with the server. Reload the page to carry on.'),
+        onStopped: (reason) => setError(stopped[reason]),
+      },
+      ...syncOverrides,
+    })
+    setSync(created)
+    created.start()
+    return () => {
+      created.stop()
+      local.delete()
+      confirmed.delete()
+    }
+  }, [core, loaded, syncOverrides])
+
+  // Makes an edit, and sends it to the server. Null, or why the drawing refused it.
   const apply = useCallback(
     (op: object): string | null => {
-      if (!drawing) return 'The drawing is still loading.'
-      const result: Result = JSON.parse(drawing.applyOp(JSON.stringify(op)))
-      if ('error' in result) return result.error.message
-      setCommands(commandsOf(drawing))
-      return null
+      if (!drawing || !sync) return 'The drawing is still loading.'
+      setRejected(null)
+      const refused = sync.edit(op)
+      if (!refused) setCommands(commandsOf(drawing))
+      return refused
     },
-    [drawing],
+    [drawing, sync],
   )
 
   // How the drawing would look after `op`, without keeping it: applies it, looks, then applies its inverse.
@@ -123,5 +175,5 @@ export function useDrawing(core: Core, loaded: LoadedDocument) {
     [drawing],
   )
 
-  return { commands, error, ready: drawing !== null, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf, translated }
+  return { commands, error, rejected, ready: drawing !== null, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf, translated }
 }
