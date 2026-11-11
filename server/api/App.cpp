@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -99,6 +100,9 @@ std::string configureApp(const vec::Config& config, const drogon::orm::DbClientP
                                                                  redis->newSubscriber(), instanceId, redis));
     // The largest body any route accepts, an SVG upload included. Drogon answers bigger ones with 413.
     drogon::app().setClientMaxBodySize(maxRequestBodyBytes);
+    // Drogon makes folders for multipart uploads at startup, by default in the working directory, which in
+    // the container isn't writable. No route takes multipart uploads, so they go somewhere harmless.
+    drogon::app().setUploadPath((std::filesystem::temp_directory_path() / "vec-uploads").string());
     // The largest WebSocket message a client may send. Ops are small; this leaves room for big addShapes.
     drogon::app().setClientMaxWebSocketMessageSize(maxWebSocketMessageBytes);
     // A client that stops reading lets the server's send buffer for it grow with every broadcast. Drogon

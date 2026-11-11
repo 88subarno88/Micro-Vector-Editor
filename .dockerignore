@@ -1,0 +1,11 @@
+# The server's images build from the repository root, and need only these. Everything else, the build
+# folders above all, would make every build send gigabytes and miss the cache.
+*
+!CMakeLists.txt
+!vcpkg.json
+!core
+!render
+!server
+core/tests
+core/fuzz
+server/tests
