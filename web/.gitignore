@@ -25,3 +25,7 @@ dist-ssr
 
 # The WebAssembly core, copied from ../build/wasm by `npm run wasm`
 src/wasm
+
+# Playwright
+test-results
+playwright-report

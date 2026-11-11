@@ -28,6 +28,9 @@ struct Config {
     RedisEndpoint redis;
     std::string jwtSecret;
     std::string exportDir;  // where the export worker saves files
+    // Requests a minute each IP may make to the auth routes: enough for real use, too few to guess passwords
+    // or flood signups. Tests that sign in many times raise it.
+    int authRequestsPerMinute = 10;
 };
 
 // Looks up one setting by name; nullopt if it isn't set.
@@ -36,9 +39,9 @@ using EnvLookup = std::function<std::optional<std::string>(const std::string&)>;
 // Reads the process environment.
 std::optional<std::string> readEnv(const std::string& name);
 
-// Builds a Config from PORT, DATABASE_URL, REDIS_URL, JWT_SECRET and EXPORT_DIR. An empty value counts as
-// missing, and the two URLs must be well formed. The error lists every problem at once and never contains a
-// setting's value.
+// Builds a Config from PORT, DATABASE_URL, REDIS_URL, JWT_SECRET and EXPORT_DIR, and optionally
+// AUTH_REQUESTS_PER_MINUTE. An empty value counts as missing, and the two URLs must be well formed. The error
+// lists every problem at once and never contains a setting's value.
 tl::expected<Config, std::string> loadConfig(const EnvLookup& lookup = readEnv);
 
 }  // namespace vec

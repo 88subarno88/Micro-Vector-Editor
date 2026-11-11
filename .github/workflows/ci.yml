@@ -156,6 +156,17 @@ jobs:
           name: fuzz-crashes
           path: build/fuzz/artifacts/
 
+      - name: Keep the server for the end-to-end tests
+        if: matrix.preset == 'server'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vec-server
+          path: |
+            build/server/vec_api
+            build/server/vec_worker
+          retention-days: 1
+          if-no-files-found: error
+
   wasm:
     name: WebAssembly
     runs-on: ubuntu-24.04
@@ -259,3 +270,67 @@ jobs:
             echo "::error::tests were skipped; did the WebAssembly core reach src/wasm?"
             exit 1
           fi
+
+  e2e:
+    name: End to end
+    # The server built and tested in its own job, and the core for the client.
+    needs: [build-and-test, wasm]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the server
+        uses: actions/download-artifact@v4
+        with:
+          name: vec-server
+          path: build/server
+
+      - name: Get the WebAssembly core
+        uses: actions/download-artifact@v4
+        with:
+          name: vec-wasm
+          path: web/src/wasm
+
+      - name: Start the databases and migrate
+        run: |
+          docker compose -f deploy/docker-compose.dev.yml up -d --wait
+          curl -fsSL -o dbmate https://github.com/amacneil/dbmate/releases/download/v2.37.0/dbmate-linux-amd64
+          echo "f855e99a0f0a81322014bf686b1cb820d2b4d8074e4eadafd64b851b80ecb15a  dbmate" | sha256sum -c -
+          chmod +x dbmate
+          set -a; source deploy/dev.env; set +a
+          ./dbmate up
+
+      # Every test signs its users in, all from one address: far more than the usual auth limit allows.
+      - name: Start the server and the export worker
+        run: |
+          chmod +x build/server/vec_api build/server/vec_worker
+          set -a; source deploy/dev.env; set +a
+          AUTH_REQUESTS_PER_MINUTE=10000 build/server/vec_api > api.log 2>&1 &
+          build/server/vec_worker > worker.log 2>&1 &
+          curl -fsS --retry 20 --retry-delay 1 --retry-all-errors http://127.0.0.1:8080/readyz
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        working-directory: web
+        run: npm ci
+
+      - name: Test
+        working-directory: web
+        run: npx playwright test
+
+      - name: Keep the report and the server's logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            web/playwright-report/
+            web/test-results/
+            api.log
+            worker.log

@@ -32,7 +32,6 @@
 namespace {
 
 constexpr size_t passwordHashingThreads = 2;
-constexpr int authRequestsPerMinute = 10;
 constexpr double redisTimeoutSeconds = 1.0;
 constexpr size_t maxRequestBodyBytes = 1024 * 1024;
 constexpr size_t maxWebSocketMessageBytes = 64 * 1024;
@@ -85,9 +84,8 @@ std::string configureApp(const vec::Config& config, const drogon::orm::DbClientP
     // Distinguishes this process from other instances of the server sharing the same Redis.
     const std::string instanceId = drogon::utils::getUuid();
     drogon::app().registerFilter(std::make_shared<AuthFilter>(tokens));
-    // Enough for real use, but too few to guess passwords or flood signups.
-    drogon::app().registerFilter(
-        std::make_shared<RateLimitFilter>(redis, "auth", authRequestsPerMinute, std::chrono::minutes(1)));
+    drogon::app().registerFilter(std::make_shared<RateLimitFilter>(
+        redis, "auth", config.authRequestsPerMinute, std::chrono::minutes(1)));
     registerAuthRoutes(database, hashing, tokens);
     registerDocRoutes(database);
     registerExportRoutes(database, config.exportDir);

@@ -85,6 +85,21 @@ TEST(ConfigTest, AcceptsTheEndsOfThePortRange) {
     }
 }
 
+TEST(ConfigTest, TheAuthRateLimitIsTenAMinuteUnlessSetToAnother) {
+    EXPECT_EQ(load(validEnv())->authRequestsPerMinute, 10);
+
+    auto env = validEnv();
+    env["AUTH_REQUESTS_PER_MINUTE"] = "1000";
+    EXPECT_EQ(load(env)->authRequestsPerMinute, 1000);
+
+    for (const char* bad : {"0", "-5", "lots", "10.5"}) {
+        env["AUTH_REQUESTS_PER_MINUTE"] = bad;
+        const auto config = load(env);
+        ASSERT_FALSE(config) << bad;
+        EXPECT_NE(config.error().find("AUTH_REQUESTS_PER_MINUTE"), std::string::npos) << bad;
+    }
+}
+
 TEST(ConfigTest, RejectsAShortSecretWithoutPrintingIt) {
     auto env = validEnv();
     env["JWT_SECRET"] = "hunter2";

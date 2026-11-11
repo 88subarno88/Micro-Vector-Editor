@@ -111,6 +111,14 @@ tl::expected<Config, std::string> loadConfig(const EnvLookup& lookup) {
             problems.push_back("PORT must be a number from 1 to 65535");
     }
 
+    if (const auto limit = lookup("AUTH_REQUESTS_PER_MINUTE"); limit && !limit->empty()) {
+        const auto parsed = parseNumber<int>(*limit);
+        if (parsed && *parsed > 0)
+            config.authRequestsPerMinute = *parsed;
+        else
+            problems.push_back("AUTH_REQUESTS_PER_MINUTE must be a whole number above 0");
+    }
+
     if (problems.empty()) return config;
 
     std::string message = "invalid configuration:";
