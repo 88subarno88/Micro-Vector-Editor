@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { api } from '../api/client'
 import { attempt, describeFailure } from '../api/errors'
 import type { components } from '../api/schema'
@@ -8,6 +8,8 @@ import { useAuth } from '../auth/auth'
 type Doc = components['schemas']['Document']
 
 const pageSize = 20
+// The most the server takes in one upload.
+const maxImportBytes = 1024 * 1024
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 // One document in the list: open it, rename it in place, or delete it if it's yours.
@@ -67,9 +69,10 @@ function DocumentRow({ doc, isOwner, onRenamed, onDeleted }: {
   )
 }
 
-// The signed-in user's documents, newest first, with a form to start a new one.
+// The signed-in user's documents, newest first, with a form to start a new one or import an SVG file.
 export default function DocumentsPage() {
   const { user, logOut } = useAuth()
+  const navigate = useNavigate()
   const [docs, setDocs] = useState<Doc[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
@@ -105,6 +108,29 @@ export default function DocumentsPage() {
     setDocs((current) => [data, ...current])
   }
 
+  // Makes a document from an SVG file, named after the file, and opens it.
+  async function importSvg(file: File) {
+    if (file.size > maxImportBytes) return setError('That file is over 1 MB, the most that can be imported.')
+    setCreating(true)
+    const title = file.name.replace(/\.svg$/i, '').slice(0, 100) || 'Imported drawing'
+    const svg = await file.text()
+    const { data, error, response } = await attempt(() =>
+      api.POST('/api/docs', {
+        params: { query: { title } },
+        body: svg,
+        bodySerializer: (body) => body as string,
+        headers: { 'Content-Type': 'image/svg+xml' },
+      }),
+    )
+    setCreating(false)
+    if (data) return navigate(`/docs/${data.id}`)
+    setError(
+      error?.error.code === 'invalid_svg'
+        ? `That file couldn't be read as SVG (${error.error.message}).`
+        : describeFailure(error, response),
+    )
+  }
+
   return (
     <main>
       <header className="top">
@@ -118,6 +144,15 @@ export default function DocumentsPage() {
         <input aria-label="New document title" placeholder="Untitled drawing" required maxLength={200}
           value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
         <button type="submit" disabled={creating}>New document</button>
+        <label className={`button${creating ? ' disabled' : ''}`}>
+          Import SVG
+          <input type="file" accept=".svg,image/svg+xml" className="visually-hidden" disabled={creating}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              event.target.value = '' // so choosing the same file again still counts
+              if (file) void importSvg(file)
+            }} />
+        </label>
       </form>
       {error && <p className="error" role="alert">{error}</p>}
 

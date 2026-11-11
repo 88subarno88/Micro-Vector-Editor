@@ -6,6 +6,7 @@ import { useAuth } from '../auth/auth'
 import { useCore } from '../core/useCore'
 import Editor from '../editor/Editor'
 import type { LoadedDocument } from '../editor/useDrawing'
+import ExportButtons from './ExportButtons'
 import type { RestoreRequest } from './VersionPage'
 
 // One document, open in the editor.
@@ -47,6 +48,7 @@ export default function DocumentPage() {
           <p className="hint">
             You are {doc.role === 'owner' ? 'the owner' : `an ${doc.role}`}.
           </p>
+          <ExportButtons documentId={id} title={doc.document.title} />
           {coreError ? (
             <p className="error" role="alert">{coreError}</p>
           ) : core ? (

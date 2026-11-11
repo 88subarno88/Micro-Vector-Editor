@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
+import { StrictMode } from 'react'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
@@ -48,13 +49,16 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
   const state = {
     docs: [...docs], loggedIn, nextId: 100, ops: [addOp('s1'), addOp('s2')] as unknown[],
     history: [] as { seq: number }[], // newest first
+    imported: [] as { title: string | null; svg: string }[],
+    exportPolls: 0, // export jobs are done on the second poll
   }
   vi.stubGlobal('fetch', async (input: Request | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(input, init)
     const url = new URL(request.url)
     const route = `${request.method} ${url.pathname
-      .replace(/^\/api\/docs\/[^/]+(\/ops)?$/, '/api/docs/:id$1')
-      .replace(/^\/api\/docs\/[^/]+\/versions\/[^/]+$/, '/api/docs/:id/versions/:seq')}`
+      .replace(/^\/api\/docs\/[^/]+(\/ops|\/exports)?$/, '/api/docs/:id$1')
+      .replace(/^\/api\/docs\/[^/]+\/versions\/[^/]+$/, '/api/docs/:id/versions/:seq')
+      .replace(/^\/api\/exports\/[^/]+(\/file)?$/, '/api/exports/:job$1')}`
     const id = url.pathname.split('/')[3]
     const doc = state.docs.find((d) => d.id === id)
     const authorized = request.headers.get('Authorization') === 'Bearer valid'
@@ -79,6 +83,14 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
         return json(200, { documents: page, nextCursor: more ? String(start + limit) : null })
       }
       case 'POST /api/docs': {
+        if (request.headers.get('Content-Type') === 'image/svg+xml') {
+          const svg = await request.text()
+          state.imported.push({ title: url.searchParams.get('title'), svg })
+          if (svg.includes('broken')) return failure(400, 'invalid_svg')
+          const created = { id: 'imported', ownerId: me.id, title: url.searchParams.get('title'), headSeq: 0, createdAt: 'x', updatedAt: 'x' }
+          state.docs.unshift(created as Doc)
+          return json(201, created)
+        }
         const { title } = await request.json()
         const created = { id: `d${state.nextId++}`, ownerId: me.id, title, headSeq: 0, createdAt: 'x', updatedAt: '2026-11-09T10:00:00Z' }
         state.docs.unshift(created)
@@ -93,6 +105,20 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
       case 'DELETE /api/docs/:id':
         state.docs = state.docs.filter((d) => d !== doc)
         return new Response(null, { status: 204 })
+      case 'POST /api/docs/:id/exports': {
+        const { format } = await request.json()
+        return json(202, { id: `job-${format}`, documentId: id, format, status: 'queued', attempts: 0, resultUrl: null, error: null, createdAt: 'x' })
+      }
+      case 'GET /api/exports/:job/file':
+        return new Response('<svg>exported</svg>', { status: 200 })
+      case 'GET /api/exports/:job': {
+        const format = url.pathname.split('-').pop()
+        const done = ++state.exportPolls >= 2
+        return json(200, {
+          id: `job-${format}`, documentId: 'd1', format, status: done ? 'done' : 'running', attempts: 1, error: null, createdAt: 'x',
+          resultUrl: done ? `/api/exports/job-${format}/file` : null,
+        })
+      }
       case 'GET /api/docs/:id/versions/:seq':
         if (!doc) return failure(404, 'not_found')
         return json(200, {
@@ -122,13 +148,17 @@ const doc = (id: string, title: string, ownerId = me.id): Doc => ({
   id, ownerId, title, headSeq: 3, createdAt: 'x', updatedAt: '2026-11-09T09:00:00Z',
 })
 
+// In StrictMode, as the app runs in development: React mounts, unmounts and mounts every component again,
+// which catches effects that don't clean up after themselves properly.
 function renderAt(path: string) {
   render(
-    <MemoryRouter initialEntries={[path]}>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </MemoryRouter>,
+    <StrictMode>
+      <MemoryRouter initialEntries={[path]}>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </MemoryRouter>
+    </StrictMode>,
   )
 }
 
@@ -318,6 +348,54 @@ describe('the documents page', () => {
       server([])
       renderAt('/docs/missing/history/2')
       expect(await screen.findByRole('alert')).toHaveTextContent("That document doesn't exist")
+    })
+    })
+
+  describe('importing and exporting', () => {
+    it('makes a document from an SVG file, named after the file, and opens it', async () => {
+      const state = server([])
+      renderAt('/')
+      const file = new File(['<svg><rect width="5" height="5"/></svg>'], 'Floor plan.svg', { type: 'image/svg+xml' })
+      await userEvent.upload(await screen.findByLabelText('Import SVG'), file)
+
+      expect(await screen.findByRole('heading', { name: 'Floor plan' })).toBeInTheDocument()
+      expect(state.imported).toEqual([{ title: 'Floor plan', svg: '<svg><rect width="5" height="5"/></svg>' }])
+    })
+
+    it("says where an SVG file couldn't be read", async () => {
+      server([])
+      renderAt('/')
+      await userEvent.upload(await screen.findByLabelText('Import SVG'), new File(['<svg broken'], 'bad.svg'))
+      expect(await screen.findByRole('alert')).toHaveTextContent("That file couldn't be read as SVG (server says invalid_svg).")
+    })
+
+    it('refuses a file over 1 MB without sending it', async () => {
+      const state = server([])
+      renderAt('/')
+      await userEvent.upload(await screen.findByLabelText('Import SVG'), new File(['x'.repeat(1024 * 1024 + 1)], 'big.svg'))
+      expect(await screen.findByRole('alert')).toHaveTextContent('That file is over 1 MB')
+      expect(state.imported).toEqual([])
+    })
+
+    it('downloads the document, once the export worker has made it, named after the document', async () => {
+      server([doc('d1', 'Plans')])
+      const saved: { name: string; text: Promise<string> }[] = []
+      vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+        saved.push({ name: '', text: (blob as Blob).text() })
+        return 'blob:file'
+      })
+      vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+        saved[saved.length - 1].name = this.download
+      })
+      renderAt('/docs/d1')
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Download SVG' }))
+
+      await vi.waitFor(() => expect(saved).toHaveLength(1), { timeout: 5000 })
+      expect(saved[0].name).toBe('Plans.svg')
+      expect(await saved[0].text).toBe('<svg>exported</svg>')
+      expect(screen.getByRole('button', { name: 'Download SVG' })).toBeEnabled()
     })
   })
 })

@@ -344,3 +344,35 @@ button:disabled {
   align-items: center;
   gap: 12px;
 }
+
+/* A label that looks like a button, for a hidden file input. */
+label.button {
+  padding: 8px 10px;
+  border: 1px solid var(--muted);
+  border-radius: 6px;
+  background: ButtonFace;
+  color: ButtonText;
+  cursor: pointer;
+}
+
+label.button:focus-within {
+  outline: 2px solid #1f6feb;
+}
+
+label.button.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.exports {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.exports .error {
+  flex-basis: 100%;
+  margin: 0;
+}
