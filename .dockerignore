@@ -1,11 +1,18 @@
-# The server's images build from the repository root, and need only these. Everything else, the build
-# folders above all, would make every build send gigabytes and miss the cache.
+# Every image builds from the repository root (server/Dockerfile, web/Dockerfile), and needs only these.
+# Everything else, the build folders above all, would make every build send gigabytes and miss the cache.
 *
 !CMakeLists.txt
+!CMakePresets.json
 !vcpkg.json
 !core
 !render
 !server
+!web
 core/tests
 core/fuzz
 server/tests
+web/node_modules
+web/dist
+web/src/wasm
+web/test-results
+web/playwright-report

@@ -23,5 +23,11 @@ npx playwright test
 Playwright builds the app and serves it with `vite preview`, which passes `/api` and `/ws` on to the server.
 It uses the installed Google Chrome, so there's no browser to download.
 
+To test the app where it's already served instead, as by the web image's nginx, set `E2E_BASE_URL`:
+
+```sh
+E2E_BASE_URL=http://localhost:8090 npx playwright test
+```
+
 Each test makes its own users and documents, so they can run against a server that has other data. They
 compare what two browsers show by the dark pixels on the drawing's canvas (`picture` in `helpers.ts`).
