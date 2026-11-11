@@ -26,7 +26,10 @@ describe('coalescedMoves', () => {
     vi.advanceTimersByTime(49)
     expect(sent).toHaveLength(1)
     vi.advanceTimersByTime(1)
-    expect(sent).toEqual([{ x: 3, y: 1 }, { x: 7, y: 3 }])
+    expect(sent).toEqual([
+      { x: 3, y: 1 },
+      { x: 7, y: 3 },
+    ])
   })
 
   it('sends the rest when the drag ends, so the moves add up to the whole drag', () => {
@@ -37,7 +40,10 @@ describe('coalescedMoves', () => {
 
     moves.end({ x: 9, y: 2 })
 
-    expect(sent).toEqual([{ x: 5, y: 5 }, { x: 4, y: -3 }])
+    expect(sent).toEqual([
+      { x: 5, y: 5 },
+      { x: 4, y: -3 },
+    ])
     vi.advanceTimersByTime(1000)
     expect(sent).toHaveLength(2) // the waiting move was folded into the last, not sent again
   })

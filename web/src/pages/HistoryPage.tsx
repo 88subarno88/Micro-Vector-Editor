@@ -52,7 +52,11 @@ export default function HistoryPage() {
         <Link to={`/docs/${id}`}>← Back to the drawing</Link>
       </p>
       <h1>History</h1>
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       {!entries ? (
         !error && <p className="loading">Loading…</p>
       ) : entries.length === 0 ? (
@@ -65,7 +69,9 @@ export default function HistoryPage() {
               <th scope="col">What</th>
               <th scope="col">Who</th>
               <th scope="col">When</th>
-              <th scope="col"><span className="visually-hidden">Version</span></th>
+              <th scope="col">
+                <span className="visually-hidden">Version</span>
+              </th>
             </tr>
           </thead>
           <tbody>

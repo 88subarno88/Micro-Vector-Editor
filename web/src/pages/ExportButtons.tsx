@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { exportDrawing, saveFile, type ExportFormat } from '../exports/exportDrawing'
 
 // A file name from the document's title: the characters file systems refuse are replaced.
-const fileName = (title: string, format: ExportFormat) => `${title.replace(/[\\/:*?"<>|]/g, '_').trim() || 'drawing'}.${format}`
+const fileName = (title: string, format: ExportFormat) =>
+  `${title.replace(/[\\/:*?"<>|]/g, '_').trim() || 'drawing'}.${format}`
 
 // Download the document as SVG or PNG, made by the export worker from what the server has stored.
 export default function ExportButtons({ documentId, title }: { documentId: string; title: string }) {
@@ -32,10 +33,20 @@ export default function ExportButtons({ documentId, title }: { documentId: strin
 
   return (
     <div className="exports">
-      <button onClick={() => void download('svg')} disabled={busy}>Download SVG</button>
-      <button onClick={() => void download('png')} disabled={busy}>Download PNG</button>
-      <span className="hint" aria-live="polite">{progress}</span>
-      {problem && <p className="error" role="alert">{problem}</p>}
+      <button onClick={() => void download('svg')} disabled={busy}>
+        Download SVG
+      </button>
+      <button onClick={() => void download('png')} disabled={busy}>
+        Download PNG
+      </button>
+      <span className="hint" aria-live="polite">
+        {progress}
+      </span>
+      {problem && (
+        <p className="error" role="alert">
+          {problem}
+        </p>
+      )}
     </div>
   )
 }

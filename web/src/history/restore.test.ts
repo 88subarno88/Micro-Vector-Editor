@@ -16,7 +16,7 @@ describe('restoreOps', () => {
     expect(restoreOps([rect('a'), rect('new')], [rect('a')])).toEqual([{ kind: 'deleteShape', id: 'new' }])
   })
 
-  it("restores a style with one setStyle, and anything else by replacing the shape", () => {
+  it('restores a style with one setStyle, and anything else by replacing the shape', () => {
     expect(restoreOps([rect('a', 0, 'red')], [rect('a', 0, 'white')])).toEqual([
       { kind: 'setStyle', id: 'a', ...style('white') },
     ])

@@ -1,4 +1,11 @@
-import { parseServerMessage, type ClientMessage, type CommittedOp, type PresenceUser, type Role, type ServerMessage } from './messages'
+import {
+  parseServerMessage,
+  type ClientMessage,
+  type CommittedOp,
+  type PresenceUser,
+  type Role,
+  type ServerMessage,
+} from './messages'
 
 // One connection to a document's WebSocket. Framework-free: it knows the protocol, not the editor. It
 // opens the socket with an access token, joins from `lastSeq` once the server is ready, keeps the
@@ -81,7 +88,9 @@ export class SyncClient {
     if (this.status !== 'connecting') return // closed while waiting
 
     const origin = this.options.origin ?? globalThis.location.origin
-    const socket = (this.options.openSocket ?? ((url) => new WebSocket(url)))(socketUrl(origin, documentId, getToken()!))
+    const socket = (this.options.openSocket ?? ((url) => new WebSocket(url)))(
+      socketUrl(origin, documentId, getToken()!),
+    )
     this.socket = socket
     socket.onopen = () => {
       this.pinger = setInterval(() => this.send({ type: 'ping' }), pingIntervalMs)

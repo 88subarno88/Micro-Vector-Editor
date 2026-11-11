@@ -39,22 +39,29 @@ export default function DocumentPage() {
         <Link to={`/docs/${id}/history`}>History</Link>
       </p>
       {error ? (
-        <p className="error" role="alert">{error}</p>
+        <p className="error" role="alert">
+          {error}
+        </p>
       ) : !doc ? (
         <p className="loading">Loading…</p>
       ) : (
         <>
           <h1>{doc.document.title}</h1>
-          <p className="hint">
-            You are {doc.role === 'owner' ? 'the owner' : `an ${doc.role}`}.
-          </p>
+          <p className="hint">You are {doc.role === 'owner' ? 'the owner' : `an ${doc.role}`}.</p>
           <ExportButtons documentId={id} title={doc.document.title} />
           {coreError ? (
-            <p className="error" role="alert">{coreError}</p>
+            <p className="error" role="alert">
+              {coreError}
+            </p>
           ) : core ? (
-            <Editor core={core} loaded={doc} me={user?.id ?? ''} restore={restore}
+            <Editor
+              core={core}
+              loaded={doc}
+              me={user?.id ?? ''}
+              restore={restore}
               // Done once: a reload mustn't restore it again.
-              onRestored={() => navigate('.', { replace: true, state: null })} />
+              onRestored={() => navigate('.', { replace: true, state: null })}
+            />
           ) : (
             <p className="loading">Loading the drawing engine…</p>
           )}

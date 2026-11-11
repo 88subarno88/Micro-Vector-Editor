@@ -5,7 +5,13 @@ import { exportDrawing, maxPolls } from './exportDrawing'
 
 type Status = 'queued' | 'running' | 'done' | 'failed'
 const job = (status: Status, error: string | null = null) => ({
-  id: 'j1', documentId: 'd1', format: 'svg', status, attempts: 1, error, createdAt: 'x',
+  id: 'j1',
+  documentId: 'd1',
+  format: 'svg',
+  status,
+  attempts: 1,
+  error,
+  createdAt: 'x',
   resultUrl: status === 'done' ? '/api/exports/j1/file' : null,
 })
 const json = (status: number, body: unknown) =>
@@ -49,7 +55,10 @@ describe('exportDrawing', () => {
   })
 
   it('says when an attempt failed and will be tried again, then why the export failed for good', async () => {
-    server([{ status: 'queued', error: 'renderer crashed' }, { status: 'failed', error: 'renderer crashed' }])
+    server([
+      { status: 'queued', error: 'renderer crashed' },
+      { status: 'failed', error: 'renderer crashed' },
+    ])
     const progress: string[] = []
     const result = await exportDrawing('d1', 'svg', { onProgress: (m) => progress.push(m), wait: noWait })
     expect(progress).toContain('That went wrong; trying again shortly…')

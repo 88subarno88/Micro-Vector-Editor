@@ -166,10 +166,13 @@ export class DocumentSync {
       this.tokens -= 1
       return true
     }
-    this.paced ??= setTimeout(() => {
-      this.paced = null
-      this.engine.flush()
-    }, Math.ceil(((1 - this.tokens) / opsPerSecond) * 1000))
+    this.paced ??= setTimeout(
+      () => {
+        this.paced = null
+        this.engine.flush()
+      },
+      Math.ceil(((1 - this.tokens) / opsPerSecond) * 1000),
+    )
     return false
   }
 

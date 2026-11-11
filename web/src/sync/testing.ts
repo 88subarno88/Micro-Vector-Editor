@@ -11,14 +11,29 @@ export class FakeSocket implements SocketLike {
   onmessage: ((event: MessageEvent) => void) | null = null
   onclose: ((event: CloseEvent) => void) | null = null
   readonly url: string
-  constructor(url: string) { this.url = url }
+  constructor(url: string) {
+    this.url = url
+  }
 
-  send(data: string) { this.sent.push(JSON.parse(data)) }
-  close(code = 1000) { this.closedWith = code; this.readyState = 3 }
+  send(data: string) {
+    this.sent.push(JSON.parse(data))
+  }
+  close(code = 1000) {
+    this.closedWith = code
+    this.readyState = 3
+  }
 
-  opened() { this.readyState = 1; this.onopen?.(new Event('open')) }
-  receive(message: unknown) { this.onmessage?.({ data: JSON.stringify(message) } as MessageEvent) }
-  dropped(code: number, reason = '') { this.readyState = 3; this.onclose?.({ code, reason } as CloseEvent) }
+  opened() {
+    this.readyState = 1
+    this.onopen?.(new Event('open'))
+  }
+  receive(message: unknown) {
+    this.onmessage?.({ data: JSON.stringify(message) } as MessageEvent)
+  }
+  dropped(code: number, reason = '') {
+    this.readyState = 3
+    this.onclose?.({ code, reason } as CloseEvent)
+  }
 }
 
 // Drawings that are just numbers: {add: n} adds n, {set: n} sets it. Anything that would go below 0 is

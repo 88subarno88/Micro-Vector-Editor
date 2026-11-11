@@ -8,7 +8,8 @@ export function useCore(): { core: Core | null; error: string | null } {
     let current = true
     loadCore().then(
       (core) => current && setState({ core, error: null }),
-      () => current && setState({ core: null, error: "The drawing engine couldn't load. Reload the page to try again." }),
+      () =>
+        current && setState({ core: null, error: "The drawing engine couldn't load. Reload the page to try again." }),
     )
     return () => {
       current = false

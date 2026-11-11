@@ -8,29 +8,61 @@ describe('parseServerMessage', () => {
   it('reads every message the server sends', () => {
     expect(parse({ type: 'ready', role: 'editor' })).toEqual({ type: 'ready', role: 'editor' })
     expect(parse({ type: 'joined', headSeq: 2, ops: [{ seq: 2, userId: 'u', clientOpId: 'c', op }] })).toEqual({
-      type: 'joined', headSeq: 2, ops: [{ seq: 2, userId: 'u', clientOpId: 'c', op }],
+      type: 'joined',
+      headSeq: 2,
+      ops: [{ seq: 2, userId: 'u', clientOpId: 'c', op }],
     })
     expect(parse({ type: 'joined', headSeq: 900, snapshot: { version: 1, shapes: [] } })).toEqual({
-      type: 'joined', headSeq: 900, snapshot: { version: 1, shapes: [] },
+      type: 'joined',
+      headSeq: 900,
+      snapshot: { version: 1, shapes: [] },
     })
-    expect(parse({ type: 'op', seq: 3, userId: 'u', clientOpId: 'c', op })).toEqual({ type: 'op', seq: 3, userId: 'u', clientOpId: 'c', op })
+    expect(parse({ type: 'op', seq: 3, userId: 'u', clientOpId: 'c', op })).toEqual({
+      type: 'op',
+      seq: 3,
+      userId: 'u',
+      clientOpId: 'c',
+      op,
+    })
     expect(parse({ type: 'ack', clientOpId: 'c1', seq: 4 })).toEqual({ type: 'ack', clientOpId: 'c1', seq: 4 })
     expect(parse({ type: 'reject', clientOpId: 'c1', reason: 'forbidden', message: 'no' })).toEqual({
-      type: 'reject', clientOpId: 'c1', reason: 'forbidden', message: 'no',
+      type: 'reject',
+      clientOpId: 'c1',
+      reason: 'forbidden',
+      message: 'no',
     })
-    expect(parse({ type: 'presence', users: [{ id: 'u', name: 'ada', cursor: null }, { id: 'v', name: 'bo', cursor: { x: 1, y: 2 } }] }))
-      .toMatchObject({ type: 'presence', users: [{ cursor: null }, { cursor: { x: 1, y: 2 } }] })
+    expect(
+      parse({
+        type: 'presence',
+        users: [
+          { id: 'u', name: 'ada', cursor: null },
+          { id: 'v', name: 'bo', cursor: { x: 1, y: 2 } },
+        ],
+      }),
+    ).toMatchObject({ type: 'presence', users: [{ cursor: null }, { cursor: { x: 1, y: 2 } }] })
     expect(parse({ type: 'pong' })).toEqual({ type: 'pong' })
-    expect(parse({ type: 'error', code: 'busy', message: 'try again' })).toEqual({ type: 'error', code: 'busy', message: 'try again' })
+    expect(parse({ type: 'error', code: 'busy', message: 'try again' })).toEqual({
+      type: 'error',
+      code: 'busy',
+      message: 'try again',
+    })
   })
 
   it('keeps only the fields it knows', () => {
-    expect(parse({ type: 'ack', clientOpId: 'c1', seq: 4, extra: true })).toEqual({ type: 'ack', clientOpId: 'c1', seq: 4 })
+    expect(parse({ type: 'ack', clientOpId: 'c1', seq: 4, extra: true })).toEqual({
+      type: 'ack',
+      clientOpId: 'c1',
+      seq: 4,
+    })
   })
 
   it('ignores anything malformed or unknown', () => {
     const bad: unknown[] = [
-      'not json', [], null, {}, { type: 'mystery' },
+      'not json',
+      [],
+      null,
+      {},
+      { type: 'mystery' },
       { type: 'ready', role: 'admin' },
       { type: 'joined', headSeq: -1, ops: [] },
       { type: 'joined', headSeq: 1 },

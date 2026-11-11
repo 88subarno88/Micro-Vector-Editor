@@ -6,7 +6,9 @@ import { describe, expect, it } from 'vitest'
 import { SyncEngine, type Drawings } from './SyncEngine'
 
 // Matches nothing, rather than failing to build, when the core hasn't been copied in.
-const loadCore = Object.values(import.meta.glob<{ default: () => Promise<{ Document: new () => CoreDocument }> }>('../wasm/vec.js'))[0]
+const loadCore = Object.values(
+  import.meta.glob<{ default: () => Promise<{ Document: new () => CoreDocument }> }>('../wasm/vec.js'),
+)[0]
 
 type CoreDocument = {
   applyOp(op: string): string
@@ -32,7 +34,19 @@ function randomOp(next: () => number): object {
   const style = { stroke: 'black', fill: ['white', 'red', 'none'][Math.floor(next() * 3)], strokeWidth: 1 }
   switch (Math.floor(next() * 5)) {
     case 0:
-      return { kind: 'addShape', id, shape: { kind: 'rect', x: next() * 500, y: next() * 400, width: 10 + next() * 90, height: 10 + next() * 90, cornerRadius: 0, style } }
+      return {
+        kind: 'addShape',
+        id,
+        shape: {
+          kind: 'rect',
+          x: next() * 500,
+          y: next() * 400,
+          width: 10 + next() * 90,
+          height: 10 + next() * 90,
+          cornerRadius: 0,
+          style,
+        },
+      }
     case 1:
       return { kind: 'deleteShape', id }
     case 2:
@@ -82,9 +96,13 @@ async function simulate(seed: number, steps: number) {
   const clients = [0, 1].map((index) => {
     const confirmed = new vec.Document()
     const doc = new vec.Document() // what the user sees
-    const engine = new SyncEngine(drawingsOf(confirmed, doc), {
-      send: (clientOpId, _baseSeq, op) => online[index] && (inbound.push({ from: index, clientOpId, op }), true),
-    }, 0)
+    const engine = new SyncEngine(
+      drawingsOf(confirmed, doc),
+      {
+        send: (clientOpId, _baseSeq, op) => online[index] && (inbound.push({ from: index, clientOpId, op }), true),
+      },
+      0,
+    )
     return { confirmed, doc, engine }
   })
 
@@ -93,7 +111,8 @@ async function simulate(seed: number, steps: number) {
     const answers = outbound[message.from]
     // A resend of an op already stored: acked again with its seq, not applied twice.
     const stored = log.find((committed) => committed.clientOpId === message.clientOpId)
-    if (stored) return seen.resendsRecognised++, answers.push({ kind: 'ack', clientOpId: message.clientOpId, seq: stored.seq })
+    if (stored)
+      return (seen.resendsRecognised++, answers.push({ kind: 'ack', clientOpId: message.clientOpId, seq: stored.seq }))
     // Now and then the server turns an op away without looking at it, as when rate limited: the client
     // must then take back an edit that applied fine and may have others on top.
     if (next() < 0.05) return answers.push({ kind: 'reject', clientOpId: message.clientOpId, reason: 'rate_limited' })
@@ -167,13 +186,17 @@ async function simulate(seed: number, steps: number) {
   }
 
   const expected = server.shapesJson()
-  const results = clients.map(({ doc, engine }) => ({ drawing: doc.shapesJson(), diverged: engine.diverged, lastSeq: engine.lastSeq }))
+  const results = clients.map(({ doc, engine }) => ({
+    drawing: doc.shapesJson(),
+    diverged: engine.diverged,
+    lastSeq: engine.lastSeq,
+  }))
   ;[server, ...clients.flatMap((c) => [c.confirmed, c.doc])].forEach((doc) => doc.delete())
   return { expected, results, committed: seq }
 }
 
 describe.skipIf(!loadCore)('rebasing with the real core', () => {
-  it('leaves both clients with exactly the server\'s drawing, across many random runs', async () => {
+  it("leaves both clients with exactly the server's drawing, across many random runs", async () => {
     for (let seed = 1; seed <= 40; seed++) {
       const { expected, results, committed } = await simulate(seed, 300)
       for (const result of results) {

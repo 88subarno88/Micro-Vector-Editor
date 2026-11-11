@@ -3,7 +3,11 @@
   --muted: #59636e;
   --bg: #ffffff;
 
-  font: 16px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
+  font:
+    16px/1.5 system-ui,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   color-scheme: light dark;
   color: var(--text);
   background: var(--bg);

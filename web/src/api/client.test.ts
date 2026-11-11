@@ -8,7 +8,11 @@ function serve(handler: (path: string, auth: string | null, body: string) => Res
   const seen: { path: string; auth: string | null; body: string }[] = []
   vi.stubGlobal('fetch', async (input: Request | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(input, init)
-    const entry = { path: new URL(request.url).pathname, auth: request.headers.get('Authorization'), body: await request.text() }
+    const entry = {
+      path: new URL(request.url).pathname,
+      auth: request.headers.get('Authorization'),
+      body: await request.text(),
+    }
     seen.push(entry)
     return handler(entry.path, entry.auth, entry.body)
   })
@@ -51,7 +55,9 @@ describe('authFetch', () => {
   })
 
   it('gets a token after a reload, when there is none yet', async () => {
-    const seen = serve((path, auth) => (path === '/api/auth/refresh' ? tokens('fresh') : auth ? json(200, {}) : json(401, {})))
+    const seen = serve((path, auth) =>
+      path === '/api/auth/refresh' ? tokens('fresh') : auth ? json(200, {}) : json(401, {}),
+    )
 
     expect((await authFetch(new Request(`${origin}/api/me`))).status).toBe(200)
     expect(seen.at(-1)?.auth).toBe('Bearer fresh')
@@ -127,7 +133,9 @@ describe('authFetch', () => {
 describe('api', () => {
   it('is typed from the spec and goes through authFetch', async () => {
     setAccessToken('t1')
-    const seen = serve(() => json(201, { id: 'd1', ownerId: 'u1', title: 'Plans', headSeq: 0, createdAt: 'x', updatedAt: 'x' }))
+    const seen = serve(() =>
+      json(201, { id: 'd1', ownerId: 'u1', title: 'Plans', headSeq: 0, createdAt: 'x', updatedAt: 'x' }),
+    )
 
     const { data, error } = await api.POST('/api/docs', { baseUrl: origin, body: { title: 'Plans' } })
 

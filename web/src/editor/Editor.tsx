@@ -37,7 +37,14 @@ type Change = { kind: 'move'; by: Point } | { kind: 'resize'; anchor: Point; fac
 // once and is sent to the server, and others' edits appear as they're made, along with their pointers.
 // `me` is the signed-in user's ID, whose own pointer isn't drawn. With `restore`, the drawing is changed back
 // to that version as soon as it's live, and `onRestored` is called.
-export default function Editor({ core, loaded, me, sync, restore: restoreTo, onRestored }: {
+export default function Editor({
+  core,
+  loaded,
+  me,
+  sync,
+  restore: restoreTo,
+  onRestored,
+}: {
   core: Core
   loaded: LoadedDocument
   me: string
@@ -46,7 +53,24 @@ export default function Editor({ core, loaded, me, sync, restore: restoreTo, onR
   onRestored?: () => void
 }) {
   const {
-    commands, error, rejected, present, connection, canUndo, canRedo, undo, redo, restore, moveCursor, ready, apply, preview, shapeAt, boundsOf, anchorOf, shapeOf,
+    commands,
+    error,
+    rejected,
+    present,
+    connection,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    restore,
+    moveCursor,
+    ready,
+    apply,
+    preview,
+    shapeAt,
+    boundsOf,
+    anchorOf,
+    shapeOf,
     translated,
   } = useDrawing(core, loaded, sync)
   const [tool, setTool] = useState<Tool>('select')
@@ -160,8 +184,10 @@ export default function Editor({ core, loaded, me, sync, restore: restoreTo, onR
           if (key === 'z' && !event.shiftKey) setProblem(undo())
           else if (key === 'z' || key === 'y') setProblem(redo())
           else if (key === 'c') copySelected()
-          else if (key === 'x') { copySelected(); deleteSelected() }
-          else if (key === 'v') paste()
+          else if (key === 'x') {
+            copySelected()
+            deleteSelected()
+          } else if (key === 'v') paste()
           else if (key === '=' || key === '+') zoomBy(zoomStep)
           else if (key === '-') zoomBy(1 / zoomStep)
           else if (key === '0') setView(fitted)
@@ -264,7 +290,10 @@ export default function Editor({ core, loaded, me, sync, restore: restoreTo, onR
   // Where the text being typed starts, on the canvas as it's zoomed.
   const textAtOnScreen = textAt && toScreen(view, textAt)
   // As a position over the canvas, which is shown at whatever size the page allows.
-  const placed = (point: Point) => ({ left: `${(point.x / drawingWidth) * 100}%`, top: `${(point.y / drawingHeight) * 100}%` })
+  const placed = (point: Point) => ({
+    left: `${(point.x / drawingWidth) * 100}%`,
+    top: `${(point.y / drawingHeight) * 100}%`,
+  })
   // Everyone else's pointer that's over the part of the drawing in view.
   const pointers = present.flatMap(({ id, name, cursor }) => {
     if (id === me || !cursor) return []
@@ -273,7 +302,12 @@ export default function Editor({ core, loaded, me, sync, restore: restoreTo, onR
     return inView ? [{ id, name, at }] : []
   })
 
-  if (error) return <p className="error" role="alert">{error}</p>
+  if (error)
+    return (
+      <p className="error" role="alert">
+        {error}
+      </p>
+    )
   if (!ready) return <p className="loading">Loading the drawing…</p>
 
   const outline =
@@ -292,22 +326,34 @@ export default function Editor({ core, loaded, me, sync, restore: restoreTo, onR
       </div>
       <div className="toolbar" role="toolbar" aria-label="Tools">
         {tools.map(({ tool: option, label, key }) => (
-          <button key={option} aria-pressed={tool === option} title={`${label} (${key.toUpperCase()})`}
-            onClick={() => chooseTool(option)}>
+          <button
+            key={option}
+            aria-pressed={tool === option}
+            title={`${label} (${key.toUpperCase()})`}
+            onClick={() => chooseTool(option)}
+          >
             {label}
           </button>
         ))}
-        <button onClick={() => setProblem(undo())} disabled={!canUndo} title="Undo (Ctrl Z)">Undo</button>
-        <button onClick={() => setProblem(redo())} disabled={!canRedo} title="Redo (Ctrl Shift Z)">Redo</button>
+        <button onClick={() => setProblem(undo())} disabled={!canUndo} title="Undo (Ctrl Z)">
+          Undo
+        </button>
+        <button onClick={() => setProblem(redo())} disabled={!canRedo} title="Redo (Ctrl Shift Z)">
+          Redo
+        </button>
         <button className="danger" onClick={deleteSelected} disabled={!outline} title="Delete shape (Delete)">
           Delete shape
         </button>
         <span className="zoom" role="group" aria-label="Zoom">
-          <button onClick={() => zoomBy(1 / zoomStep)} aria-label="Zoom out" title="Zoom out (Ctrl −)">−</button>
+          <button onClick={() => zoomBy(1 / zoomStep)} aria-label="Zoom out" title="Zoom out (Ctrl −)">
+            −
+          </button>
           <button onClick={() => setView(fitted)} aria-label="Reset zoom" title="Reset zoom (Ctrl 0)">
             {Math.round(view.scale * 100)}%
           </button>
-          <button onClick={() => zoomBy(zoomStep)} aria-label="Zoom in" title="Zoom in (Ctrl +)">+</button>
+          <button onClick={() => zoomBy(zoomStep)} aria-label="Zoom in" title="Zoom in (Ctrl +)">
+            +
+          </button>
         </span>
       </div>
       {/* Always takes the same space, so selecting a shape never moves the drawing under the pointer. */}
@@ -324,8 +370,14 @@ export default function Editor({ core, loaded, me, sync, restore: restoreTo, onR
         <p className="style-panel hint">Select a shape to change its style.</p>
       )}
       <div className={`canvas-wrap tool-${tool}`}>
-        <DrawingCanvas commands={shown ?? commands} view={view} outline={outline} handle={change ? null : handle}
-          onPointer={onPointer} onView={setView} />
+        <DrawingCanvas
+          commands={shown ?? commands}
+          view={view}
+          outline={outline}
+          handle={change ? null : handle}
+          onPointer={onPointer}
+          onView={setView}
+        />
         {textAt && (
           <input
             className="text-entry"
@@ -341,8 +393,13 @@ export default function Editor({ core, loaded, me, sync, restore: restoreTo, onR
         )}
         {pointers.map(({ id, name, at }, index) => (
           // A user with two tabs open has two pointers, so the index keeps keys apart.
-          <div key={`${id}:${index}`} className="pointer" role="img" aria-label={`${name}'s pointer`}
-            style={{ ...placed(at), color: colorFor(id) }}>
+          <div
+            key={`${id}:${index}`}
+            className="pointer"
+            role="img"
+            aria-label={`${name}'s pointer`}
+            style={{ ...placed(at), color: colorFor(id) }}
+          >
             <svg width="14" height="20" viewBox="0 0 14 20" aria-hidden="true">
               <path d="M1 1 L1 16 L5 12 L8 19 L10 18 L7 11 L13 11 Z" fill="currentColor" stroke="#ffffff" />
             </svg>
@@ -350,8 +407,16 @@ export default function Editor({ core, loaded, me, sync, restore: restoreTo, onR
           </div>
         ))}
       </div>
-      {problem && <p className="error" role="alert">{problem}</p>}
-      {rejected && <p className="error" role="alert">{rejected}</p>}
+      {problem && (
+        <p className="error" role="alert">
+          {problem}
+        </p>
+      )}
+      {rejected && (
+        <p className="error" role="alert">
+          {rejected}
+        </p>
+      )}
       {restored !== null && (
         <p className="hint">Restored the drawing as it was after edit {restored}. Undo takes it back.</p>
       )}

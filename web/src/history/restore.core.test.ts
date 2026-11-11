@@ -5,9 +5,16 @@
 import { describe, expect, it } from 'vitest'
 import { restoreOps } from './restore'
 
-const loadCore = Object.values(import.meta.glob<{ default: () => Promise<{ Document: new () => CoreDocument }> }>('../wasm/vec.js'))[0]
+const loadCore = Object.values(
+  import.meta.glob<{ default: () => Promise<{ Document: new () => CoreDocument }> }>('../wasm/vec.js'),
+)[0]
 
-type CoreDocument = { applyOp(op: string): string; loadJson(json: string): string; shapesJson(): string; delete(): void }
+type CoreDocument = {
+  applyOp(op: string): string
+  loadJson(json: string): string
+  shapesJson(): string
+  delete(): void
+}
 
 function random(seed: number) {
   return () => {
@@ -34,7 +41,15 @@ function edit(doc: CoreDocument, next: () => number, steps: number) {
     }
     const id = `s${Math.floor(next() * 6)}`
     const fill = ['white', 'red', 'none'][Math.floor(next() * 3)]
-    const shape = { kind: 'rect', x: Math.floor(next() * 50), y: 0, width: 10, height: 10, cornerRadius: 0, style: { stroke: 'black', fill, strokeWidth: 1 } }
+    const shape = {
+      kind: 'rect',
+      x: Math.floor(next() * 50),
+      y: 0,
+      width: 10,
+      height: 10,
+      cornerRadius: 0,
+      style: { stroke: 'black', fill, strokeWidth: 1 },
+    }
     const ops = [
       { kind: 'addShape', id, shape },
       { kind: 'addShape', id, shape, position: 0 },
@@ -61,7 +76,10 @@ describe.skipIf(!loadCore)('restoring with the real core', () => {
       edit(target, next, 4)
       const ops = restoreOps(JSON.parse(current.shapesJson()).shapes, JSON.parse(target.shapesJson()).shapes)
       for (const op of ops) {
-        expect(JSON.parse(current.applyOp(JSON.stringify(op))).error, `seed ${seed}: ${JSON.stringify(op)}`).toBeUndefined()
+        expect(
+          JSON.parse(current.applyOp(JSON.stringify(op))).error,
+          `seed ${seed}: ${JSON.stringify(op)}`,
+        ).toBeUndefined()
       }
       expect(current.shapesJson(), `seed ${seed}`).toBe(target.shapesJson())
       // Restoring again needs nothing.

@@ -24,7 +24,11 @@ export function describeJob(job: Job): string {
 export async function exportDrawing(
   documentId: string,
   format: ExportFormat,
-  { onProgress, signal, wait = sleep }: {
+  {
+    onProgress,
+    signal,
+    wait = sleep,
+  }: {
     onProgress?(message: string): void
     signal?: AbortSignal
     wait?(ms: number): Promise<void>

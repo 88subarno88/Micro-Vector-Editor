@@ -8,7 +8,12 @@ function setUp({ renews = true } = {}) {
   let token = 'tok'
   let n = 0
   const events = {
-    onStatus: vi.fn(), onChange: vi.fn(), onRejected: vi.fn(), onPresence: vi.fn(), onDiverged: vi.fn(), onStopped: vi.fn(),
+    onStatus: vi.fn(),
+    onChange: vi.fn(),
+    onRejected: vi.fn(),
+    onPresence: vi.fn(),
+    onDiverged: vi.fn(),
+    onStopped: vi.fn(),
   } satisfies DocumentSyncEvents
   const renewToken = vi.fn(async () => {
     if (renews) token = `renewed-${renewToken.mock.calls.length}`
@@ -38,7 +43,9 @@ function setUp({ renews = true } = {}) {
     latest().receive({ type: 'joined', ...joined })
   }
   const opsSent = (socket: FakeSocket) =>
-    socket.sent.filter((m) => (m as { type: string }).type === 'op').map((m) => (m as { clientOpId: string }).clientOpId)
+    socket.sent
+      .filter((m) => (m as { type: string }).type === 'op')
+      .map((m) => (m as { clientOpId: string }).clientOpId)
   return { sync, sockets, drawings, events, renewToken, latest, join, opsSent }
 }
 
@@ -50,8 +57,12 @@ afterEach(() => vi.useRealTimers())
 
 describe('reconnectDelayMs', () => {
   it('doubles from 1 s up to 30 s, at a random point in the upper half', () => {
-    expect([0, 1, 2, 5, 20].map((attempt) => reconnectDelayMs(attempt, () => 0))).toEqual([500, 1000, 2000, 15_000, 15_000])
-    expect([0, 1, 2, 5, 20].map((attempt) => reconnectDelayMs(attempt, () => 1))).toEqual([1000, 2000, 4000, 30_000, 30_000])
+    expect([0, 1, 2, 5, 20].map((attempt) => reconnectDelayMs(attempt, () => 0))).toEqual([
+      500, 1000, 2000, 15_000, 15_000,
+    ])
+    expect([0, 1, 2, 5, 20].map((attempt) => reconnectDelayMs(attempt, () => 1))).toEqual([
+      1000, 2000, 4000, 30_000, 30_000,
+    ])
   })
 })
 
@@ -84,7 +95,7 @@ describe('DocumentSync', () => {
     expect(sockets).toHaveLength(4)
   })
 
-  it("resends pending ops with the same client op IDs, after taking its own op in the catch-up as its ack", async () => {
+  it('resends pending ops with the same client op IDs, after taking its own op in the catch-up as its ack', async () => {
     const { sync, sockets, drawings, latest, join, opsSent } = setUp()
     sync.start()
     join()
@@ -159,7 +170,7 @@ describe('DocumentSync', () => {
     expect(sockets).toHaveLength(2) // the waiting reconnect was cancelled, not made as well
   })
 
-  it("never sends ops faster than the server takes them: a burst waits its turn, in order", async () => {
+  it('never sends ops faster than the server takes them: a burst waits its turn, in order', async () => {
     const { sync, latest, join, opsSent } = setUp()
     sync.start()
     join()
@@ -203,7 +214,9 @@ describe('DocumentSync', () => {
     sync.cursor(1, 2) // not connected yet: dropped
     join()
     sync.cursor(3, 4)
-    expect(latest().sent.filter((m) => (m as { type: string }).type === 'cursor')).toEqual([{ type: 'cursor', x: 3, y: 4 }])
+    expect(latest().sent.filter((m) => (m as { type: string }).type === 'cursor')).toEqual([
+      { type: 'cursor', x: 3, y: 4 },
+    ])
 
     const users = [{ id: 'u2', name: 'bob', cursor: { x: 5, y: 6 } }]
     latest().receive({ type: 'presence', users })

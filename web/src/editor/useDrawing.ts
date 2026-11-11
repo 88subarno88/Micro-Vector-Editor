@@ -243,7 +243,7 @@ export function useDrawing(core: Core, loaded: LoadedDocument, overrides?: SyncO
   )
 
   // The topmost shape at a point, or null.
-  const shapeAt = useCallback((point: Point) => (drawing?.hitTest(point.x, point.y) || null), [drawing])
+  const shapeAt = useCallback((point: Point) => drawing?.hitTest(point.x, point.y) || null, [drawing])
 
   // The box around a shape, or null if it's gone.
   const boundsOf = useCallback(

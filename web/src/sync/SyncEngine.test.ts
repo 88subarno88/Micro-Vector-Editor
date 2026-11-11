@@ -297,7 +297,10 @@ describe('rejects', () => {
     engine.remote(1, { set: 2 }) // the add no longer applies
     let resets = 0
     const reset = drawings.resetLocal
-    drawings.resetLocal = () => { resets++; reset() }
+    drawings.resetLocal = () => {
+      resets++
+      reset()
+    }
 
     expect(engine.reject('op-1')).toEqual({ add: -5 })
 
@@ -314,7 +317,7 @@ describe('rejects', () => {
     expect([drawings.confirmed, drawings.local, engine.lastSeq]).toEqual([3, 3, 9])
   })
 
-  it('for an op that isn\'t pending, or a repeated one, change nothing', () => {
+  it("for an op that isn't pending, or a repeated one, change nothing", () => {
     const drawings = counters(0)
     const engine = new SyncEngine(drawings, wire(), 0, ids())
     engine.local({ add: 1 })
@@ -326,7 +329,7 @@ describe('rejects', () => {
 })
 
 describe('after reconnecting', () => {
-  it("takes its own op in the catch-up as the ack it missed, so the op is applied once", () => {
+  it('takes its own op in the catch-up as the ack it missed, so the op is applied once', () => {
     const drawings = counters(0)
     const engine = new SyncEngine(drawings, wire(), 0, ids())
     engine.local({ add: 2 }) // sent, but the connection dropped before the ack

@@ -12,22 +12,33 @@ describe('shapeForDrag', () => {
   })
 
   it('rounds a rounded rectangle by 20, as on the desktop', () => {
-    expect(shape('roundedRect', { x: 0, y: 0 }, { x: 100, y: 50 }, 'a')).toMatchObject({ kind: 'rect', cornerRadius: 20 })
+    expect(shape('roundedRect', { x: 0, y: 0 }, { x: 100, y: 50 }, 'a')).toMatchObject({
+      kind: 'rect',
+      cornerRadius: 20,
+    })
   })
 
   it("sizes a circle by the drag's longer side, from its top left", () => {
     expect(shape('circle', { x: 10, y: 10 }, { x: 110, y: 50 }, 'a')).toMatchObject({
-      kind: 'circle', center: { x: 60, y: 60 }, radius: 50,
+      kind: 'circle',
+      center: { x: 60, y: 60 },
+      radius: 50,
     })
   })
 
   it('draws a line from where the drag started to where it ended', () => {
-    expect(shape('line', { x: 5, y: 6 }, { x: 1, y: 2 }, 'a')).toMatchObject({ kind: 'line', start: { x: 5, y: 6 }, end: { x: 1, y: 2 } })
+    expect(shape('line', { x: 5, y: 6 }, { x: 1, y: 2 }, 'a')).toMatchObject({
+      kind: 'line',
+      start: { x: 5, y: 6 },
+      end: { x: 1, y: 2 },
+    })
   })
 
   it('centres a hexagon in the box, sized to fit its shorter side', () => {
     expect(shape('hexagon', { x: 0, y: 0 }, { x: 100, y: 40 }, 'a')).toMatchObject({
-      kind: 'hexagon', center: { x: 50, y: 20 }, radius: 20,
+      kind: 'hexagon',
+      center: { x: 50, y: 20 },
+      radius: 20,
     })
   })
 
@@ -42,7 +53,9 @@ describe('shapeForDrag', () => {
 
   it('makes an addShape op with the given ID and the default style', () => {
     expect(shapeForDrag('rect', { x: 0, y: 0 }, { x: 5, y: 5 }, 's_1')).toMatchObject({
-      kind: 'addShape', id: 's_1', shape: { style: { stroke: 'black', fill: 'white', strokeWidth: 1 } },
+      kind: 'addShape',
+      id: 's_1',
+      shape: { style: { stroke: 'black', fill: 'white', strokeWidth: 1 } },
     })
   })
 })
@@ -57,20 +70,40 @@ describe('newShapeId', () => {
 
 describe('shapeForStroke', () => {
   it('keeps every point of a freehand stroke, in order', () => {
-    const points = [{ x: 1, y: 1 }, { x: 5, y: 3 }, { x: 9, y: 2 }]
-    expect(shapeForStroke(points, 'a')).toEqual({ kind: 'addShape', id: 'a', shape: { kind: 'freehand', points, style: defaultStyle } })
+    const points = [
+      { x: 1, y: 1 },
+      { x: 5, y: 3 },
+      { x: 9, y: 2 },
+    ]
+    expect(shapeForStroke(points, 'a')).toEqual({
+      kind: 'addShape',
+      id: 'a',
+      shape: { kind: 'freehand', points, style: defaultStyle },
+    })
   })
 
   it('draws nothing for a dot', () => {
     expect(shapeForStroke([{ x: 1, y: 1 }], 'a')).toBeNull()
-    expect(shapeForStroke([{ x: 1, y: 1 }, { x: 2, y: 1.5 }], 'a')).toBeNull()
+    expect(
+      shapeForStroke(
+        [
+          { x: 1, y: 1 },
+          { x: 2, y: 1.5 },
+        ],
+        'a',
+      ),
+    ).toBeNull()
   })
 })
 
 describe('textShape', () => {
   it('places text by its top left, at the default size', () => {
     expect(textShape({ x: 10, y: 20 }, 'Hello', 'a')?.shape).toEqual({
-      kind: 'text', position: { x: 10, y: 20 }, text: 'Hello', fontSize: 16, style: defaultStyle,
+      kind: 'text',
+      position: { x: 10, y: 20 },
+      text: 'Hello',
+      fontSize: 16,
+      style: defaultStyle,
     })
   })
 

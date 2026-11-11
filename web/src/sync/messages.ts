@@ -49,7 +49,9 @@ const isSeq = (value: unknown): value is number => Number.isInteger(value) && (v
 const isString = (value: unknown): value is string => typeof value === 'string'
 
 function isCommittedOp(value: unknown): value is CommittedOp {
-  return isObject(value) && isSeq(value.seq) && isString(value.userId) && isString(value.clientOpId) && isObject(value.op)
+  return (
+    isObject(value) && isSeq(value.seq) && isString(value.userId) && isString(value.clientOpId) && isObject(value.op)
+  )
 }
 
 function isPresenceUser(value: unknown): value is PresenceUser {

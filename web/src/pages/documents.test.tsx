@@ -15,14 +15,20 @@ vi.mock('../core/core', () => ({
   loadCore: async () => ({
     Document: class {
       shapes = 0
-      loadJson() { return '{"ok":true}' }
+      loadJson() {
+        return '{"ok":true}'
+      }
       applyOp(op: string) {
         if (JSON.parse(op).kind === 'broken') return '{"error":{"code":"shape_not_found","message":"no such shape"}}'
         this.shapes += 1
         return '{"ok":true}'
       }
-      drawCommands() { return JSON.stringify(Array(this.shapes).fill({ kind: 'rect' })) }
-      shapesJson() { return JSON.stringify({ shapes: Array.from({ length: this.shapes }, (_, i) => ({ id: `s${i}`, shape: {} })) }) }
+      drawCommands() {
+        return JSON.stringify(Array(this.shapes).fill({ kind: 'rect' }))
+      }
+      shapesJson() {
+        return JSON.stringify({ shapes: Array.from({ length: this.shapes }, (_, i) => ({ id: `s${i}`, shape: {} })) })
+      }
       delete() {}
     },
   }),
@@ -47,7 +53,10 @@ const failure = (status: number, code: string) => json(status, { error: { code, 
 // documents whose ownerId is u1; on the others she's a viewer, so the server refuses her renames.
 function server(docs: Doc[], { loggedIn = true } = {}) {
   const state = {
-    docs: [...docs], loggedIn, nextId: 100, ops: [addOp('s1'), addOp('s2')] as unknown[],
+    docs: [...docs],
+    loggedIn,
+    nextId: 100,
+    ops: [addOp('s1'), addOp('s2')] as unknown[],
     history: [] as { seq: number }[], // newest first
     imported: [] as { title: string | null; svg: string }[],
     exportPolls: 0, // export jobs are done on the second poll
@@ -64,7 +73,9 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
     const authorized = request.headers.get('Authorization') === 'Bearer valid'
 
     if (url.pathname === '/api/auth/refresh') {
-      return state.loggedIn ? json(200, { accessToken: 'valid', tokenType: 'Bearer', expiresIn: 900 }) : failure(401, 'x')
+      return state.loggedIn
+        ? json(200, { accessToken: 'valid', tokenType: 'Bearer', expiresIn: 900 })
+        : failure(401, 'x')
     }
     if (url.pathname === '/api/auth/login') {
       state.loggedIn = true
@@ -87,12 +98,26 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
           const svg = await request.text()
           state.imported.push({ title: url.searchParams.get('title'), svg })
           if (svg.includes('broken')) return failure(400, 'invalid_svg')
-          const created = { id: 'imported', ownerId: me.id, title: url.searchParams.get('title'), headSeq: 0, createdAt: 'x', updatedAt: 'x' }
+          const created = {
+            id: 'imported',
+            ownerId: me.id,
+            title: url.searchParams.get('title'),
+            headSeq: 0,
+            createdAt: 'x',
+            updatedAt: 'x',
+          }
           state.docs.unshift(created as Doc)
           return json(201, created)
         }
         const { title } = await request.json()
-        const created = { id: `d${state.nextId++}`, ownerId: me.id, title, headSeq: 0, createdAt: 'x', updatedAt: '2026-11-09T10:00:00Z' }
+        const created = {
+          id: `d${state.nextId++}`,
+          ownerId: me.id,
+          title,
+          headSeq: 0,
+          createdAt: 'x',
+          updatedAt: '2026-11-09T10:00:00Z',
+        }
         state.docs.unshift(created)
         return json(201, created)
       }
@@ -107,7 +132,16 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
         return new Response(null, { status: 204 })
       case 'POST /api/docs/:id/exports': {
         const { format } = await request.json()
-        return json(202, { id: `job-${format}`, documentId: id, format, status: 'queued', attempts: 0, resultUrl: null, error: null, createdAt: 'x' })
+        return json(202, {
+          id: `job-${format}`,
+          documentId: id,
+          format,
+          status: 'queued',
+          attempts: 0,
+          resultUrl: null,
+          error: null,
+          createdAt: 'x',
+        })
       }
       case 'GET /api/exports/:job/file':
         return new Response('<svg>exported</svg>', { status: 200 })
@@ -115,15 +149,24 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
         const format = url.pathname.split('-').pop()
         const done = ++state.exportPolls >= 2
         return json(200, {
-          id: `job-${format}`, documentId: 'd1', format, status: done ? 'done' : 'running', attempts: 1, error: null, createdAt: 'x',
+          id: `job-${format}`,
+          documentId: 'd1',
+          format,
+          status: done ? 'done' : 'running',
+          attempts: 1,
+          error: null,
+          createdAt: 'x',
           resultUrl: done ? `/api/exports/job-${format}/file` : null,
         })
       }
       case 'GET /api/docs/:id/versions/:seq':
         if (!doc) return failure(404, 'not_found')
         return json(200, {
-          seq: Number(url.pathname.split('/')[5]), role: doc.ownerId === me.id ? 'owner' : 'viewer',
-          snapshot: null, ops: state.ops, opsComplete: true,
+          seq: Number(url.pathname.split('/')[5]),
+          role: doc.ownerId === me.id ? 'owner' : 'viewer',
+          snapshot: null,
+          ops: state.ops,
+          opsComplete: true,
         })
       case 'GET /api/docs/:id/ops': {
         if (!doc) return failure(404, 'not_found')
@@ -135,7 +178,13 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
       }
       case 'GET /api/docs/:id':
         if (!doc) return failure(404, 'not_found')
-        return json(200, { document: doc, role: doc.ownerId === me.id ? 'owner' : 'viewer', snapshot: null, ops: state.ops, opsComplete: true })
+        return json(200, {
+          document: doc,
+          role: doc.ownerId === me.id ? 'owner' : 'viewer',
+          snapshot: null,
+          ops: state.ops,
+          opsComplete: true,
+        })
     }
     return failure(404, 'not_found')
   })
@@ -145,7 +194,12 @@ function server(docs: Doc[], { loggedIn = true } = {}) {
 const addOp = (id: string) => ({ seq: 1, userId: me.id, clientOpId: id, createdAt: 'x', op: { kind: 'addShape', id } })
 
 const doc = (id: string, title: string, ownerId = me.id): Doc => ({
-  id, ownerId, title, headSeq: 3, createdAt: 'x', updatedAt: '2026-11-09T09:00:00Z',
+  id,
+  ownerId,
+  title,
+  headSeq: 3,
+  createdAt: 'x',
+  updatedAt: '2026-11-09T09:00:00Z',
 })
 
 // In StrictMode, as the app runs in development: React mounts, unmounts and mounts every component again,
@@ -280,8 +334,13 @@ describe('the documents page', () => {
   })
 
   describe('the history', () => {
-    const entry = (seq: number, userId: string, userEmail: string, op: object) =>
-      ({ seq, userId, userEmail, op, createdAt: '2026-11-10T09:30:00Z' })
+    const entry = (seq: number, userId: string, userEmail: string, op: object) => ({
+      seq,
+      userId,
+      userEmail,
+      op,
+      createdAt: '2026-11-10T09:30:00Z',
+    })
 
     it('lists every edit newest first, saying what, who and when, and loads older ones', async () => {
       const state = server([doc('d1', 'Plans')])
@@ -293,7 +352,12 @@ describe('the documents page', () => {
       renderAt('/docs/d1')
       await userEvent.click(await screen.findByRole('link', { name: 'History' }))
 
-      const rows = async () => (await screen.findAllByRole('row')).slice(1).map((r) => within(r).getAllByRole('cell').map((c) => c.textContent))
+      const rows = async () =>
+        (await screen.findAllByRole('row')).slice(1).map((r) =>
+          within(r)
+            .getAllByRole('cell')
+            .map((c) => c.textContent),
+        )
       expect((await rows()).map((cells) => cells.slice(0, 3))).toEqual([
         ['3', 'Moved a shape by 5, 0', 'bob@example.com'],
         ['2', "Changed a shape's style: no fill", 'You'],
@@ -318,7 +382,7 @@ describe('the documents page', () => {
       renderAt('/docs/missing/history')
       expect(await screen.findByRole('alert')).toHaveTextContent("That document doesn't exist")
     })
-  
+
     it('shows the drawing as it was after an edit, from the history', async () => {
       const state = server([doc('d1', 'Plans')])
       state.history = [entry(2, me.id, me.email, { kind: 'addShape', id: 's2', shape: { kind: 'circle' } })]
@@ -349,7 +413,7 @@ describe('the documents page', () => {
       renderAt('/docs/missing/history/2')
       expect(await screen.findByRole('alert')).toHaveTextContent("That document doesn't exist")
     })
-    })
+  })
 
   describe('importing and exporting', () => {
     it('makes a document from an SVG file, named after the file, and opens it', async () => {
@@ -366,13 +430,18 @@ describe('the documents page', () => {
       server([])
       renderAt('/')
       await userEvent.upload(await screen.findByLabelText('Import SVG'), new File(['<svg broken'], 'bad.svg'))
-      expect(await screen.findByRole('alert')).toHaveTextContent("That file couldn't be read as SVG (server says invalid_svg).")
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        "That file couldn't be read as SVG (server says invalid_svg).",
+      )
     })
 
     it('refuses a file over 1 MB without sending it', async () => {
       const state = server([])
       renderAt('/')
-      await userEvent.upload(await screen.findByLabelText('Import SVG'), new File(['x'.repeat(1024 * 1024 + 1)], 'big.svg'))
+      await userEvent.upload(
+        await screen.findByLabelText('Import SVG'),
+        new File(['x'.repeat(1024 * 1024 + 1)], 'big.svg'),
+      )
       expect(await screen.findByRole('alert')).toHaveTextContent('That file is over 1 MB')
       expect(state.imported).toEqual([])
     })

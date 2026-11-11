@@ -14,8 +14,8 @@ describe('describeFailure', () => {
   })
 
   it("falls back to the server's own message for codes it doesn't know", () => {
-    expect(describeFailure({ error: { code: 'odd', message: 'An odd thing.' } }, new Response(null, { status: 400 }))).toBe(
-      'An odd thing.',
-    )
+    expect(
+      describeFailure({ error: { code: 'odd', message: 'An odd thing.' } }, new Response(null, { status: 400 })),
+    ).toBe('An odd thing.')
   })
 })

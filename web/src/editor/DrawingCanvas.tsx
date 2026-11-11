@@ -21,7 +21,14 @@ const pixelsPerPage = drawingHeight
 // and white like paper even in dark mode, since a drawing's colours are its own. Reports pointer events in
 // drawing coordinates, whatever size the canvas is shown at and however it's zoomed. The wheel pans, and
 // zooms with Ctrl or ⌘ held (as a trackpad pinch does).
-export default function DrawingCanvas({ commands, view = fitted, outline, handle, onPointer, onView }: {
+export default function DrawingCanvas({
+  commands,
+  view = fitted,
+  outline,
+  handle,
+  onPointer,
+  onView,
+}: {
   commands: DrawCommand[]
   view?: Viewport
   outline?: Bounds | null // the selected shape's box, drawn dashed

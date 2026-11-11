@@ -1,0 +1,5 @@
+# Generated, or not ours.
+dist
+src/wasm
+src/api/schema.d.ts
+package-lock.json

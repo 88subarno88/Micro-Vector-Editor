@@ -28,12 +28,54 @@ function SignedOutOnly({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<SignedOutOnly><AuthPage mode="login" /></SignedOutOnly>} />
-      <Route path="/signup" element={<SignedOutOnly><AuthPage mode="signup" /></SignedOutOnly>} />
-      <Route path="/" element={<SignedInOnly><DocumentsPage /></SignedInOnly>} />
-      <Route path="/docs/:id" element={<SignedInOnly><DocumentPage /></SignedInOnly>} />
-      <Route path="/docs/:id/history" element={<SignedInOnly><HistoryPage /></SignedInOnly>} />
-      <Route path="/docs/:id/history/:seq" element={<SignedInOnly><VersionPage /></SignedInOnly>} />
+      <Route
+        path="/login"
+        element={
+          <SignedOutOnly>
+            <AuthPage mode="login" />
+          </SignedOutOnly>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <SignedOutOnly>
+            <AuthPage mode="signup" />
+          </SignedOutOnly>
+        }
+      />
+      <Route
+        path="/"
+        element={
+          <SignedInOnly>
+            <DocumentsPage />
+          </SignedInOnly>
+        }
+      />
+      <Route
+        path="/docs/:id"
+        element={
+          <SignedInOnly>
+            <DocumentPage />
+          </SignedInOnly>
+        }
+      />
+      <Route
+        path="/docs/:id/history"
+        element={
+          <SignedInOnly>
+            <HistoryPage />
+          </SignedInOnly>
+        }
+      />
+      <Route
+        path="/docs/:id/history/:seq"
+        element={
+          <SignedInOnly>
+            <VersionPage />
+          </SignedInOnly>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

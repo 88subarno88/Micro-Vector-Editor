@@ -3,8 +3,22 @@ import { Link } from 'react-router'
 import { useAuth } from '../auth/auth'
 
 const copy = {
-  login: { title: 'Log in', submit: 'Log in', busy: 'Logging in…', other: 'No account yet?', otherLink: 'Sign up', to: '/signup' },
-  signup: { title: 'Create an account', submit: 'Sign up', busy: 'Signing up…', other: 'Have an account?', otherLink: 'Log in', to: '/login' },
+  login: {
+    title: 'Log in',
+    submit: 'Log in',
+    busy: 'Logging in…',
+    other: 'No account yet?',
+    otherLink: 'Sign up',
+    to: '/signup',
+  },
+  signup: {
+    title: 'Create an account',
+    submit: 'Sign up',
+    busy: 'Signing up…',
+    other: 'Have an account?',
+    otherLink: 'Log in',
+    to: '/login',
+  },
 }
 
 // The login and signup forms, which differ only in wording and what they call. Both end logged in.

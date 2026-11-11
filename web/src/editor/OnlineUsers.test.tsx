@@ -12,8 +12,13 @@ const avatars = () => within(screen.getByRole('list', { name: 'Online now' })).q
 afterEach(cleanup)
 
 describe('OnlineUsers', () => {
-  it("shows each user once, by initial, in their colour, with this user marked", () => {
-    render(<OnlineUsers me="u1" users={[user('u1', 'ada@example.com'), user('u2', 'bob@example.com'), user('u2', 'bob@example.com')]} />)
+  it('shows each user once, by initial, in their colour, with this user marked', () => {
+    render(
+      <OnlineUsers
+        me="u1"
+        users={[user('u1', 'ada@example.com'), user('u2', 'bob@example.com'), user('u2', 'bob@example.com')]}
+      />,
+    )
 
     expect(avatars().map((a) => a.getAttribute('aria-label'))).toEqual(['ada@example.com (you)', 'bob@example.com'])
     expect(avatars().map((a) => a.textContent)).toEqual(['A', 'B'])

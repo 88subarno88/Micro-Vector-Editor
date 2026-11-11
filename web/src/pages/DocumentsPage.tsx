@@ -13,7 +13,12 @@ const maxImportBytes = 1024 * 1024
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 // One document in the list: open it, rename it in place, or delete it if it's yours.
-function DocumentRow({ doc, isOwner, onRenamed, onDeleted }: {
+function DocumentRow({
+  doc,
+  isOwner,
+  onRenamed,
+  onDeleted,
+}: {
   doc: Doc
   isOwner: boolean
   onRenamed(doc: Doc): void
@@ -50,21 +55,51 @@ function DocumentRow({ doc, isOwner, onRenamed, onDeleted }: {
     <li className="doc">
       {editing ? (
         <form className="inline" onSubmit={rename}>
-          <input aria-label="Title" required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
-          <button type="submit" disabled={busy}>Save</button>
-          <button type="button" onClick={() => { setEditing(false); setTitle(doc.title); setError(null) }}>Cancel</button>
+          <input
+            aria-label="Title"
+            required
+            maxLength={200}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+          />
+          <button type="submit" disabled={busy}>
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(false)
+              setTitle(doc.title)
+              setError(null)
+            }}
+          >
+            Cancel
+          </button>
         </form>
       ) : (
         <>
-          <Link to={`/docs/${doc.id}`} className="title">{doc.title}</Link>
+          <Link to={`/docs/${doc.id}`} className="title">
+            {doc.title}
+          </Link>
           <span className="meta">Edited {dateFormat.format(new Date(doc.updatedAt))}</span>
           <span className="actions">
-            <button onClick={() => setEditing(true)} disabled={busy}>Rename</button>
-            {isOwner && <button onClick={() => void remove()} disabled={busy}>Delete</button>}
+            <button onClick={() => setEditing(true)} disabled={busy}>
+              Rename
+            </button>
+            {isOwner && (
+              <button onClick={() => void remove()} disabled={busy}>
+                Delete
+              </button>
+            )}
           </span>
         </>
       )}
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
     </li>
   )
 }
@@ -141,20 +176,37 @@ export default function DocumentsPage() {
       </header>
 
       <form className="inline" onSubmit={create}>
-        <input aria-label="New document title" placeholder="Untitled drawing" required maxLength={200}
-          value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
-        <button type="submit" disabled={creating}>New document</button>
+        <input
+          aria-label="New document title"
+          placeholder="Untitled drawing"
+          required
+          maxLength={200}
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+        />
+        <button type="submit" disabled={creating}>
+          New document
+        </button>
         <label className={`button${creating ? ' disabled' : ''}`}>
           Import SVG
-          <input type="file" accept=".svg,image/svg+xml" className="visually-hidden" disabled={creating}
+          <input
+            type="file"
+            accept=".svg,image/svg+xml"
+            className="visually-hidden"
+            disabled={creating}
             onChange={(event) => {
               const file = event.target.files?.[0]
               event.target.value = '' // so choosing the same file again still counts
               if (file) void importSvg(file)
-            }} />
+            }}
+          />
         </label>
       </form>
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
 
       {!loaded ? (
         <p className="loading">Loading…</p>
@@ -163,9 +215,13 @@ export default function DocumentsPage() {
       ) : (
         <ul className="docs">
           {docs.map((doc) => (
-            <DocumentRow key={doc.id} doc={doc} isOwner={doc.ownerId === user?.id}
+            <DocumentRow
+              key={doc.id}
+              doc={doc}
+              isOwner={doc.ownerId === user?.id}
               onRenamed={(renamed) => setDocs((current) => current.map((d) => (d.id === renamed.id ? renamed : d)))}
-              onDeleted={(id) => setDocs((current) => current.filter((d) => d.id !== id))} />
+              onDeleted={(id) => setDocs((current) => current.filter((d) => d.id !== id))}
+            />
           ))}
         </ul>
       )}

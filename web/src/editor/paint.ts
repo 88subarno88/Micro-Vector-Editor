@@ -18,8 +18,23 @@ export type DrawCommand = { id: string; style: Style } & (
 // The subset of CanvasRenderingContext2D used here, so tests can record the calls.
 export type Painter = Pick<
   CanvasRenderingContext2D,
-  | 'beginPath' | 'rect' | 'roundRect' | 'ellipse' | 'moveTo' | 'lineTo' | 'closePath' | 'fill' | 'stroke'
-  | 'fillText' | 'strokeText' | 'fillStyle' | 'strokeStyle' | 'lineWidth' | 'lineJoin' | 'font' | 'textBaseline'
+  | 'beginPath'
+  | 'rect'
+  | 'roundRect'
+  | 'ellipse'
+  | 'moveTo'
+  | 'lineTo'
+  | 'closePath'
+  | 'fill'
+  | 'stroke'
+  | 'fillText'
+  | 'strokeText'
+  | 'fillStyle'
+  | 'strokeStyle'
+  | 'lineWidth'
+  | 'lineJoin'
+  | 'font'
+  | 'textBaseline'
 >
 
 const hasFill = (style: Style) => style.fill !== 'none'

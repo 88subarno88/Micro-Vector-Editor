@@ -45,10 +45,12 @@ export default function VersionPage() {
     if (!version.opsComplete) return 'This version is too far back from a saved copy of the drawing to show.'
     const document = new core.Document()
     try {
-      return rebuild(document, version) ?? {
-        commands: JSON.parse(document.drawCommands()),
-        shapes: JSON.parse(document.shapesJson()).shapes,
-      }
+      return (
+        rebuild(document, version) ?? {
+          commands: JSON.parse(document.drawCommands()),
+          shapes: JSON.parse(document.shapesJson()).shapes,
+        }
+      )
     } finally {
       document.delete()
     }
@@ -71,7 +73,9 @@ export default function VersionPage() {
       </p>
       <h1>As it was after edit {seq}</h1>
       {problem ? (
-        <p className="error" role="alert">{problem}</p>
+        <p className="error" role="alert">
+          {problem}
+        </p>
       ) : !picture ? (
         <p className="loading">Loading…</p>
       ) : (
@@ -79,7 +83,9 @@ export default function VersionPage() {
           {canRestore && (
             <p className="restore">
               <button onClick={restore}>Restore this version</button>
-              <span className="hint">The drawing is changed back with ordinary edits: everyone sees them, and you can undo them.</span>
+              <span className="hint">
+                The drawing is changed back with ordinary edits: everyone sees them, and you can undo them.
+              </span>
             </p>
           )}
           <div className="canvas-wrap">

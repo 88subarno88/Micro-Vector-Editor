@@ -17,7 +17,9 @@ describe('toHexColor', () => {
     // jsdom has no canvas, so stand in for one: it understands "red" and ignores anything it can't parse.
     const context = {
       value: '#000000',
-      get fillStyle() { return this.value },
+      get fillStyle() {
+        return this.value
+      },
       set fillStyle(color: string) {
         if (color === 'red') this.value = '#ff0000'
         else if (/^#[0-9a-f]{6}$/.test(color)) this.value = color

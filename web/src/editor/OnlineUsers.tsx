@@ -21,8 +21,14 @@ export default function OnlineUsers({ users, me }: { users: PresenceUser[]; me: 
         )
       })}
       {hidden > 0 && (
-        <li className="avatar more" title={unique.slice(maxAvatars).map((user) => user.name).join(', ')}
-          aria-label={`${hidden} more`}>
+        <li
+          className="avatar more"
+          title={unique
+            .slice(maxAvatars)
+            .map((user) => user.name)
+            .join(', ')}
+          aria-label={`${hidden} more`}
+        >
           +{hidden}
         </li>
       )}

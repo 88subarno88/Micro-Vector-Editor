@@ -5,9 +5,11 @@ import { paint, type DrawCommand, type Painter, type Style } from './paint'
 function recorder() {
   const calls: string[] = []
   const state = { fillStyle: '', strokeStyle: '', lineWidth: 0, lineJoin: '', font: '', textBaseline: '' }
-  const record = (name: string) => (...args: unknown[]) => {
-    calls.push(`${name}(${args.map((a) => (typeof a === 'number' ? Math.round(a * 100) / 100 : a)).join(', ')})`)
-  }
+  const record =
+    (name: string) =>
+    (...args: unknown[]) => {
+      calls.push(`${name}(${args.map((a) => (typeof a === 'number' ? Math.round(a * 100) / 100 : a)).join(', ')})`)
+    }
   const painter = new Proxy(state, {
     get: (target, key: string) => (key in target ? target[key as keyof typeof state] : record(key)),
     set: (target, key: string, value) => {
@@ -20,7 +22,9 @@ function recorder() {
 
 const style: Style = { stroke: 'red', fill: '#00ff00', strokeWidth: 2 }
 // A command without its id, and optionally without its style: Omit applied to each kind of command.
-type Shape = { [K in DrawCommand['kind']]: Omit<Extract<DrawCommand, { kind: K }>, 'id' | 'style'> }[DrawCommand['kind']]
+type Shape = {
+  [K in DrawCommand['kind']]: Omit<Extract<DrawCommand, { kind: K }>, 'id' | 'style'>
+}[DrawCommand['kind']]
 const draw = (command: Shape & { style?: Style }) => {
   const r = recorder()
   paint(r.painter, [{ id: 's', style, ...command } as DrawCommand])
@@ -30,9 +34,14 @@ const draw = (command: Shape & { style?: Style }) => {
 describe('paint', () => {
   it('draws a rectangle, rounding its corners only when it has a radius', () => {
     expect(draw({ kind: 'rect', x: 1, y: 2, width: 3, height: 4, cornerRadius: 0 }).calls).toEqual([
-      'beginPath()', 'rect(1, 2, 3, 4)', 'fill()', 'stroke()',
+      'beginPath()',
+      'rect(1, 2, 3, 4)',
+      'fill()',
+      'stroke()',
     ])
-    expect(draw({ kind: 'rect', x: 1, y: 2, width: 3, height: 4, cornerRadius: 5 }).calls).toContain('roundRect(1, 2, 3, 4, 5)')
+    expect(draw({ kind: 'rect', x: 1, y: 2, width: 3, height: 4, cornerRadius: 5 }).calls).toContain(
+      'roundRect(1, 2, 3, 4, 5)',
+    )
   })
 
   it('uses the style, with square corners on outlines', () => {
@@ -51,12 +60,22 @@ describe('paint', () => {
   })
 
   it('draws an ellipse all the way round', () => {
-    expect(draw({ kind: 'ellipse', cx: 10, cy: 20, rx: 30, ry: 40 }).calls).toContain('ellipse(10, 20, 30, 40, 0, 0, 6.28)')
+    expect(draw({ kind: 'ellipse', cx: 10, cy: 20, rx: 30, ry: 40 }).calls).toContain(
+      'ellipse(10, 20, 30, 40, 0, 0, 6.28)',
+    )
   })
 
   it('fills a closed polyline but never an open one', () => {
     const closed = draw({ kind: 'polyline', points: [0, 0, 10, 0, 5, 8], closed: true })
-    expect(closed.calls).toEqual(['beginPath()', 'moveTo(0, 0)', 'lineTo(10, 0)', 'lineTo(5, 8)', 'closePath()', 'fill()', 'stroke()'])
+    expect(closed.calls).toEqual([
+      'beginPath()',
+      'moveTo(0, 0)',
+      'lineTo(10, 0)',
+      'lineTo(5, 8)',
+      'closePath()',
+      'fill()',
+      'stroke()',
+    ])
 
     const open = draw({ kind: 'polyline', points: [0, 0, 10, 0], closed: false })
     expect(open.calls).toEqual(['beginPath()', 'moveTo(0, 0)', 'lineTo(10, 0)', 'stroke()'])
@@ -78,6 +97,9 @@ describe('paint', () => {
       { id: 'a', style, kind: 'rect', x: 0, y: 0, width: 1, height: 1, cornerRadius: 0 },
       { id: 'b', style, kind: 'ellipse', cx: 0, cy: 0, rx: 1, ry: 1 },
     ])
-    expect(r.calls.filter((c) => c.startsWith('rect') || c.startsWith('ellipse'))).toEqual(['rect(0, 0, 1, 1)', 'ellipse(0, 0, 1, 1, 0, 0, 6.28)'])
+    expect(r.calls.filter((c) => c.startsWith('rect') || c.startsWith('ellipse'))).toEqual([
+      'rect(0, 0, 1, 1)',
+      'ellipse(0, 0, 1, 1, 0, 0, 6.28)',
+    ])
   })
 })

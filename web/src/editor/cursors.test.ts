@@ -16,7 +16,10 @@ describe('latestEvery', () => {
     expect(sent).toEqual([{ x: 1, y: 1 }])
 
     vi.advanceTimersByTime(100)
-    expect(sent).toEqual([{ x: 1, y: 1 }, { x: 3, y: 3 }]) // where the pointer stopped gets through
+    expect(sent).toEqual([
+      { x: 1, y: 1 },
+      { x: 3, y: 3 },
+    ]) // where the pointer stopped gets through
 
     vi.advanceTimersByTime(100) // nothing new: nothing sent, and the next move goes at once
     cursor.to({ x: 4, y: 4 })

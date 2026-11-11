@@ -6,8 +6,15 @@ function setUp({ token = 'tok' as string | null, renews = true } = {}) {
   const sockets: FakeSocket[] = []
   let current = token
   const events = {
-    onStatus: vi.fn(), onReady: vi.fn(), onJoined: vi.fn(), onOp: vi.fn(), onAck: vi.fn(),
-    onReject: vi.fn(), onPresence: vi.fn(), onError: vi.fn(), onClosed: vi.fn(),
+    onStatus: vi.fn(),
+    onReady: vi.fn(),
+    onJoined: vi.fn(),
+    onOp: vi.fn(),
+    onAck: vi.fn(),
+    onReject: vi.fn(),
+    onPresence: vi.fn(),
+    onError: vi.fn(),
+    onClosed: vi.fn(),
   } satisfies SyncEvents
   const renewToken = vi.fn(async () => {
     if (renews) current = 'renewed'
@@ -63,9 +70,16 @@ describe('SyncClient', () => {
     expect(client.status).toBe('joining')
     expect(events.onReady).toHaveBeenCalledWith('editor')
 
-    socket.receive({ type: 'joined', headSeq: 43, ops: [{ seq: 43, userId: 'u', clientOpId: 'c', op: { kind: 'deleteShape', id: 'a' } }] })
+    socket.receive({
+      type: 'joined',
+      headSeq: 43,
+      ops: [{ seq: 43, userId: 'u', clientOpId: 'c', op: { kind: 'deleteShape', id: 'a' } }],
+    })
     expect(client.status).toBe('live')
-    expect(events.onJoined).toHaveBeenCalledWith({ headSeq: 43, ops: [{ seq: 43, userId: 'u', clientOpId: 'c', op: { kind: 'deleteShape', id: 'a' } }] })
+    expect(events.onJoined).toHaveBeenCalledWith({
+      headSeq: 43,
+      ops: [{ seq: 43, userId: 'u', clientOpId: 'c', op: { kind: 'deleteShape', id: 'a' } }],
+    })
     expect(events.onStatus.mock.calls.map(([status]) => status)).toEqual(['connecting', 'joining', 'live'])
   })
 
@@ -79,7 +93,12 @@ describe('SyncClient', () => {
     socket.receive({ type: 'op', seq: 'eight' })
     socket.onmessage?.({ data: '{oops' } as MessageEvent)
 
-    expect(events.onOp).toHaveBeenCalledExactlyOnceWith({ seq: 6, userId: 'u', clientOpId: 'c', op: { kind: 'deleteShape', id: 'a' } })
+    expect(events.onOp).toHaveBeenCalledExactlyOnceWith({
+      seq: 6,
+      userId: 'u',
+      clientOpId: 'c',
+      op: { kind: 'deleteShape', id: 'a' },
+    })
     expect(events.onAck).toHaveBeenCalledWith('c1', 7)
     expect(events.onReject).toHaveBeenCalledWith('c2', 'forbidden', 'viewers cannot edit')
     expect(events.onPresence).toHaveBeenCalledWith([])

@@ -28,9 +28,12 @@ function server({ loggedIn = false, rateLimited = false } = {}) {
           ? json(200, { id: 'u1', email: 'ada@example.com', createdAt: 'x' })
           : failure(401, 'unauthorized')
       case '/api/auth/refresh':
-        return state.loggedIn ? json(200, { accessToken: 'valid', tokenType: 'Bearer', expiresIn: 900 }) : failure(401, 'invalid_refresh_token')
+        return state.loggedIn
+          ? json(200, { accessToken: 'valid', tokenType: 'Bearer', expiresIn: 900 })
+          : failure(401, 'invalid_refresh_token')
       case '/api/auth/login':
-        if (rateLimited) return json(429, { error: { code: 'rate_limited', message: 'slow down' } }, { 'Retry-After': '42' })
+        if (rateLimited)
+          return json(429, { error: { code: 'rate_limited', message: 'slow down' } }, { 'Retry-After': '42' })
         if (!state.accounts.has(email) || password !== 'correct horse') return failure(401, 'invalid_credentials')
         state.loggedIn = true
         return json(200, { accessToken: 'valid', tokenType: 'Bearer', expiresIn: 900 })

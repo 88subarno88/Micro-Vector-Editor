@@ -20,7 +20,9 @@ describe('describeConnection', () => {
   })
 
   it('counts the edits waiting while not connected', () => {
-    expect(describeConnection({ ...live, status: 'closed', pending: 1 }).label).toBe('Reconnecting… · 1 edit not saved yet')
+    expect(describeConnection({ ...live, status: 'closed', pending: 1 }).label).toBe(
+      'Reconnecting… · 1 edit not saved yet',
+    )
     expect(describeConnection({ ...live, online: false, pending: 3 }).label).toBe('Offline · 3 edits not saved yet')
   })
 })

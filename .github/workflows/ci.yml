@@ -212,4 +212,50 @@ jobs:
           path: |
             build/wasm/vec.js
             build/wasm/vec.wasm
+            build/wasm/vec.d.ts
           if-no-files-found: error
+
+  web:
+    name: Web client
+    needs: wasm # the client imports the core's types, and its tests run on the core itself
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the WebAssembly core
+        uses: actions/download-artifact@v4
+        with:
+          name: vec-wasm
+          path: web/src/wasm
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Type-check
+        run: npx tsc -b
+
+      - name: Test
+        shell: bash
+        run: |
+          npm test | tee test.log
+          # The tests on the real core skip themselves without it, which would otherwise pass quietly.
+          if grep -q 'skipped' test.log; then
+            echo "::error::tests were skipped; did the WebAssembly core reach src/wasm?"
+            exit 1
+          fi

@@ -55,7 +55,8 @@ function fakeCore() {
           shape.y += op.dy
         } else if (op.kind === 'setStyle') {
           const shape = shapes.get(op.id) as { style: Record<string, unknown> }
-          for (const key of ['stroke', 'fill', 'strokeWidth']) if (key in op) shape.style = { ...shape.style, [key]: op[key] }
+          for (const key of ['stroke', 'fill', 'strokeWidth'])
+            if (key in op) shape.style = { ...shape.style, [key]: op[key] }
         } else if (op.kind === 'resize') {
           // Like the core's rectangle: grows from its top left.
           const shape = shapes.get(op.id) as { width: number; height: number }
@@ -70,7 +71,9 @@ function fakeCore() {
         if (op.kind === 'addShape') return JSON.stringify({ op: { kind: 'deleteShape', id: op.id } })
         if (op.kind === 'deleteShape') {
           const shape = shapes.get(op.id)
-          return shape ? JSON.stringify({ op: { kind: 'addShape', id: op.id, shape: structuredClone(shape) } }) : refuse('no such shape')
+          return shape
+            ? JSON.stringify({ op: { kind: 'addShape', id: op.id, shape: structuredClone(shape) } })
+            : refuse('no such shape')
         }
         if (op.kind === 'move') return JSON.stringify({ op: { ...op, dx: -op.dx, dy: -op.dy } })
         if (op.kind === 'resize') return JSON.stringify({ op: { ...op, factor: 1 / op.factor } })
@@ -99,12 +102,14 @@ function fakeCore() {
         return ok
       }
       drawCommands() {
-        return JSON.stringify([...this.shapes].map(([id, shape]) => ({
-          id,
-          kind: shape.kind === 'line' || shape.kind === 'freehand' ? 'polyline' : 'rect',
-          closed: false,
-          style: shape.style,
-        })))
+        return JSON.stringify(
+          [...this.shapes].map(([id, shape]) => ({
+            id,
+            kind: shape.kind === 'line' || shape.kind === 'freehand' ? 'polyline' : 'rect',
+            closed: false,
+            style: shape.style,
+          })),
+        )
       }
       shapesJson() {
         return JSON.stringify({ shapes: [...this.shapes].map(([id, shape]) => ({ id, shape })) })
@@ -160,7 +165,15 @@ beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   // Shown at half size, so pointer positions must be scaled up to drawing units.
   vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue({
-    left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => ({}),
+    left: 0,
+    top: 0,
+    width: 400,
+    height: 300,
+    right: 400,
+    bottom: 300,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
   })
 })
 afterEach(() => {
@@ -231,7 +244,9 @@ describe('the editor', () => {
     render(<Editor core={core} loaded={loaded} me="me" sync={sync} />)
     await userEvent.click(screen.getByRole('button', { name: 'Hexagon' }))
     drag([0, 0], [50, 20])
-    expect([...shapes.values()]).toEqual([expect.objectContaining({ kind: 'hexagon', center: { x: 50, y: 20 }, radius: 20 })])
+    expect([...shapes.values()]).toEqual([
+      expect.objectContaining({ kind: 'hexagon', center: { x: 50, y: 20 }, radius: 20 }),
+    ])
   })
 
   it('keeps every point of a freehand stroke, in order', async () => {
@@ -243,7 +258,12 @@ describe('the editor', () => {
 
     expect([...shapes.values()][0]).toMatchObject({
       kind: 'freehand',
-      points: [{ x: 20, y: 20 }, { x: 40, y: 30 }, { x: 60, y: 40 }, { x: 60, y: 40 }],
+      points: [
+        { x: 20, y: 20 },
+        { x: 40, y: 30 },
+        { x: 60, y: 40 },
+        { x: 60, y: 40 },
+      ],
     })
   })
 
@@ -263,7 +283,9 @@ describe('the editor', () => {
       expect(entry).toHaveStyle({ left: '50%', top: '50%' })
       await userEvent.type(entry, 'Hello{Enter}')
 
-      expect([...shapes.values()]).toEqual([expect.objectContaining({ kind: 'text', text: 'Hello', position: { x: 400, y: 300 }, fontSize: 16 })])
+      expect([...shapes.values()]).toEqual([
+        expect.objectContaining({ kind: 'text', text: 'Hello', position: { x: 400, y: 300 }, fontSize: 16 }),
+      ])
       expect(screen.queryByLabelText('Text')).not.toBeInTheDocument()
     })
 
@@ -363,7 +385,11 @@ describe('the editor', () => {
     })
 
     it('deletes the selected shape with Delete, Backspace or the button', async () => {
-      for (const remove of [() => userEvent.keyboard('{Delete}'), () => userEvent.keyboard('{Backspace}'), () => userEvent.click(deleteButton())]) {
+      for (const remove of [
+        () => userEvent.keyboard('{Delete}'),
+        () => userEvent.keyboard('{Backspace}'),
+        () => userEvent.click(deleteButton()),
+      ]) {
         cleanup()
         const { shapes } = await withRectangle()
         click([75, 75])
@@ -531,7 +557,7 @@ describe('the editor', () => {
       expect(deleteButton()).toBeDisabled()
     })
 
-    it("chooses tools by letter, but not while typing", async () => {
+    it('chooses tools by letter, but not while typing', async () => {
       await withSelected()
       await userEvent.keyboard('r')
       expect(screen.getByRole('button', { name: 'Rectangle' })).toHaveAttribute('aria-pressed', 'true')
@@ -600,7 +626,10 @@ describe('the editor', () => {
       return socket
     }
     const opsSent = (socket: FakeSocket) =>
-      socket.sent.filter((m) => (m as { type: string }).type === 'op') as { clientOpId: string; op: Record<string, unknown> }[]
+      socket.sent.filter((m) => (m as { type: string }).type === 'op') as {
+        clientOpId: string
+        op: Record<string, unknown>
+      }[]
 
     it('sends each edit', async () => {
       const { core } = fakeCore()
@@ -616,7 +645,15 @@ describe('the editor', () => {
       render(<Editor core={core} loaded={loaded} me="me" sync={sync} />)
       const socket = goLive()
       const shape = { kind: 'rect', x: 1, y: 2, width: 3, height: 4, style: {} }
-      act(() => socket.receive({ type: 'op', seq: 1, userId: 'bob', clientOpId: 'b1', op: { kind: 'addShape', id: 'b', shape } }))
+      act(() =>
+        socket.receive({
+          type: 'op',
+          seq: 1,
+          userId: 'bob',
+          clientOpId: 'b1',
+          op: { kind: 'addShape', id: 'b', shape },
+        }),
+      )
       expect(shapes.get('b')).toEqual(shape)
     })
 
@@ -672,14 +709,16 @@ describe('the editor', () => {
     it("draws the others' pointers where they are, with their names, but not this user's", () => {
       render(<Editor core={fakeCore().core} loaded={loaded} me="me" sync={sync} />)
       const socket = goLive()
-      act(() => socket.receive({
-        type: 'presence',
-        users: [
-          { id: 'me', name: 'me@example.com', cursor: { x: 10, y: 10 } },
-          { id: 'u2', name: 'bob@example.com', cursor: { x: 400, y: 150 } },
-          { id: 'u3', name: 'cy@example.com', cursor: null }, // hasn't moved yet
-        ],
-      }))
+      act(() =>
+        socket.receive({
+          type: 'presence',
+          users: [
+            { id: 'me', name: 'me@example.com', cursor: { x: 10, y: 10 } },
+            { id: 'u2', name: 'bob@example.com', cursor: { x: 400, y: 150 } },
+            { id: 'u3', name: 'cy@example.com', cursor: null }, // hasn't moved yet
+          ],
+        }),
+      )
 
       const bob = screen.getByRole('img', { name: "bob@example.com's pointer" })
       expect(bob).toHaveStyle({ left: '50%', top: '25%' })
@@ -712,7 +751,10 @@ describe('the editor', () => {
       expect(cursors()).toEqual([{ type: 'cursor', x: 20, y: 10 }]) // shown at half size
 
       act(() => vi.advanceTimersByTime(100))
-      expect(cursors()).toEqual([{ type: 'cursor', x: 20, y: 10 }, { type: 'cursor', x: 60, y: 10 }])
+      expect(cursors()).toEqual([
+        { type: 'cursor', x: 20, y: 10 },
+        { type: 'cursor', x: 60, y: 10 },
+      ])
       vi.useRealTimers()
     })
 
@@ -720,10 +762,13 @@ describe('the editor', () => {
       const { core, shapes } = fakeCore()
       // A canvas that records only the boxes it strokes: the last is the selected shape's dashed outline.
       const stroked: number[][] = []
-      const context = new Proxy({}, {
-        get: (_, key) => (key === 'strokeRect' ? (...box: number[]) => stroked.push(box) : () => {}),
-        set: () => true,
-      })
+      const context = new Proxy(
+        {},
+        {
+          get: (_, key) => (key === 'strokeRect' ? (...box: number[]) => stroked.push(box) : () => {}),
+          set: () => true,
+        },
+      )
       vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as CanvasRenderingContext2D)
       render(<Editor core={core} loaded={loaded} me="me" sync={sync} />)
       const socket = goLive()
@@ -732,7 +777,10 @@ describe('the editor', () => {
       await chooseTool('Select')
       const id = [...shapes.keys()][0]
       vi.useFakeTimers()
-      const moves = () => opsSent(socket).filter((m) => m.op.kind === 'move').map((m) => m.op)
+      const moves = () =>
+        opsSent(socket)
+          .filter((m) => m.op.kind === 'move')
+          .map((m) => m.op)
       const pointer = (kind: 'pointerDown' | 'pointerMove' | 'pointerUp', x: number) =>
         fireEvent[kind](canvas(), { clientX: x, clientY: 75, pointerId: 1 })
 
@@ -748,7 +796,10 @@ describe('the editor', () => {
       pointer('pointerMove', 90)
       pointer('pointerUp', 92)
 
-      expect(moves()).toEqual([{ kind: 'move', id, dx: 20, dy: 0 }, { kind: 'move', id, dx: 14, dy: 0 }])
+      expect(moves()).toEqual([
+        { kind: 'move', id, dx: 20, dy: 0 },
+        { kind: 'move', id, dx: 14, dy: 0 },
+      ])
       expect(shapes.get(id)).toMatchObject({ x: 134, y: 100 })
       act(() => vi.advanceTimersByTime(1000))
       expect(moves()).toHaveLength(2)
@@ -767,8 +818,12 @@ describe('the editor', () => {
       return socket
     }
     const sent = (socket: FakeSocket) =>
-      socket.sent.filter((m) => (m as { type: string }).type === 'op') as { clientOpId: string; op: Record<string, unknown> }[]
-    const key = (k: string, shift = false) => act(() => void fireEvent.keyDown(document.body, { key: k, ctrlKey: true, shiftKey: shift }))
+      socket.sent.filter((m) => (m as { type: string }).type === 'op') as {
+        clientOpId: string
+        op: Record<string, unknown>
+      }[]
+    const key = (k: string, shift = false) =>
+      act(() => void fireEvent.keyDown(document.body, { key: k, ctrlKey: true, shiftKey: shift }))
     const button = (name: string) => screen.getByRole('button', { name })
 
     async function withRectangle() {
@@ -792,7 +847,13 @@ describe('the editor', () => {
       key('y') // Ctrl+Y redoes too
       expect(shapes.size).toBe(1)
 
-      expect(sent(socket).map((m) => m.op.kind)).toEqual(['addShape', 'deleteShape', 'addShape', 'deleteShape', 'addShape'])
+      expect(sent(socket).map((m) => m.op.kind)).toEqual([
+        'addShape',
+        'deleteShape',
+        'addShape',
+        'deleteShape',
+        'addShape',
+      ])
     })
 
     it('has buttons, available only when there is something to undo or redo', async () => {
@@ -833,7 +894,11 @@ describe('the editor', () => {
       key('z')
 
       expect(shapes.get(id)).toMatchObject({ x: 100, y: 100 })
-      expect(sent(socket).map((m) => m.op).filter((op) => op.kind === 'move')).toEqual([
+      expect(
+        sent(socket)
+          .map((m) => m.op)
+          .filter((op) => op.kind === 'move'),
+      ).toEqual([
         { kind: 'move', id, dx: 20, dy: 10 },
         { kind: 'move', id, dx: 20, dy: 20 },
         { kind: 'move', id, dx: -40, dy: -30 },
@@ -861,24 +926,49 @@ describe('the editor', () => {
     it('restores a version once live, as one step that undo takes back', async () => {
       const fake = fakeCore()
       const onRestored = vi.fn()
-      const version = { seq: 7, shapes: [{ id: 'old', shape: { kind: 'rect', x: 1, y: 1, width: 5, height: 5, style: {} } }] }
+      const version = {
+        seq: 7,
+        shapes: [{ id: 'old', shape: { kind: 'rect', x: 1, y: 1, width: 5, height: 5, style: {} } }],
+      }
       const { rerender } = render(<Editor core={fake.core} loaded={loaded} me="me" sync={sync} />)
       const socket = goLive()
       await chooseTool('Rectangle')
       drag([50, 50], [100, 100]) // a shape the version doesn't have
       const added = [...fake.shapes.keys()][0]
 
-      rerender(<Editor core={fake.core} loaded={loaded} me="me" sync={sync} restore={version} onRestored={() => onRestored()} />)
+      rerender(
+        <Editor
+          core={fake.core}
+          loaded={loaded}
+          me="me"
+          sync={sync}
+          restore={version}
+          onRestored={() => onRestored()}
+        />,
+      )
 
       expect([...fake.shapes.keys()]).toEqual(['old'])
-      expect(sent(socket).slice(1).map((m) => m.op)).toEqual([
+      expect(
+        sent(socket)
+          .slice(1)
+          .map((m) => m.op),
+      ).toEqual([
         { kind: 'deleteShape', id: added },
         { kind: 'addShape', id: 'old', shape: version.shapes[0].shape, position: 0 },
       ])
       expect(screen.getByText('Restored the drawing as it was after edit 7. Undo takes it back.')).toBeInTheDocument()
       expect(onRestored).toHaveBeenCalledOnce()
 
-      rerender(<Editor core={fake.core} loaded={loaded} me="me" sync={sync} restore={version} onRestored={() => onRestored()} />)
+      rerender(
+        <Editor
+          core={fake.core}
+          loaded={loaded}
+          me="me"
+          sync={sync}
+          restore={version}
+          onRestored={() => onRestored()}
+        />,
+      )
       expect(onRestored).toHaveBeenCalledOnce() // the same request isn't carried out twice
       expect(sent(socket)).toHaveLength(3)
 
