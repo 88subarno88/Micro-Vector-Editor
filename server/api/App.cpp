@@ -86,7 +86,7 @@ std::string configureApp(const vec::Config& config, const drogon::orm::DbClientP
     const std::string instanceId = drogon::utils::getUuid();
     drogon::app().registerFilter(std::make_shared<AuthFilter>(tokens));
     drogon::app().registerFilter(std::make_shared<RateLimitFilter>(
-        redis, "auth", config.authRequestsPerMinute, std::chrono::minutes(1)));
+        redis, "auth", config.authRequestsPerMinute, std::chrono::minutes(1), config.trustedProxies));
     registerAuthRoutes(database, hashing, tokens);
     registerDocRoutes(database);
     registerExportRoutes(database, config.exportDir);

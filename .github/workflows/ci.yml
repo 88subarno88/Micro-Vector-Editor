@@ -156,17 +156,6 @@ jobs:
           name: fuzz-crashes
           path: build/fuzz/artifacts/
 
-      - name: Keep the server for the end-to-end tests
-        if: matrix.preset == 'server'
-        uses: actions/upload-artifact@v4
-        with:
-          name: vec-server
-          path: |
-            build/server/vec_api
-            build/server/vec_worker
-          retention-days: 1
-          if-no-files-found: error
-
   wasm:
     name: WebAssembly
     runs-on: ubuntu-24.04
@@ -273,41 +262,25 @@ jobs:
 
   e2e:
     name: End to end
-    # The server built and tested in its own job, and the core for the client.
-    needs: [build-and-test, wasm]
+    # The images that ship, built and started with deploy/docker-compose.yml: nginx, two API servers, the
+    # worker, Postgres and Redis. Testing these, not binaries from another job, is what would have caught a
+    # compiler that only the images use (BLD-15).
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get the server
-        uses: actions/download-artifact@v4
-        with:
-          name: vec-server
-          path: build/server
-
-      - name: Get the WebAssembly core
-        uses: actions/download-artifact@v4
-        with:
-          name: vec-wasm
-          path: web/src/wasm
-
-      - name: Start the databases and migrate
-        run: |
-          docker compose -f deploy/docker-compose.dev.yml up -d --wait
-          curl -fsSL -o dbmate https://github.com/amacneil/dbmate/releases/download/v2.37.0/dbmate-linux-amd64
-          echo "f855e99a0f0a81322014bf686b1cb820d2b4d8074e4eadafd64b851b80ecb15a  dbmate" | sha256sum -c -
-          chmod +x dbmate
-          set -a; source deploy/dev.env; set +a
-          ./dbmate up
-
       # Every test signs its users in, all from one address: far more than the usual auth limit allows.
-      - name: Start the server and the export worker
+      - name: Settings
         run: |
-          chmod +x build/server/vec_api build/server/vec_worker
-          set -a; source deploy/dev.env; set +a
-          AUTH_REQUESTS_PER_MINUTE=10000 build/server/vec_api > api.log 2>&1 &
-          build/server/vec_worker > worker.log 2>&1 &
-          curl -fsS --retry 20 --retry-delay 1 --retry-all-errors http://127.0.0.1:8080/readyz
+          {
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
+            echo "JWT_SECRET=$(openssl rand -hex 32)"
+            echo "WEB_PORT=8000"
+            echo "AUTH_REQUESTS_PER_MINUTE=10000"
+          } > deploy/.env
+
+      - name: Build and start everything
+        run: make up
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -322,9 +295,13 @@ jobs:
 
       - name: Test
         working-directory: web
-        run: npx playwright test
+        run: E2E_BASE_URL=http://localhost:8000 npx playwright test
 
-      - name: Keep the report and the server's logs
+      - name: Collect the services' logs
+        if: failure()
+        run: docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs --no-color > services.log
+
+      - name: Keep the report and the logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -332,5 +309,4 @@ jobs:
           path: |
             web/playwright-report/
             web/test-results/
-            api.log
-            worker.log
+            services.log

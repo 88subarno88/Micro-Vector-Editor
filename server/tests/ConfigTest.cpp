@@ -100,6 +100,19 @@ TEST(ConfigTest, TheAuthRateLimitIsTenAMinuteUnlessSetToAnother) {
     }
 }
 
+TEST(ConfigTest, TrustsNoProxyUnlessTold) {
+    EXPECT_TRUE(load(validEnv())->trustedProxies.empty());
+
+    auto env = validEnv();
+    env["TRUSTED_PROXIES"] = "10.0.0.0/8,172.16.0.0/12";
+    EXPECT_EQ(load(env)->trustedProxies.size(), 2u);
+
+    env["TRUSTED_PROXIES"] = "everyone";
+    const auto config = load(env);
+    ASSERT_FALSE(config);
+    EXPECT_NE(config.error().find("TRUSTED_PROXIES"), std::string::npos);
+}
+
 TEST(ConfigTest, RejectsAShortSecretWithoutPrintingIt) {
     auto env = validEnv();
     env["JWT_SECRET"] = "hunter2";

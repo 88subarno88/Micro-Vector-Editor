@@ -6,6 +6,9 @@
 #include <optional>
 #include <string>
 #include <tl/expected.hpp>
+#include <vector>
+
+#include "net/ClientAddress.h"
 
 namespace vec {
 
@@ -31,6 +34,9 @@ struct Config {
     // Requests a minute each IP may make to the auth routes: enough for real use, too few to guess passwords
     // or flood signups. Tests that sign in many times raise it.
     int authRequestsPerMinute = 10;
+    // Proxies whose X-Real-IP header is believed, such as nginx in front of the servers. None by default:
+    // a client could otherwise claim any address, and dodge the rate limits.
+    std::vector<AddressRange> trustedProxies;
 };
 
 // Looks up one setting by name; nullopt if it isn't set.
@@ -40,8 +46,9 @@ using EnvLookup = std::function<std::optional<std::string>(const std::string&)>;
 std::optional<std::string> readEnv(const std::string& name);
 
 // Builds a Config from PORT, DATABASE_URL, REDIS_URL, JWT_SECRET and EXPORT_DIR, and optionally
-// AUTH_REQUESTS_PER_MINUTE. An empty value counts as missing, and the two URLs must be well formed. The error
-// lists every problem at once and never contains a setting's value.
+// AUTH_REQUESTS_PER_MINUTE and TRUSTED_PROXIES (address ranges separated by commas). An empty value counts as
+// missing, and the two URLs must be well formed. The error lists every problem at once and never contains a
+// setting's value.
 tl::expected<Config, std::string> loadConfig(const EnvLookup& lookup = readEnv);
 
 }  // namespace vec

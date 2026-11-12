@@ -41,4 +41,15 @@ TEST_F(HttpTest, RateLimitsStartAgainInEachTest) {
     EXPECT_EQ(send(drogon::Post, "/api/auth/login", json::object()).status, 429);
 }
 
+// The server trusts no proxy unless told to, so a client can't dodge the limit by claiming other addresses.
+TEST_F(HttpTest, AClientCantDodgeTheRateLimitWithItsOwnXRealIp) {
+    const auto login = [&](int i) {
+        auto request = makeRequest(drogon::Post, "/api/auth/login", json::object());
+        request->addHeader("X-Real-IP", "203.0.113." + std::to_string(i));
+        return send(request).status;
+    };
+    for (int i = 0; i < 10; ++i) EXPECT_EQ(login(i), 400) << i;
+    EXPECT_EQ(login(10), 429);
+}
+
 TEST_F(HttpTest, ProtectedRoutesNeedAToken) { EXPECT_EQ(send(drogon::Get, "/api/docs").status, 401); }

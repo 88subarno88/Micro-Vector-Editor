@@ -1,0 +1,134 @@
+# Everything, from the images: nginx serving the app in front of two API servers, the export worker,
+# Postgres and Redis. Start it with `make up`; the app is then on http://localhost:8000 (WEB_PORT).
+#
+# Settings come from deploy/.env (see .env.example): at least POSTGRES_PASSWORD and JWT_SECRET.
+
+x-api: &api
+  image: vec-api:local
+  environment:
+    DATABASE_URL: postgres://vec:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}@postgres:5432/vec?sslmode=disable
+    REDIS_URL: redis://redis:6379/0
+    JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env, 32 characters or more}
+    # nginx passes on who the client is; only these addresses, Docker's private ones, are believed.
+    TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+    AUTH_REQUESTS_PER_MINUTE: ${AUTH_REQUESTS_PER_MINUTE:-10}
+  volumes:
+    - exports:/var/lib/vec/exports:ro
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+  # The image has no curl: bash asks for /readyz itself, which checks Postgres and Redis.
+  healthcheck:
+    test:
+      - CMD
+      - bash
+      - -c
+      - exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /readyz HTTP/1.0\r\n\r\n' >&3 && grep -q ' 200 ' <&3
+    interval: 5s
+    timeout: 3s
+    retries: 12
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: vec
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: vec
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD, pg_isready, -U, vec, -d, vec]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  # Brings the database up to date, then exits; the servers wait for it.
+  migrate:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+      target: migrate
+    image: vec-migrate:local
+    environment:
+      DATABASE_URL: postgres://vec:${POSTGRES_PASSWORD}@postgres:5432/vec?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api-1:
+    <<: *api
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+      target: api
+
+  # The same image, built once for api-1.
+  api-2:
+    <<: *api
+    pull_policy: never
+
+  worker:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+      target: worker
+    image: vec-worker:local
+    environment:
+      DATABASE_URL: postgres://vec:${POSTGRES_PASSWORD}@postgres:5432/vec?sslmode=disable
+    volumes:
+      - exports:/var/lib/vec/exports
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: web/Dockerfile
+    image: vec-web:local
+    ports:
+      - ${WEB_PORT:-8000}:80
+    depends_on:
+      api-1:
+        condition: service_healthy
+      api-2:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1/]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  # Only for `make seed`: a demo user and the sample drawings in seed/, through the API like any client.
+  seed:
+    image: curlimages/curl:8.17.0
+    profiles: [seed]
+    entrypoint: [sh, /seed/seed.sh]
+    environment:
+      DEMO_EMAIL: ${DEMO_EMAIL:-demo@example.com}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-try-the-demo}
+    volumes:
+      - ./seed:/seed:ro
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  exports: # the worker writes exports here; the API servers read them

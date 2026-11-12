@@ -11,9 +11,9 @@
 
 void RateLimitFilter::doFilter(const drogon::HttpRequestPtr& request, drogon::FilterCallback&& reject,
                                drogon::FilterChainCallback&& pass) {
-    // The direct peer. Behind a proxy that would be the proxy, so this needs revisiting at deploy time.
-    const auto window =
-        vec::rateWindow(scope_, request->peerAddr().toIp(), std::chrono::system_clock::now(), window_);
+    const std::string client =
+        vec::clientAddress(request->peerAddr().toIp(), request->getHeader("x-real-ip"), trustedProxies_);
+    const auto window = vec::rateWindow(scope_, client, std::chrono::system_clock::now(), window_);
 
     // Redis calls back once, on success or failure, so the two callbacks share them.
     const auto callbacks = std::make_shared<std::pair<drogon::FilterCallback, drogon::FilterChainCallback>>(

@@ -47,3 +47,6 @@ sample_svgs/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Secrets for deploy/docker-compose.yml (see deploy/.env.example)
+deploy/.env

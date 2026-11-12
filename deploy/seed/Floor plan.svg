@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" version="1.1">
+  <rect x="60" y="60" width="680" height="460" stroke="#1f2937" stroke-width="6" fill="#fafafa" />
+  <line x1="380" y1="60" x2="380" y2="300" stroke="#1f2937" stroke-width="4" />
+  <line x1="60" y1="300" x2="300" y2="300" stroke="#1f2937" stroke-width="4" />
+  <line x1="360" y1="300" x2="740" y2="300" stroke="#1f2937" stroke-width="4" />
+  <line x1="560" y1="300" x2="560" y2="520" stroke="#1f2937" stroke-width="4" />
+  <text x="160" y="120" font-size="22" fill="#374151" stroke="#374151" stroke-width="0">Living room</text>
+  <text x="510" y="120" font-size="22" fill="#374151" stroke="#374151" stroke-width="0">Kitchen</text>
+  <text x="250" y="420" font-size="22" fill="#374151" stroke="#374151" stroke-width="0">Bedroom</text>
+  <text x="610" y="420" font-size="22" fill="#374151" stroke="#374151" stroke-width="0">Bath</text>
+  <rect x="100" y="200" width="160" height="60" rx="10" ry="10" stroke="#00798c" stroke-width="2" fill="#d8f3f0" />
+  <circle cx="560" cy="225" r="40" stroke="#edae49" stroke-width="2" fill="#fff4dc" />
+  <rect x="90" y="340" width="120" height="150" rx="6" ry="6" stroke="#8d5a97" stroke-width="2" fill="#efe3f3" />
+</svg>

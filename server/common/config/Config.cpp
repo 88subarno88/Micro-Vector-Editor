@@ -119,6 +119,14 @@ tl::expected<Config, std::string> loadConfig(const EnvLookup& lookup) {
             problems.push_back("AUTH_REQUESTS_PER_MINUTE must be a whole number above 0");
     }
 
+    if (const auto proxies = lookup("TRUSTED_PROXIES")) {
+        if (const auto ranges = parseAddressRanges(*proxies))
+            config.trustedProxies = *ranges;
+        else
+            problems.push_back(
+                "TRUSTED_PROXIES must be IPv4 addresses or ranges such as 10.0.0.0/8, with commas");
+    }
+
     if (problems.empty()) return config;
 
     std::string message = "invalid configuration:";
