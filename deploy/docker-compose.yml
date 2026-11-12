@@ -1,5 +1,6 @@
 # Everything, from the images: nginx serving the app in front of two API servers, the export worker,
-# Postgres and Redis. Start it with `make up`; the app is then on http://localhost:8000 (WEB_PORT).
+# Postgres and Redis. Start it with `make up`; the app is then on http://localhost:8000 (WEB_PORT), on this
+# machine only. `make share` gives it a public HTTPS address through a Cloudflare tunnel.
 #
 # Settings come from deploy/.env (see .env.example): at least POSTGRES_PASSWORD and JWT_SECRET.
 
@@ -102,7 +103,7 @@ services:
       dockerfile: web/Dockerfile
     image: vec-web:local
     ports:
-      - ${WEB_PORT:-8000}:80
+      - 127.0.0.1:${WEB_PORT:-8000}:80
     depends_on:
       api-1:
         condition: service_healthy
@@ -113,6 +114,17 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
+    restart: unless-stopped
+
+  # Only for `make share`: a public HTTPS address for the app, https://<random words>.trycloudflare.com,
+  # new each time. A Cloudflare quick tunnel: no account, and no port opened on this machine.
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.0
+    profiles: [share]
+    command: [tunnel, --no-autoupdate, --url, http://web:80]
+    depends_on:
+      web:
+        condition: service_healthy
     restart: unless-stopped
 
   # Only for `make seed`: a demo user and the sample drawings in seed/, through the API like any client.

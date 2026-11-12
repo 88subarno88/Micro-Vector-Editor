@@ -43,6 +43,12 @@ TEST(ClientAddressTest, BelievesXRealIpOnlyFromATrustedProxy) {
     EXPECT_EQ(clientAddress("172.18.0.5", "203.0.113.7", {}), "172.18.0.5");           // nobody trusted
 }
 
+// Through Cloudflare, a visitor's address is often IPv6, while the proxy in front is on Docker's IPv4.
+TEST(ClientAddressTest, TakesAnIpv6ClientFromATrustedProxy) {
+    EXPECT_EQ(clientAddress("172.18.0.5", "2001:db8::7", ranges("172.16.0.0/12")), "2001:db8::7");
+    EXPECT_EQ(clientAddress("198.51.100.9", "2001:db8::7", ranges("172.16.0.0/12")), "198.51.100.9");
+}
+
 TEST(ClientAddressTest, IgnoresAMissingOrMalformedHeader) {
     const auto proxies = ranges("172.16.0.0/12");
     EXPECT_EQ(clientAddress("172.18.0.5", "", proxies), "172.18.0.5");

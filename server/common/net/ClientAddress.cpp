@@ -16,6 +16,12 @@ std::optional<uint32_t> parseIpv4(std::string_view text) {
     return ntohl(parsed.s_addr);
 }
 
+// Whether `text` is one IPv4 or IPv6 address.
+bool isAddress(const std::string& text) {
+    in6_addr parsed{};
+    return parseIpv4(text) || inet_pton(AF_INET6, text.c_str(), &parsed) == 1;
+}
+
 std::string_view trimmed(std::string_view text) {
     const auto first = text.find_first_not_of(' ');
     if (first == std::string_view::npos) return {};
@@ -58,7 +64,7 @@ std::optional<std::vector<AddressRange>> parseAddressRanges(std::string_view tex
 std::string clientAddress(const std::string& peer, const std::string& realIp,
                           const std::vector<AddressRange>& trusted) {
     const auto peerAddress = parseIpv4(peer);
-    if (!peerAddress || !parseIpv4(realIp)) return peer;
+    if (!peerAddress || !isAddress(realIp)) return peer;
     for (const AddressRange& range : trusted) {
         if ((*peerAddress & range.mask) == range.network) return realIp;
     }

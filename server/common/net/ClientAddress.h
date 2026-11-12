@@ -23,8 +23,8 @@ std::optional<AddressRange> parseAddressRange(std::string_view text);
 std::optional<std::vector<AddressRange>> parseAddressRanges(std::string_view text);
 
 // Who sent a request. Behind a proxy, every request comes from the proxy, which says who it's passing on
-// in X-Real-IP; but anyone can send that header. So it's believed only from `trusted` proxies, and only if
-// it holds an address. Otherwise the client is the peer itself.
+// in X-Real-IP; but anyone can send that header. So it's believed only from `trusted` proxies, which are
+// IPv4, and only if it holds an address, IPv4 or IPv6. Otherwise the client is the peer itself.
 std::string clientAddress(const std::string& peer, const std::string& realIp,
                           const std::vector<AddressRange>& trusted);
 
