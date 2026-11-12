@@ -123,6 +123,40 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
 
+  /api/auth/demo:
+    get:
+      tags: [auth]
+      operationId: getDemo
+      summary: Whether there's a demo user to try
+      description: There is when the server names one (DEMO_EMAIL) and it has been created (`make seed`).
+      security: []
+      responses:
+        '200':
+          description: The demo user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email]
+                properties:
+                  email:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NoDemo'
+    post:
+      tags: [auth]
+      operationId: logInAsDemo
+      summary: Log in as the demo user, without a password
+      description: The demo user is shared by design; this is a login like any other.
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Tokens'
+        '404':
+          $ref: '#/components/responses/NoDemo'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
   /api/auth/refresh:
     post:
       tags: [auth]
@@ -585,6 +619,12 @@ components:
         type: string
 
   responses:
+    NoDemo:
+      description: '`no_demo`: the server has no demo user, or it hasn''t been created yet.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     Tokens:
       description: A new access token, and a new refresh token in the cookie.
       headers:

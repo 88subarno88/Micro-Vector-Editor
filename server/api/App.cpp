@@ -87,7 +87,7 @@ std::string configureApp(const vec::Config& config, const drogon::orm::DbClientP
     drogon::app().registerFilter(std::make_shared<AuthFilter>(tokens));
     drogon::app().registerFilter(std::make_shared<RateLimitFilter>(
         redis, "auth", config.authRequestsPerMinute, std::chrono::minutes(1), config.trustedProxies));
-    registerAuthRoutes(database, hashing, tokens);
+    registerAuthRoutes(database, hashing, tokens, config.demoEmail);
     registerDocRoutes(database);
     registerExportRoutes(database, config.exportDir);
     // One IO thread per core, so that rooms on different documents run in parallel.

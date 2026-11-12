@@ -152,3 +152,19 @@ TEST_F(AuthHttpTest, BadAccessTokensAreRefused) {
         EXPECT_EQ(refused.body["error"]["code"], "unauthorized") << token;
     }
 }
+
+TEST_F(AuthHttpTest, TheDemoUserLogsInWithoutAPasswordOnceItExists) {
+    // Named, but not created yet: nothing to offer, or to log in as.
+    EXPECT_EQ(send(drogon::Get, "/api/auth/demo").body["error"]["code"], "no_demo");
+    EXPECT_EQ(send(drogon::Post, "/api/auth/demo").body["error"]["code"], "no_demo");
+
+    signUpAndLogIn(demoEmail);
+    const Response offered = send(drogon::Get, "/api/auth/demo");
+    ASSERT_EQ(offered.status, 200);
+    EXPECT_EQ(offered.body["email"], demoEmail);
+    const Response demo = send(drogon::Post, "/api/auth/demo");
+    ASSERT_EQ(demo.status, 200);
+    EXPECT_FALSE(demo.raw->getCookie("refresh_token").value().empty());  // a login like any other
+    const Response me = send(drogon::Get, "/api/me", nullptr, demo.body["accessToken"]);
+    EXPECT_EQ(me.body["email"], demoEmail);
+}

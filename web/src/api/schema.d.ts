@@ -72,6 +72,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/demo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether there's a demo user to try
+         * @description There is when the server names one (DEMO_EMAIL) and it has been created (`make seed`).
+         */
+        get: operations["getDemo"];
+        put?: never;
+        /**
+         * Log in as the demo user, without a password
+         * @description The demo user is shared by design; this is a login like any other.
+         */
+        post: operations["logInAsDemo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/refresh": {
         parameters: {
             query?: never;
@@ -482,6 +506,15 @@ export interface components {
         };
     };
     responses: {
+        /** @description `no_demo`: the server has no demo user, or it hasn't been created yet. */
+        NoDemo: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description A new access token, and a new refresh token in the cookie. */
         Tokens: {
             headers: {
@@ -665,6 +698,43 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    getDemo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The demo user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        email: string;
+                    };
+                };
+            };
+            404: components["responses"]["NoDemo"];
+        };
+    };
+    logInAsDemo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Tokens"];
+            404: components["responses"]["NoDemo"];
             429: components["responses"]["RateLimited"];
         };
     };

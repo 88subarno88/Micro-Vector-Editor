@@ -78,7 +78,8 @@ std::optional<std::string> stringField(const json& body, const char* key) {
 }  // namespace
 
 void registerAuthRoutes(const drogon::orm::DbClientPtr& database,
-                        std::shared_ptr<trantor::EventLoopThreadPool> hashing, vec::AccessTokens tokens) {
+                        std::shared_ptr<trantor::EventLoopThreadPool> hashing, vec::AccessTokens tokens,
+                        std::optional<std::string> demoEmail) {
     // Checked against when the email is unknown, so that a miss takes as long as a wrong password.
     const auto dummyHash = std::make_shared<const std::string>(vec::password::hash("dummy password"));
 
@@ -134,6 +135,31 @@ void registerAuthRoutes(const drogon::orm::DbClientPtr& database,
             const bool matches =
                 co_await offLoop(*hashing, [&] { return vec::password::verify(*password, storedHash); });
             if (!user || !matches) co_return invalidCredentials();
+
+            const auto refreshToken = vec::refresh::generate();
+            co_await vec::RefreshTokenRepo(database).create(user->id, refreshToken.hash, refreshLifetime);
+            co_return tokenResponse(tokens, user->id, refreshToken.token);
+        },
+        {drogon::Post, "RateLimitFilter"});
+
+    const auto noDemo = [] {
+        return errorResponse(drogon::k404NotFound, "no_demo", "there's no demo to try here");
+    };
+    // Only once the user exists, so that the login page offers a demo only when it will work.
+    drogon::app().registerHandler(
+        "/api/auth/demo",
+        [database, demoEmail, noDemo](HttpRequestPtr) -> drogon::Task<HttpResponsePtr> {
+            if (!demoEmail || !co_await vec::UserRepo(database).findByEmail(*demoEmail)) co_return noDemo();
+            co_return jsonResponse(drogon::k200OK, {{"email", *demoEmail}});
+        },
+        {drogon::Get});
+
+    drogon::app().registerHandler(
+        "/api/auth/demo",
+        [database, tokens, demoEmail, noDemo](HttpRequestPtr) -> drogon::Task<HttpResponsePtr> {
+            const auto user = demoEmail ? co_await vec::UserRepo(database).findByEmail(*demoEmail)
+                                        : std::optional<vec::User>();
+            if (!user) co_return noDemo();
 
             const auto refreshToken = vec::refresh::generate();
             co_await vec::RefreshTokenRepo(database).create(user->id, refreshToken.hash, refreshLifetime);

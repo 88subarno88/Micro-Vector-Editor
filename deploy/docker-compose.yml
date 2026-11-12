@@ -13,6 +13,8 @@ x-api: &api
     # nginx passes on who the client is; only these addresses, Docker's private ones, are believed.
     TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
     AUTH_REQUESTS_PER_MINUTE: ${AUTH_REQUESTS_PER_MINUTE:-10}
+    # Offered on the login page once `make seed` has created it.
+    DEMO_EMAIL: ${DEMO_EMAIL:-demo@example.com}
   volumes:
     - exports:/var/lib/vec/exports:ro
   depends_on:

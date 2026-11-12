@@ -20,6 +20,9 @@ struct TestServer {
     std::string jwtSecret;  // for tests that make their own tokens
 };
 
+// The test server's demo user, as DEMO_EMAIL would name it. Tests create it when they need it.
+inline constexpr const char* demoEmail = "demo@example.com";
+
 // The running server; nullptr if TEST_DATABASE_URL or TEST_REDIS_URL isn't set.
 const TestServer* testServer();
 

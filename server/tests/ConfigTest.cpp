@@ -113,6 +113,19 @@ TEST(ConfigTest, TrustsNoProxyUnlessTold) {
     EXPECT_NE(config.error().find("TRUSTED_PROXIES"), std::string::npos);
 }
 
+TEST(ConfigTest, HasADemoUserOnlyWhenOneIsNamed) {
+    EXPECT_EQ(load(validEnv())->demoEmail, std::nullopt);
+
+    auto env = validEnv();
+    env["DEMO_EMAIL"] = "Demo@Example.com";
+    EXPECT_EQ(load(env)->demoEmail, "demo@example.com");  // as signup stores it
+
+    env["DEMO_EMAIL"] = "not an email";
+    const auto config = load(env);
+    ASSERT_FALSE(config);
+    EXPECT_NE(config.error().find("DEMO_EMAIL"), std::string::npos);
+}
+
 TEST(ConfigTest, RejectsAShortSecretWithoutPrintingIt) {
     auto env = validEnv();
     env["JWT_SECRET"] = "hunter2";

@@ -5,6 +5,8 @@
 #include <string_view>
 #include <vector>
 
+#include "auth/Credentials.h"
+
 namespace vec {
 
 namespace {
@@ -125,6 +127,11 @@ tl::expected<Config, std::string> loadConfig(const EnvLookup& lookup) {
         else
             problems.push_back(
                 "TRUSTED_PROXIES must be IPv4 addresses or ranges such as 10.0.0.0/8, with commas");
+    }
+
+    if (const auto demo = lookup("DEMO_EMAIL"); demo && !demo->empty()) {
+        config.demoEmail = normalizeEmail(*demo);
+        if (!config.demoEmail) problems.push_back("DEMO_EMAIL must be an email address");
     }
 
     if (problems.empty()) return config;

@@ -10,6 +10,8 @@ export interface Auth {
   // Each resolves to a message to show, or null on success.
   logIn(email: string, password: string): Promise<string | null>
   signUp(email: string, password: string): Promise<string | null>
+  // Logs in as the shared demo user, which needs no password.
+  tryDemo(): Promise<string | null>
   logOut(): Promise<void>
 }
 

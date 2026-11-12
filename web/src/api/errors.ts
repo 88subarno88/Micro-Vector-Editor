@@ -8,6 +8,7 @@ const messages: Record<string, string> = {
   invalid_title: 'Use a title of 1 to 200 characters, on one line.',
   forbidden: "You don't have permission to do that here.",
   not_found: "That document doesn't exist, or you don't have access to it.",
+  no_demo: "The demo isn't available here.",
 }
 
 // What to tell the user about a failed request: a plain message for the codes we know, the server's own

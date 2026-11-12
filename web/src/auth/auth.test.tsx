@@ -13,8 +13,8 @@ const json = (status: number, body: unknown, headers: Record<string, string> = {
 const failure = (status: number, code: string) => json(status, { error: { code, message: `server says ${code}` } })
 
 // A fake server with one account, ada@example.com / "correct horse". `loggedIn` stands for the refresh
-// cookie: whether the browser holds a valid one.
-function server({ loggedIn = false, rateLimited = false } = {}) {
+// cookie: whether the browser holds a valid one. With `demo`, ada is also the demo user.
+function server({ loggedIn = false, rateLimited = false, demo = false } = {}) {
   const state = { loggedIn, accounts: new Set(['ada@example.com']), paths: [] as string[] }
   vi.stubGlobal('fetch', async (input: Request | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(input, init)
@@ -41,6 +41,11 @@ function server({ loggedIn = false, rateLimited = false } = {}) {
         if (state.accounts.has(email)) return failure(409, 'email_taken')
         state.accounts.add(email)
         return json(201, { id: 'u2', email, createdAt: 'x' })
+      case '/api/auth/demo':
+        if (!demo) return failure(404, 'no_demo')
+        if (request.method === 'GET') return json(200, { email: 'ada@example.com' })
+        state.loggedIn = true
+        return json(200, { accessToken: 'valid', tokenType: 'Bearer', expiresIn: 900 })
       case '/api/auth/logout':
         state.loggedIn = false
         return new Response(null, { status: 204 })
@@ -129,5 +134,27 @@ describe('the auth pages', () => {
     await fillIn('ada@example.com', 'correct horse')
     await userEvent.click(await screen.findByRole('button', { name: 'Log in' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Too many attempts. Try again in 42 seconds.')
+  })
+
+  it('offer the demo where the server has one, which logs straight in', async () => {
+    server({ demo: true })
+    renderAt('/login')
+    await userEvent.click(await screen.findByRole('button', { name: 'Try the demo' }))
+    expect(await screen.findByRole('heading', { name: 'Your documents' })).toBeInTheDocument()
+  })
+
+  it("don't offer a demo where there's none, nor on the signup page", async () => {
+    const state = server()
+    renderAt('/login')
+    await vi.waitFor(() => expect(state.paths).toContain('/api/auth/demo'))
+    await screen.findByLabelText('Email')
+    expect(screen.queryByRole('button', { name: 'Try the demo' })).not.toBeInTheDocument()
+    cleanup()
+
+    const withDemo = server({ demo: true })
+    renderAt('/signup')
+    await screen.findByLabelText('Email')
+    expect(withDemo.paths).not.toContain('/api/auth/demo')
+    expect(screen.queryByRole('button', { name: 'Try the demo' })).not.toBeInTheDocument()
   })
 })

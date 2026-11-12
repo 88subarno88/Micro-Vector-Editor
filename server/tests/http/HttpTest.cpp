@@ -48,6 +48,7 @@ public:
         started->jwtSecret = std::string(32, 't');
         config.jwtSecret = started->jwtSecret;
         config.exportDir = started->exportDir;
+        config.demoEmail = demoEmail;
         configureApp(config, started->database, started->redis);
         drogon::app().addListener("127.0.0.1", 0);  // any free port
 
