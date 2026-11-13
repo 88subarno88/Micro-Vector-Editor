@@ -4,13 +4,16 @@ import { api } from '../api/client'
 import { attempt, describeFailure } from '../api/errors'
 import type { components } from '../api/schema'
 import { useAuth } from '../auth/auth'
+import AppHeader from '../ui/AppHeader'
+import DocThumb from '../ui/DocThumb'
+import { timeAgo } from '../ui/time'
+import { FileIcon, PencilIcon, PlusIcon, TrashIcon, UploadIcon } from '../ui/icons'
 
 type Doc = components['schemas']['Document']
 
 const pageSize = 20
 // The most the server takes in one upload.
 const maxImportBytes = 1024 * 1024
-const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 // One document in the list: open it, rename it in place, or delete it if it's yours.
 function DocumentRow({
@@ -52,61 +55,83 @@ function DocumentRow({
   }
 
   return (
-    <li className="doc">
-      {editing ? (
-        <form className="inline" onSubmit={rename}>
-          <input
-            aria-label="Title"
-            required
-            maxLength={200}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            autoFocus
-          />
-          <button type="submit" disabled={busy}>
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditing(false)
-              setTitle(doc.title)
-              setError(null)
-            }}
-          >
-            Cancel
-          </button>
-        </form>
-      ) : (
-        <>
-          <Link to={`/docs/${doc.id}`} className="title">
-            {doc.title}
-          </Link>
-          <span className="meta">Edited {dateFormat.format(new Date(doc.updatedAt))}</span>
-          <span className="actions">
-            <button onClick={() => setEditing(true)} disabled={busy}>
-              Rename
-            </button>
-            {isOwner && (
-              <button onClick={() => void remove()} disabled={busy}>
-                Delete
+    <li className={`doc${editing ? ' editing' : ''}`}>
+      <Link to={`/docs/${doc.id}`} className="doc-thumb" aria-hidden="true" tabIndex={-1}>
+        <DocThumb id={doc.id} />
+      </Link>
+      <div className="doc-body">
+        {editing ? (
+          <form className="doc-rename" onSubmit={rename}>
+            <input
+              aria-label="Title"
+              required
+              maxLength={200}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+            />
+            <div className="doc-rename-actions">
+              <button type="submit" className="primary" disabled={busy}>
+                Save
               </button>
-            )}
-          </span>
-        </>
-      )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setEditing(false)
+                  setTitle(doc.title)
+                  setError(null)
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <Link to={`/docs/${doc.id}`} className="doc-title">
+              {doc.title}
+            </Link>
+            <span className="doc-meta">
+              {isOwner ? 'Yours' : 'Shared with you'} · Edited {timeAgo(doc.updatedAt)}
+            </span>
+            <span className="doc-actions">
+              <button
+                className="ghost icon"
+                onClick={() => setEditing(true)}
+                disabled={busy}
+                aria-label="Rename"
+                title="Rename"
+              >
+                <PencilIcon />
+              </button>
+              {isOwner && (
+                <button
+                  className="ghost icon danger"
+                  onClick={() => void remove()}
+                  disabled={busy}
+                  aria-label="Delete"
+                  title="Delete"
+                >
+                  <TrashIcon />
+                </button>
+              )}
+            </span>
+          </>
+        )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
     </li>
   )
 }
 
 // The signed-in user's documents, newest first, with a form to start a new one or import an SVG file.
 export default function DocumentsPage() {
-  const { user, logOut } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [docs, setDocs] = useState<Doc[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -167,65 +192,78 @@ export default function DocumentsPage() {
   }
 
   return (
-    <main>
-      <header className="top">
-        <h1>Your documents</h1>
-        <span>
-          {user?.email} <button onClick={() => void logOut()}>Log out</button>
-        </span>
-      </header>
+    <>
+      <AppHeader />
+      <main className="page">
+        <div className="page-head">
+          <div>
+            <h1>Your documents</h1>
+            <p className="hint">Drawings you own, and ones shared with you.</p>
+          </div>
+        </div>
 
-      <form className="inline" onSubmit={create}>
-        <input
-          aria-label="New document title"
-          placeholder="Untitled drawing"
-          required
-          maxLength={200}
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-        />
-        <button type="submit" disabled={creating}>
-          New document
-        </button>
-        <label className={`button${creating ? ' disabled' : ''}`}>
-          Import SVG
+        <form className="new-doc" onSubmit={create}>
           <input
-            type="file"
-            accept=".svg,image/svg+xml"
-            className="visually-hidden"
-            disabled={creating}
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              event.target.value = '' // so choosing the same file again still counts
-              if (file) void importSvg(file)
-            }}
+            aria-label="New document title"
+            placeholder="Name a new drawing"
+            required
+            maxLength={200}
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
           />
-        </label>
-      </form>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-
-      {!loaded ? (
-        <p className="loading">Loading…</p>
-      ) : docs.length === 0 ? (
-        <p className="hint">No documents yet. Start one above.</p>
-      ) : (
-        <ul className="docs">
-          {docs.map((doc) => (
-            <DocumentRow
-              key={doc.id}
-              doc={doc}
-              isOwner={doc.ownerId === user?.id}
-              onRenamed={(renamed) => setDocs((current) => current.map((d) => (d.id === renamed.id ? renamed : d)))}
-              onDeleted={(id) => setDocs((current) => current.filter((d) => d.id !== id))}
+          <button type="submit" className="primary" disabled={creating}>
+            <PlusIcon />
+            New document
+          </button>
+          <label className={`button${creating ? ' disabled' : ''}`}>
+            <UploadIcon />
+            Import SVG
+            <input
+              type="file"
+              accept=".svg,image/svg+xml"
+              className="visually-hidden"
+              disabled={creating}
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = '' // so choosing the same file again still counts
+                if (file) void importSvg(file)
+              }}
             />
-          ))}
-        </ul>
-      )}
-      {nextCursor && <button onClick={() => void loadPage(nextCursor)}>Load more</button>}
-    </main>
+          </label>
+        </form>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+
+        {!loaded ? (
+          <p className="loading">Loading…</p>
+        ) : docs.length === 0 ? (
+          <div className="empty">
+            <FileIcon width={40} height={40} />
+            <p>No documents yet. Start one above.</p>
+            <p className="hint">Name a drawing, or import an SVG file you already have.</p>
+          </div>
+        ) : (
+          <ul className="docs" aria-label="Documents">
+            {docs.map((doc) => (
+              <DocumentRow
+                key={doc.id}
+                doc={doc}
+                isOwner={doc.ownerId === user?.id}
+                onRenamed={(renamed) => setDocs((current) => current.map((d) => (d.id === renamed.id ? renamed : d)))}
+                onDeleted={(id) => setDocs((current) => current.filter((d) => d.id !== id))}
+              />
+            ))}
+          </ul>
+        )}
+        {nextCursor && (
+          <div className="more">
+            <button onClick={() => void loadPage(nextCursor)}>Load more</button>
+          </div>
+        )}
+      </main>
+    </>
   )
 }

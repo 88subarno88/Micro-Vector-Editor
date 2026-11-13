@@ -258,7 +258,12 @@ describe('the documents page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'New document' }))
 
     expect(await screen.findByRole('link', { name: 'Plans' })).toBeInTheDocument()
-    expect(screen.getAllByRole('link').map((l) => l.textContent)).toEqual(['Plans', 'Older'])
+    const list = screen.getByRole('list', { name: 'Documents' })
+    expect(
+      within(list)
+        .getAllByRole('link')
+        .map((l) => l.textContent),
+    ).toEqual(['Plans', 'Older'])
     expect(state.docs[0].title).toBe('Plans')
   })
 
