@@ -17,6 +17,10 @@ x-api: &api
     DEMO_EMAIL: ${DEMO_EMAIL:-demo@example.com}
   volumes:
     - exports:/var/lib/vec/exports:ro
+  # Every WebSocket is an open file. At Docker's default of 1,024, accept() fails with EMFILE at about 1,000
+  # connections, and Drogon's acceptor then spins on it, taking the whole server down.
+  ulimits:
+    nofile: 65536
   depends_on:
     migrate:
       condition: service_completed_successfully

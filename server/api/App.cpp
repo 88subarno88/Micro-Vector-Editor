@@ -112,6 +112,10 @@ std::string configureApp(const vec::Config& config, const drogon::orm::DbClientP
     drogon::app().setAfterAcceptSockOptCallback([](int fd) {
         const unsigned int timeoutMs = std::chrono::milliseconds(unacknowledgedSendLimit).count();
         setsockopt(fd, IPPROTO_TCP, TCP_USER_TIMEOUT, &timeoutMs, sizeof(timeoutMs));
+        // Drogon leaves Nagle's algorithm on. An ack written while an earlier broadcast on the same
+        // connection is still unacknowledged would then wait for the peer's delayed ACK, 40 ms on Linux.
+        const int noDelay = 1;
+        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &noDelay, sizeof(noDelay));
     });
 
     // An exception from a handler, such as a lost database connection: logged, never shown to the client.

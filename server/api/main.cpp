@@ -11,7 +11,9 @@
 
 namespace {
 
-constexpr size_t databaseConnections = 4;
+// Each op holds a connection for its whole transaction, so this bounds the ops a server runs at once:
+// with 4, a server topped out near 2 cores and the whole system near 5,000 edits a second.
+constexpr size_t databaseConnections = 16;
 constexpr size_t redisConnections = 2;
 
 }  // namespace
