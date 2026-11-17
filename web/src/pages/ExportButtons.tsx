@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { exportDrawing, saveFile, type ExportFormat } from '../exports/exportDrawing'
+import { DownloadIcon } from '../ui/icons'
 
 // A file name from the document's title: the characters file systems refuse are replaced.
 const fileName = (title: string, format: ExportFormat) =>
@@ -33,17 +34,24 @@ export default function ExportButtons({ documentId, title }: { documentId: strin
 
   return (
     <div className="exports">
-      <button onClick={() => void download('svg')} disabled={busy}>
-        Download SVG
-      </button>
-      <button onClick={() => void download('png')} disabled={busy}>
-        Download PNG
-      </button>
-      <span className="hint" aria-live="polite">
+      <div className="segmented" role="group" aria-label="Export">
+        <span className="segmented-label" aria-hidden="true">
+          <DownloadIcon width={16} height={16} />
+          Export
+        </span>
+        <button aria-label="Download SVG" title="Download as SVG" onClick={() => void download('svg')} disabled={busy}>
+          SVG
+        </button>
+        <button aria-label="Download PNG" title="Download as PNG" onClick={() => void download('png')} disabled={busy}>
+          PNG
+        </button>
+      </div>
+      {/* Floats under the buttons, so the bar they sit in keeps its size. */}
+      <span className={`export-status${progress ? ' shown' : ''}`} aria-live="polite">
         {progress}
       </span>
       {problem && (
-        <p className="error" role="alert">
+        <p className="error export-problem" role="alert">
           {problem}
         </p>
       )}

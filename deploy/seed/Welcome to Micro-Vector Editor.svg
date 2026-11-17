@@ -5,7 +5,7 @@
   <circle cx="110" cy="230" r="50" stroke="#d1495b" stroke-width="3" fill="#fde2e4" />
   <text x="190" y="215" font-size="16" fill="#1f2937" stroke="#1f2937" stroke-width="0">Drag a shape to move it; drag its corner handle to resize it.</text>
   <polygon points="160,350 135,393.3 85,393.3 60,350 85,306.7 135,306.7" stroke="#00798c" stroke-width="3" fill="#d8f3f0" />
-  <text x="190" y="345" font-size="16" fill="#1f2937" stroke="#1f2937" stroke-width="0">Pick a tool above to draw: rectangles, circles, lines, hexagons, text.</text>
+  <text x="190" y="345" font-size="16" fill="#1f2937" stroke="#1f2937" stroke-width="0">Pick a tool on the left to draw: rectangles, circles, lines, hexagons, text.</text>
   <rect x="60" y="440" width="100" height="70" stroke="#edae49" stroke-width="3" fill="#fff4dc" />
   <text x="190" y="455" font-size="16" fill="#1f2937" stroke="#1f2937" stroke-width="0">Ctrl+Z undoes your own edits. History can bring back any version.</text>
   <path d="M 190 520 L 260 500 L 330 530 L 400 505" stroke="#8d5a97" stroke-width="3" fill="none" />

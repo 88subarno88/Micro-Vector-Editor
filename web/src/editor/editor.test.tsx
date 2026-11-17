@@ -469,6 +469,24 @@ describe('the editor', () => {
       expect(width()).toHaveValue(1)
     })
 
+    it("shows the selected shape's kind, position and size", async () => {
+      await withSelected()
+      expect(screen.getByRole('heading', { name: 'Rectangle' })).toBeInTheDocument()
+      const geometry = screen.getByRole('heading', { name: 'Rectangle' }).nextElementSibling!
+      expect(geometry).toHaveTextContent('X100Y100W100H100')
+    })
+
+    it('sets a preset colour with one edit', async () => {
+      const { styleOf, committed, id } = await withSelected()
+      await userEvent.click(screen.getByRole('button', { name: 'Red' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Sky' }))
+      expect(styleOf()).toMatchObject({ stroke: '#e03131', fill: '#a5d8ff' })
+      expect(committed()).toEqual([
+        { kind: 'setStyle', id, stroke: '#e03131' },
+        { kind: 'setStyle', id, fill: '#a5d8ff' },
+      ])
+    })
+
     it('has no fill for a line', async () => {
       await withSelected('Line')
       expect(screen.getByRole('group', { name: 'Style' })).toBeInTheDocument()
@@ -537,6 +555,17 @@ describe('the editor', () => {
       const others = () => [...fake.shapes].filter(([key]) => key !== id).map(([, shape]) => shape)
       return { ...fake, id, others }
     }
+
+    it('duplicates beside the original with the button or Ctrl+D, selecting the copy', async () => {
+      const { shapes, others } = await withSelected()
+      await userEvent.click(screen.getByRole('button', { name: /Duplicate/ }))
+      expect(others()).toEqual([expect.objectContaining({ x: 120, y: 120, width: 100 })])
+      await userEvent.keyboard('{Control>}d{/Control}') // the copy is selected, so this copies the copy
+      expect(others()).toEqual(
+        expect.arrayContaining([expect.objectContaining({ x: 120 }), expect.objectContaining({ x: 140, y: 140 })]),
+      )
+      expect(shapes.size).toBe(3)
+    })
 
     it('copies and pastes beside the original, selecting the copy', async () => {
       const { shapes, others } = await withSelected()

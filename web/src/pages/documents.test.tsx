@@ -311,7 +311,7 @@ describe('the documents page', () => {
     await userEvent.click(await screen.findByRole('link', { name: 'Plans' }))
 
     expect(await screen.findByRole('heading', { name: 'Plans' })).toBeInTheDocument()
-    expect(screen.getByText('You are the owner.')).toBeInTheDocument()
+    expect(screen.getByText('Owner')).toBeInTheDocument() // your role, beside the title
     expect(await screen.findByRole('img', { name: 'The drawing' })).toBeInTheDocument()
   })
 

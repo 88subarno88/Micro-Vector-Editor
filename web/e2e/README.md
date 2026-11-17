@@ -31,3 +31,13 @@ E2E_BASE_URL=http://localhost:8090 npx playwright test
 
 Each test makes its own users and documents, so they can run against a server that has other data. They
 compare what two browsers show by the dark pixels on the drawing's canvas (`picture` in `helpers.ts`).
+
+If tests time out in their setup, on calls that should take a moment, check how long this machine takes to
+look up `localhost`'s IPv6 address. Playwright looks it up on its own, and where `/etc/hosts` doesn't list
+`::1 localhost`, the question goes to the network's DNS servers, which can take 5 s or more to give up. Using
+the address avoids the lookup:
+
+```sh
+npx vite preview --port 4173 &   # after npm run build
+E2E_BASE_URL=http://127.0.0.1:4173 npx playwright test
+```

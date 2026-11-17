@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthProvider.tsx'
 import { loadCore } from './core/core'
+import '@fontsource-variable/inter'
 import './index.css'
 
 // Start fetching the WebAssembly core now, so it's ready by the time a document opens.

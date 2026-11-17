@@ -1,5 +1,24 @@
 // Turning shape styles into what form controls accept, and back.
 
+// A few colours one click away, beside the full picker: ink and five clear hues for outlines, and their
+// light tints, plus white, for fills.
+export const strokePresets = [
+  { name: 'Ink', color: '#1e1e2e' },
+  { name: 'Red', color: '#e03131' },
+  { name: 'Orange', color: '#f08c00' },
+  { name: 'Green', color: '#2f9e44' },
+  { name: 'Blue', color: '#1971c2' },
+  { name: 'Violet', color: '#9c36b5' },
+]
+export const fillPresets = [
+  { name: 'White', color: '#ffffff' },
+  { name: 'Pink', color: '#ffc9c9' },
+  { name: 'Yellow', color: '#ffec99' },
+  { name: 'Mint', color: '#b2f2bb' },
+  { name: 'Sky', color: '#a5d8ff' },
+  { name: 'Lilac', color: '#eebefa' },
+]
+
 // The widest stroke the panel offers.
 export const maxStrokeWidth = 50
 

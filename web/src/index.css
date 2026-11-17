@@ -29,9 +29,13 @@
   --shadow-lg: 0 12px 40px rgb(23 26 43 / 0.14);
   --focus: 0 0 0 3px rgb(99 102 241 / 0.35);
   --control-height: 40px;
+  --workspace: #eceef4;
+  --workspace-dot: #cfd3df;
+  --canvas-bg: #e1e4ec;
 
   font:
-    15px/1.5 Inter,
+    15px/1.5 'Inter Variable',
+    Inter,
     system-ui,
     'Segoe UI',
     Roboto,
@@ -65,6 +69,9 @@
     --shadow: 0 1px 3px rgb(0 0 0 / 0.35), 0 4px 16px rgb(0 0 0 / 0.25);
     --shadow-lg: 0 12px 40px rgb(0 0 0 / 0.45);
     --focus: 0 0 0 3px rgb(129 140 248 / 0.45);
+    --workspace: #0b0d14;
+    --workspace-dot: #252a3b;
+    --canvas-bg: #181b27;
   }
 }
 
@@ -161,7 +168,8 @@ input:focus-visible {
 }
 
 button,
-label.button {
+label.button,
+a.button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -184,7 +192,9 @@ label.button {
 }
 
 button:hover:not(:disabled),
-label.button:hover {
+label.button:hover,
+a.button:hover {
+  text-decoration: none;
   background: var(--surface-hover);
 }
 
@@ -193,7 +203,8 @@ button:active:not(:disabled) {
 }
 
 button:focus-visible,
-label.button:focus-within {
+label.button:focus-within,
+a.button:focus-visible {
   outline: none;
   box-shadow: var(--focus);
 }
@@ -214,7 +225,8 @@ button.primary:hover:not(:disabled) {
   background: var(--accent-solid-hover);
 }
 
-button.ghost {
+button.ghost,
+a.button.ghost {
   border-color: transparent;
   background: transparent;
 }
@@ -233,7 +245,8 @@ button.wide {
 }
 
 button svg,
-label.button svg {
+label.button svg,
+a.button svg {
   flex: none;
 }
 
@@ -752,75 +765,15 @@ button.icon {
   background: #ffffff;
 }
 
-.editor {
-  display: grid;
-  gap: 8px;
-}
-
-.toolbar {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.toolbar button[aria-pressed='true'] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #ffffff;
-}
-
 .drawing {
   touch-action: none; /* drags draw instead of scrolling the page */
   cursor: crosshair;
-}
-
-.tool-select .drawing {
-  cursor: default;
-}
-
-.toolbar .danger {
-  margin-left: auto;
-}
-
-/* A viewer's toolbar: only this and the zoom, which stays at the right. */
-.view-only-badge {
-  margin-right: auto;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.view-only .drawing {
-  cursor: default;
 }
 
 .canvas-wrap {
   position: relative;
   width: 800px;
   max-width: 100%;
-}
-
-.text-entry {
-  position: absolute;
-  min-width: 160px;
-  padding: 2px 4px;
-  font-size: 16px;
-  background: #ffffff;
-  color: #000000;
-}
-
-/* The connection's state, then who has the document open. Always this tall, so the drawing below never
-   moves as people come and go. */
-.presence {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 32px;
-  margin-bottom: 8px;
 }
 
 .online {
@@ -889,6 +842,11 @@ button.icon {
   display: block;
 }
 
+.pointer.flip span {
+  right: 6px;
+  left: auto;
+}
+
 .pointer span {
   position: absolute;
   top: 16px;
@@ -898,40 +856,6 @@ button.icon {
   font-size: 12px;
   color: #ffffff;
   white-space: nowrap;
-}
-
-.style-panel {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  min-height: 48px; /* the same with or without a selection: taller than any of its fields */
-  margin: 0;
-}
-
-.style-panel label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.style-panel input[type='color'] {
-  width: 40px;
-  height: 32px;
-  padding: 2px;
-}
-
-.style-panel input[type='number'] {
-  width: 72px;
-}
-
-.zoom {
-  display: flex;
-  gap: 2px;
-}
-
-.zoom button {
-  min-width: 40px;
 }
 
 .page-links {
@@ -981,15 +905,747 @@ label.button.disabled {
   cursor: default;
 }
 
-.exports {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+/* ---- The editor: a window-filling studio ---- */
+
+main.studio-page {
+  max-width: none;
+  padding: 0;
 }
 
-.exports .error {
-  flex-basis: 100%;
+.studio {
+  display: grid;
+  grid-template-rows: 56px minmax(0, 1fr) auto;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--workspace);
+}
+
+/* The top bar: home and the document's name; then who's here, and what can be done with it. */
+.studio-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  padding: 0 12px 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.studio-bar-start,
+.studio-bar-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.studio-bar-end {
+  flex: none;
+}
+
+.studio-home {
+  display: flex;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+
+.studio-home:hover {
+  background: var(--surface-hover);
+}
+
+.studio-crumb {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.studio-crumb:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.studio-crumb-sep {
+  color: var(--border-strong);
+}
+
+.studio-title {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-title.skeleton {
+  width: 160px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.studio-bar .button,
+.studio-bar button {
+  height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.view-only-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.role-chip {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Collaborators, overlapping like a stack of cards. */
+.studio-bar .online {
+  gap: 0;
+  padding-left: 6px;
+}
+
+.studio-bar .avatar {
+  width: 30px;
+  height: 30px;
+  margin-left: -6px;
+  border-color: var(--surface);
+  font-size: 13px;
+}
+
+/* Export: one control, two formats. */
+.exports {
+  position: relative;
+}
+
+.segmented {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.segmented-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 10px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.studio-bar .segmented button {
+  height: 32px;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.studio-bar .segmented button:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.export-status,
+.export-problem {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: 320px;
+  box-shadow: var(--shadow);
+}
+
+.export-status {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  visibility: hidden;
+}
+
+.export-status.shown {
+  visibility: visible;
+}
+
+.studio-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 272px;
+  min-height: 0;
+}
+
+.studio-body.no-rail {
+  grid-template-columns: minmax(0, 1fr) 272px;
+}
+
+/* The tools, down the left. Each shows its name and key beside it on hover. */
+.tool-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.tool-rail .rail-button {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-color: transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-2);
+}
+
+.tool-rail .rail-button:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.tool-rail .rail-button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.tool-rail .rail-button.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.rail-divider {
+  width: 24px;
+  height: 1px;
+  margin: 6px 0;
+  background: var(--border);
+}
+
+/* A control's name and key, shown beside it on hover or keyboard focus. Hidden from screen readers, which
+   have the control's own name. */
+.tip {
+  position: absolute;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border-radius: 7px;
+  background: #171a2b;
+  box-shadow: var(--shadow);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+
+.tip kbd {
+  border-color: rgb(255 255 255 / 0.18);
+  background: rgb(255 255 255 / 0.1);
+  color: #e6e8f2;
+}
+
+.rail-button .tip {
+  top: 50%;
+  left: calc(100% + 10px);
+  transform: translateY(-50%);
+}
+
+.swatch .tip {
+  bottom: calc(100% + 6px);
+  left: 50%;
+  padding: 4px 8px;
+  transform: translateX(-50%);
+}
+
+:hover > .tip,
+:focus-visible > .tip {
+  opacity: 1;
+  transition-delay: 0.25s;
+}
+
+/* The drawing, centred on a dotted desk and as large as the space allows, keeping its 4:3 shape. */
+.workspace {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  container-type: size;
+  background-color: var(--workspace);
+  background-image: radial-gradient(var(--workspace-dot) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+}
+
+.studio .canvas-wrap {
+  position: relative;
+  width: min(calc(100cqw - 56px), calc((100cqh - 56px) * 4 / 3));
+  max-width: none;
+  aspect-ratio: 4 / 3;
+}
+
+.studio .drawing {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  border: 0;
+  border-radius: 3px;
+  background: var(--canvas-bg);
+  box-shadow:
+    0 0 0 1px rgb(15 20 40 / 0.06),
+    0 2px 6px rgb(15 20 40 / 0.06),
+    0 16px 40px rgb(15 20 40 / 0.1);
+}
+
+.workspace.tool-select .drawing,
+.workspace.view-only .drawing {
+  cursor: default;
+}
+
+.text-entry {
+  position: absolute;
+  min-width: 180px;
+  height: auto;
+  padding: 3px 6px;
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: var(--focus);
+  color: #000000;
+  font-size: 16px;
+}
+
+/* Messages float at the foot of the desk, over the drawing, so one never moves it. */
+.toasts {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  display: grid;
+  gap: 8px;
+  width: min(480px, calc(100% - 32px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
   margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  font-size: 14px;
+  pointer-events: auto;
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast.error {
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+/* The inspector, down the right: the selected shape's size and style, or the shortcuts. */
+.inspector {
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.inspector-section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.inspector-title {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.inspector-empty {
+  justify-items: center;
+  gap: 8px;
+  padding: 28px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.inspector-empty h2 {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.geometry {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0;
+}
+
+.geometry div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.geometry dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.geometry dd {
+  overflow: hidden;
+  margin: 0;
+  font-size: 13px;
+  text-overflow: ellipsis;
+}
+
+.shortcuts {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.shortcuts div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+  font-size: 13px;
+}
+
+.shortcuts dt {
+  color: var(--text-2);
+}
+
+.shortcuts dd {
+  margin: 0;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font:
+    500 11px/18px 'Inter Variable',
+    Inter,
+    system-ui,
+    sans-serif;
+  text-align: center;
+}
+
+.inspector button.wide kbd {
+  margin-left: auto;
+}
+
+/* The style: one row per property, then quick colours under each colour. */
+.style-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.style-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.style-row > label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.style-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.style-control input[type='color'] {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+
+.style-control input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 3px;
+}
+
+.style-control input[type='color']::-webkit-color-swatch {
+  border: 0;
+  border-radius: 5px;
+}
+
+.style-control input[type='color']:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.hex {
+  color: var(--text-2);
+  font:
+    500 12px/1 ui-monospace,
+    'SF Mono',
+    Menlo,
+    monospace;
+  text-transform: uppercase;
+}
+
+.style-control .check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.style-control input[type='number'] {
+  width: 84px;
+  height: 32px;
+  font-size: 13px;
+}
+
+.unit {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.swatches {
+  display: flex;
+  gap: 6px;
+  padding-left: 60px;
+}
+
+.swatches .swatch {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  border-radius: 50%;
+}
+
+.swatches .swatch:hover:not(:disabled) {
+  transform: scale(1.12);
+}
+
+.swatches .swatch[aria-pressed='true'] {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--accent);
+}
+
+/* The status bar: connection, what the tool does, how much is drawn, and the zoom. */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  height: 36px;
+  padding: 0 8px 0 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.status-bar .connection {
+  flex: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.status-hint {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-count {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoom {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.status-bar .zoom button {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-bar .zoom button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.studio-message {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+}
+
+/* Narrower windows: the details go under the drawing; on a phone, the tools go across the top. */
+@media (max-width: 900px) {
+  .studio {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .studio-body {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: minmax(420px, 70dvh) 1fr;
+  }
+
+  .studio-body.no-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inspector {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .studio-crumb,
+  .studio-crumb-sep,
+  .studio-bar .label,
+  .status-hint {
+    display: none;
+  }
+
+  .status-count {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  /* As tall as the drawing at the window's width, and no taller. */
+  .studio-body,
+  .studio-body.no-rail {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto calc(75vw + 6px) 1fr;
+  }
+
+  .studio-body.no-rail {
+    grid-template-rows: calc(75vw + 6px) 1fr;
+  }
+
+  .shortcuts-section {
+    display: none;
+  }
+
+  .tool-rail {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .rail-divider {
+    width: 1px;
+    height: 24px;
+    margin: 0 4px;
+  }
+
+  .tip {
+    display: none;
+  }
+
+  .segmented-label,
+  .studio-bar .online {
+    display: none;
+  }
+
+  .studio .canvas-wrap {
+    width: min(calc(100cqw - 24px), calc((100cqh - 24px) * 4 / 3));
+  }
 }

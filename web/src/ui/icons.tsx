@@ -158,6 +158,18 @@ export const PencilIcon = (p: P) => (
     <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" />
   </Icon>
 )
+export const DuplicateIcon = (p: P) => (
+  <Icon {...p}>
+    <rect x="8" y="8" width="12" height="12" rx="2" />
+    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+  </Icon>
+)
+export const CursorIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M6 3.5 18 12l-5.5 1.2L10 19z" />
+    <path d="m13 13.5 4 5" />
+  </Icon>
+)
 export const RestoreIcon = (p: P) => (
   <Icon {...p}>
     <path d="M20.5 12a8.5 8.5 0 1 1-2.5-6" />

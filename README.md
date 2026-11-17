@@ -23,7 +23,11 @@ Qt in it, and that same C++ code now runs in three places:
   connection drops, the client reconnects, catches up, and resends what the server hasn't confirmed, and a
   status line shows how many edits are waiting.
 - **Drawing:** rectangles, rounded rectangles, circles, lines, hexagons, freehand strokes and text. Select,
-  move, resize by a handle, restyle (stroke, fill, width), copy, paste and delete. Zoom and pan.
+  move, resize by a handle, restyle (stroke, fill, width, or a colour preset), copy, paste, duplicate and
+  delete. Zoom and pan.
+- **An editor laid out like a design tool:** tools down the left with their shortcuts, the drawing filling the
+  window, the selected shape's position, size and style on the right, and a status bar with the connection
+  and zoom. Light and dark themes; on a phone, the tools go across the top.
 - **Undo and redo** of your own edits (`Ctrl+Z`, `Ctrl+Shift+Z`), even while others edit; a whole drag
   undoes in one step.
 - **History:** every edit, who made it and when. Preview the drawing as it was after any edit, and restore

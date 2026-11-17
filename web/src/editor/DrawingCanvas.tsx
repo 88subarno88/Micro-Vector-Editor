@@ -1,4 +1,4 @@
-import { useEffect, useRef, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { paint, type DrawCommand } from './paint'
 import type { Point } from './tools'
 import type { Bounds } from './useDrawing'
@@ -16,9 +16,14 @@ export const handleSize = 10
 // A wheel's lines and pages, in pixels.
 const pixelsPerLine = 16
 const pixelsPerPage = drawingHeight
+// The selection's colour: the app's accent.
+const selectionColor = '#6366f1'
+// The most pixels per drawing unit the canvas keeps, which bounds its memory however large it's shown.
+const maxDensity = 4
 
-// Shows a drawing through a viewport, on white paper with grey around it. Sharp on high-density screens,
-// and white like paper even in dark mode, since a drawing's colours are its own. Reports pointer events in
+// Shows a drawing through a viewport, as a sheet of white paper; around it, when zoomed out, the canvas is
+// transparent, so the page behind shows. Sharp on high-density screens and at any size it's shown, and white
+// like paper even in dark mode, since a drawing's colours are its own. Reports pointer events in
 // drawing coordinates, whatever size the canvas is shown at and however it's zoomed. The wheel pans, and
 // zooms with Ctrl or ⌘ held (as a trackpad pinch does).
 export default function DrawingCanvas({
@@ -37,38 +42,57 @@ export default function DrawingCanvas({
   onView?: (view: Viewport) => void
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
+  // How wide the canvas is shown, in CSS pixels: drawn at that size, not stretched from a smaller one.
+  const [shownWidth, setShownWidth] = useState(drawingWidth)
+
+  useEffect(() => {
+    const element = canvas.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => setShownWidth(entry.contentRect.width || drawingWidth))
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const context = canvas.current?.getContext('2d')
     if (!canvas.current || !context) return
-    const density = window.devicePixelRatio || 1
-    canvas.current.width = drawingWidth * density
-    canvas.current.height = drawingHeight * density
+    const density = Math.min(maxDensity, (window.devicePixelRatio || 1) * Math.max(1, shownWidth / drawingWidth))
+    canvas.current.width = Math.round(drawingWidth * density)
+    canvas.current.height = Math.round(drawingHeight * density)
     context.setTransform(density, 0, 0, density, 0, 0)
-    context.fillStyle = '#e4e6ea'
-    context.fillRect(0, 0, drawingWidth, drawingHeight)
+    context.clearRect(0, 0, drawingWidth, drawingHeight)
 
     const { scale } = view
     context.setTransform(density * scale, 0, 0, density * scale, -view.x * scale * density, -view.y * scale * density)
+    // The sheet, lifted off what's behind it by a soft shadow, seen only when zoomed out.
+    context.save()
+    context.shadowColor = 'rgba(15, 20, 40, 0.18)'
+    context.shadowBlur = 18 * density
+    context.shadowOffsetY = 3 * density
     context.fillStyle = '#ffffff'
     context.fillRect(0, 0, drawingWidth, drawingHeight)
+    context.restore()
     paint(context, commands)
 
     if (outline) {
       const pad = outlinePadding / scale
       context.setLineDash([6 / scale, 4 / scale])
-      context.lineWidth = 1 / scale
-      context.strokeStyle = '#1f6feb'
+      context.lineWidth = 1.5 / scale
+      context.strokeStyle = selectionColor
       context.strokeRect(outline.x - pad, outline.y - pad, outline.width + 2 * pad, outline.height + 2 * pad)
       context.setLineDash([])
     }
     if (handle) {
       const size = handleSize / scale
+      context.lineWidth = 1.5 / scale
+      context.strokeStyle = selectionColor
       context.fillStyle = '#ffffff'
-      context.fillRect(handle.x - size / 2, handle.y - size / 2, size, size)
-      context.strokeRect(handle.x - size / 2, handle.y - size / 2, size, size)
+      context.beginPath()
+      context.roundRect(handle.x - size / 2, handle.y - size / 2, size, size, 2 / scale)
+      context.fill()
+      context.stroke()
     }
-  }, [commands, view, outline, handle])
+  }, [commands, view, outline, handle, shownWidth])
 
   // A position on the canvas, in canvas units before zoom, whatever size it's shown at.
   const onCanvas = (element: HTMLCanvasElement, clientX: number, clientY: number): Point => {
