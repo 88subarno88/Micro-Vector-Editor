@@ -88,4 +88,15 @@ drogon::Task<size_t> ExportRepo::failAbandoned() {
     co_return result.affectedRows();
 }
 
+drogon::Task<std::vector<ExportJob>> ExportRepo::deleteFinished(std::chrono::seconds age) {
+    const auto result = co_await database_->execSqlCoro(
+        std::string("DELETE FROM export_jobs WHERE status IN ('done', 'failed') "
+                    "AND created_at < now() - make_interval(secs => $1::int) RETURNING ") +
+            columns,
+        static_cast<int>(age.count()));
+    std::vector<ExportJob> deleted;
+    for (const auto& row : result) deleted.push_back(toExportJob(row));
+    co_return deleted;
+}
+
 }  // namespace vec

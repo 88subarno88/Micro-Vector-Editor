@@ -35,7 +35,8 @@ type Change = { kind: 'move'; by: Point } | { kind: 'resize'; anchor: Point; fac
 // The editor: a toolbar above the drawing. The Select tool picks a shape to move, resize by its handle,
 // restyle in the style panel, copy or delete; the others draw. The view zooms and pans. Every edit shows at
 // once and is sent to the server, and others' edits appear as they're made, along with their pointers.
-// `me` is the signed-in user's ID, whose own pointer isn't drawn. With `restore`, the drawing is changed back
+// A viewer gets the drawing, zoom and pan and everyone's pointers, but no way to edit: the server would refuse
+// every edit anyway. `me` is the signed-in user's ID, whose own pointer isn't drawn. With `restore`, the drawing is changed back
 // to that version as soon as it's live, and `onRestored` is called.
 export default function Editor({
   core,
@@ -73,6 +74,7 @@ export default function Editor({
     shapeOf,
     translated,
   } = useDrawing(core, loaded, sync)
+  const readOnly = loaded.role === 'viewer'
   const [tool, setTool] = useState<Tool>('select')
   const [selected, setSelected] = useState<string | null>(null)
   // The drag in progress. A ref, not state: pointer moves can arrive faster than React renders, and each
@@ -180,6 +182,14 @@ export default function Editor({
       const command = event.ctrlKey || event.metaKey
       const key = event.key.toLowerCase()
       const handled = (() => {
+        if (readOnly) {
+          if (!command) return false
+          if (key === '=' || key === '+') zoomBy(zoomStep)
+          else if (key === '-') zoomBy(1 / zoomStep)
+          else if (key === '0') setView(fitted)
+          else return false
+          return true
+        }
         if (command) {
           if (key === 'z' && !event.shiftKey) setProblem(undo())
           else if (key === 'z' || key === 'y') setProblem(redo())
@@ -216,6 +226,7 @@ export default function Editor({
 
   function onPointer(phase: PointerPhase, point: Point) {
     if (phase === 'move' || phase === 'down') moveCursor(point)
+    if (readOnly) return
     if (phase === 'down') {
       setProblem(null)
       if (tool === 'select' && selected && anchor && handle && onHandle(point)) {
@@ -325,25 +336,31 @@ export default function Editor({
         <OnlineUsers users={present} me={me} />
       </div>
       <div className="toolbar" role="toolbar" aria-label="Tools">
-        {tools.map(({ tool: option, label, key }) => (
-          <button
-            key={option}
-            aria-pressed={tool === option}
-            title={`${label} (${key.toUpperCase()})`}
-            onClick={() => chooseTool(option)}
-          >
-            {label}
-          </button>
-        ))}
-        <button onClick={() => setProblem(undo())} disabled={!canUndo} title="Undo (Ctrl Z)">
-          Undo
-        </button>
-        <button onClick={() => setProblem(redo())} disabled={!canRedo} title="Redo (Ctrl Shift Z)">
-          Redo
-        </button>
-        <button className="danger" onClick={deleteSelected} disabled={!outline} title="Delete shape (Delete)">
-          Delete shape
-        </button>
+        {readOnly && <span className="view-only-badge">View only</span>}
+        {!readOnly &&
+          tools.map(({ tool: option, label, key }) => (
+            <button
+              key={option}
+              aria-pressed={tool === option}
+              title={`${label} (${key.toUpperCase()})`}
+              onClick={() => chooseTool(option)}
+            >
+              {label}
+            </button>
+          ))}
+        {!readOnly && (
+          <>
+            <button onClick={() => setProblem(undo())} disabled={!canUndo} title="Undo (Ctrl Z)">
+              Undo
+            </button>
+            <button onClick={() => setProblem(redo())} disabled={!canRedo} title="Redo (Ctrl Shift Z)">
+              Redo
+            </button>
+            <button className="danger" onClick={deleteSelected} disabled={!outline} title="Delete shape (Delete)">
+              Delete shape
+            </button>
+          </>
+        )}
         <span className="zoom" role="group" aria-label="Zoom">
           <button onClick={() => zoomBy(1 / zoomStep)} aria-label="Zoom out" title="Zoom out (Ctrl −)">
             −
@@ -357,7 +374,9 @@ export default function Editor({
         </span>
       </div>
       {/* Always takes the same space, so selecting a shape never moves the drawing under the pointer. */}
-      {drawn ? (
+      {readOnly ? (
+        <p className="style-panel hint">You can view this document, but not change it.</p>
+      ) : drawn ? (
         <StylePanel
           key={`${selected}:${JSON.stringify(drawn.style)}`}
           style={drawn.style}
@@ -369,7 +388,7 @@ export default function Editor({
       ) : (
         <p className="style-panel hint">Select a shape to change its style.</p>
       )}
-      <div className={`canvas-wrap tool-${tool}`}>
+      <div className={`canvas-wrap ${readOnly ? 'view-only' : `tool-${tool}`}`}>
         <DrawingCanvas
           commands={shown ?? commands}
           view={view}

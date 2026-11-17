@@ -39,6 +39,10 @@ public:
     // Revokes a token, as at logout. False if it was unknown or already revoked.
     drogon::Task<bool> revoke(const std::string& tokenHash);
 
+    // Deletes every login whose tokens have all expired, and returns how many tokens went. A family with
+    // any live token is kept whole, so that replaying an old token from it is still caught as reuse.
+    drogon::Task<size_t> deleteExpired();
+
 private:
     drogon::orm::DbClientPtr database_;
 };

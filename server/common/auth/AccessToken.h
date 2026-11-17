@@ -31,6 +31,10 @@ public:
         const std::string& token,
         std::chrono::system_clock::time_point now = std::chrono::system_clock::now()) const;
 
+    // When `token` expires, read without checking its signature: only for a token verify() accepted.
+    // nullopt if it can't be read or has no expiry. Never throws.
+    static std::optional<std::chrono::system_clock::time_point> expiryOf(const std::string& token);
+
 private:
     std::string secret_;
 };

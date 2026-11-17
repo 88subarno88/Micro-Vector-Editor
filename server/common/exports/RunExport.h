@@ -4,6 +4,7 @@
 #include <drogon/orm/DbClient.h>
 #include <drogon/utils/coroutine.h>
 
+#include <chrono>
 #include <filesystem>
 #include <string>
 
@@ -22,6 +23,13 @@ std::filesystem::path exportFilePath(const std::filesystem::path& directory, con
 // its user and retries it later; the details are logged. Database failures throw DrogonDbException,
 // leaving the job running until its lease ends.
 drogon::Task<> runExport(drogon::orm::DbClientPtr database, ExportJob job, std::filesystem::path directory);
+
+// How long a finished export, its file and its job, is kept: long enough to be downloaded.
+constexpr std::chrono::hours exportRetention{24};
+
+// Deletes the exports that finished more than `age` ago, files and jobs both. Returns how many jobs went.
+drogon::Task<size_t> deleteOldExports(drogon::orm::DbClientPtr database, std::filesystem::path directory,
+                                      std::chrono::seconds age = exportRetention);
 
 }  // namespace vec
 

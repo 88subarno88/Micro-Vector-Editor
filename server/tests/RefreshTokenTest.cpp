@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <mutex>
@@ -182,4 +183,28 @@ TEST_F(RefreshTokenRepoTest, ConcurrentRefreshesOfOneTokenLetExactlyOneWin) {
     EXPECT_EQ(wins, 1);
     // Two tabs refreshing at once is normal, not theft: the winner's new token must still work.
     EXPECT_EQ(rotate(winner, refresh::generate().hash), user.id);
+}
+
+// A login whose tokens have all expired is deleted. One with a live token is kept whole, replaced tokens
+// included, so that replaying one of those is still caught.
+TEST_F(RefreshTokenRepoTest, OnlyLoginsWhoseTokensHaveAllExpiredAreDeleted) {
+    login(std::chrono::seconds(-1));  // a login that has run out
+    const std::string replaced = login();
+    const std::string live = refresh::generate().hash;
+    ASSERT_EQ(rotate(replaced, live), user.id);
+    database->execSqlSync(
+        "UPDATE refresh_tokens SET expires_at = now() - INTERVAL '1 second' "
+        "WHERE token_hash = $1",
+        replaced);
+
+    // Other tests' users may have expired logins too, so only this user's are counted.
+    EXPECT_GE(drogon::sync_wait(RefreshTokenRepo(database).deleteExpired()), 1u);
+
+    const auto left = database->execSqlSync(
+        "SELECT token_hash FROM refresh_tokens WHERE user_id = $1::uuid ORDER BY token_hash", user.id);
+    std::vector<std::string> hashes;
+    for (const auto& row : left) hashes.push_back(row[0].as<std::string>());
+    std::vector<std::string> expected{replaced, live};
+    std::sort(expected.begin(), expected.end());
+    EXPECT_EQ(hashes, expected);
 }

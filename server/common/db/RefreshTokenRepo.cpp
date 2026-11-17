@@ -54,4 +54,11 @@ drogon::Task<bool> RefreshTokenRepo::revoke(const std::string& tokenHash) {
     co_return result.affectedRows() > 0;
 }
 
+drogon::Task<size_t> RefreshTokenRepo::deleteExpired() {
+    const auto result = co_await database_->execSqlCoro(
+        "DELETE FROM refresh_tokens t WHERE NOT EXISTS "
+        "(SELECT 1 FROM refresh_tokens live WHERE live.family_id = t.family_id AND live.expires_at > now())");
+    co_return result.affectedRows();
+}
+
 }  // namespace vec

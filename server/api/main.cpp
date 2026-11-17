@@ -15,6 +15,9 @@ namespace {
 // with 4, a server topped out near 2 cores and the whole system near 5,000 edits a second.
 constexpr size_t databaseConnections = 16;
 constexpr size_t redisConnections = 2;
+// Without one, every query waits for as long as Postgres is down, and so does whoever sent the request.
+// With it, a request fails with a 500 and a connecting WebSocket closes with 1011, to be retried.
+constexpr double databaseTimeoutSeconds = 5;
 
 }  // namespace
 
@@ -35,6 +38,7 @@ int main() {
     }
 
     const auto database = drogon::orm::DbClient::newPgClient(config->databaseUrl, databaseConnections);
+    database->setTimeout(databaseTimeoutSeconds);
     const auto redis = drogon::nosql::RedisClient::newRedisClient(
         *redisAddress, redisConnections, config->redis.password, config->redis.db, config->redis.username);
     const std::string instanceId = configureApp(*config, database, redis);

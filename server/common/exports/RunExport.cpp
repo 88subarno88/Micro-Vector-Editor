@@ -76,4 +76,14 @@ drogon::Task<> runExport(drogon::orm::DbClientPtr database, ExportJob job, std::
              {"lastSeq", drawing->lastSeq}});
 }
 
+drogon::Task<size_t> deleteOldExports(drogon::orm::DbClientPtr database, std::filesystem::path directory,
+                                      std::chrono::seconds age) {
+    const auto deleted = co_await ExportRepo(database).deleteFinished(age);
+    for (const ExportJob& job : deleted) {
+        std::error_code ignored;  // a failed job has no file
+        std::filesystem::remove(exportFilePath(directory, job), ignored);
+    }
+    co_return deleted.size();
+}
+
 }  // namespace vec

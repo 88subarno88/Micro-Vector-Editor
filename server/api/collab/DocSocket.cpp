@@ -76,9 +76,11 @@ struct DocSession {
     std::string documentId;
     vec::Role role = vec::Role::Viewer;  // written before `ready` is set, read only after
     std::atomic<bool> ready = false;     // a member of `room`
+    std::atomic<bool> joined = false;    // has joined: may send ops and is listed as present
     std::atomic<bool> closed = false;
-    std::atomic<int64_t> lastHeardMs = 0;  // steady clock; when the client last sent anything
-    trantor::TimerId heartbeatTimer = 0;   // set and cancelled on the connection's own thread
+    std::atomic<int64_t> lastHeardMs = 0;                  // steady clock; when the client last sent anything
+    trantor::TimerId heartbeatTimer = 0;                   // set and cancelled on the connection's own thread
+    std::chrono::system_clock::time_point tokenExpiresAt;  // written before the heartbeat starts
     // Used only on the connection's own thread, where its messages arrive one at a time.
     vec::TokenBucket opRate{opsPerSecond, opBurst};
     vec::TokenBucket cursorRate{cursorsPerSecond, cursorsPerSecond};
@@ -114,35 +116,53 @@ void DocSocket::handleNewConnection(const drogon::HttpRequestPtr& request,
     if (token.empty())
         token = std::string(vec::bearerToken(request->getHeader("authorization")).value_or(""));
     const auto userId = tokens_.verify(token);
-    if (!userId) return connection->shutdown(closeUnauthorized, "unauthorized");
+    const auto expiresAt = vec::AccessTokens::expiryOf(token);
+    if (!userId || !expiresAt) return connection->shutdown(closeUnauthorized, "unauthorized");
 
     auto session = std::make_shared<DocSession>();
     session->id = nextSessionId++;
     session->userId = *userId;
     session->documentId = request->path().substr(pathPrefix.size());
+    session->tokenExpiresAt = *expiresAt;
     connection->setContext(session);
 
-    // Checks for silence from the first moment, so a client that never even joins is closed too.
+    // Checks for silence from the first moment, so a client that never even joins is closed too. Also
+    // closes the connection once its token expires, as it would be refused if it connected now: the client
+    // reconnects with a new one, and so whoever has lost access, or had their role changed, finds out.
     session->lastHeardMs = steadyNowMs();
     session->heartbeatTimer =
         drogon::app().getLoop()->runEvery(heartbeatCheckSeconds, [weak = std::weak_ptr(connection), session] {
             const auto open = weak.lock();
-            if (!open ||
-                steadyNowMs() - session->lastHeardMs < std::chrono::milliseconds(silenceLimit).count()) {
-                return;
+            if (!open) return;
+            if (std::chrono::system_clock::now() >= session->tokenExpiresAt) {
+                return open->shutdown(closeUnauthorized, "token_expired");
             }
-            open->shutdown(closeIdle, "idle");
+            if (steadyNowMs() - session->lastHeardMs >= std::chrono::milliseconds(silenceLimit).count()) {
+                open->shutdown(closeIdle, "idle");
+            }
         });
 
     drogon::async_run([this, connection, session]() -> drogon::Task<> {
-        const auto role = co_await vec::MemberRepo(database_).roleOf(session->documentId, session->userId);
-        if (!role) {
-            connection->shutdown(closeNotFound, "not_found");
+        // Nothing may escape this task: Drogon ends the whole process on an exception from async_run.
+        try {
+            const auto role =
+                co_await vec::MemberRepo(database_).roleOf(session->documentId, session->userId);
+            if (!role) {
+                connection->shutdown(closeNotFound, "not_found");
+                co_return;
+            }
+            session->role = *role;
+            const auto user = co_await vec::UserRepo(database_).findById(session->userId);
+            session->name = user ? user->email : "";
+        } catch (const std::exception& e) {
+            // The database failed or timed out: like a failed load, the client tries again later.
+            vec::logError("connect failed", {}, {{"document", session->documentId}, {"error", e.what()}});
+            sendJson(connection, {{"type", "error"},
+                                  {"code", "unavailable"},
+                                  {"message", "the document can't be opened right now"}});
+            connection->shutdown(closeLoadFailed, "unavailable");
             co_return;
         }
-        session->role = *role;
-        const auto user = co_await vec::UserRepo(database_).findById(session->userId);
-        session->name = user ? user->email : "";
         joinRoom(connection, session);
     });
 }
@@ -244,6 +264,8 @@ void DocSocket::handleJoin(const WebSocketConnectionPtr& connection,
                     // Too far behind, or claiming to be ahead: start over from the whole drawing.
                     reply["snapshot"] = vec::diagramToJson(room->diagram());
                 }
+                // Before the reply, which the client may answer with an op at once.
+                session->joined = true;
                 sendJson(connection, reply);
                 room->markJoined(session->id);
                 writePresence(session, true);
@@ -295,7 +317,7 @@ void logRedisError(const char* what, const std::string& documentId, const std::e
 }  // namespace
 
 void DocSocket::writePresence(const std::shared_ptr<DocSession>& session, bool announce) {
-    if (!session->ready) return;  // not listed until joined
+    if (!session->joined) return;  // not listed until joined
     const std::string field = instanceId_ + ":" + std::to_string(session->id);
     const std::string entry =
         vec::encodePresence({session->userId, session->name, session->cursor(), vec::unixMillis()});
@@ -382,6 +404,9 @@ void DocSocket::handleOp(const WebSocketConnectionPtr& connection, const std::sh
             connection,
             {{"type", "reject"}, {"clientOpId", op.clientOpId}, {"reason", reason}, {"message", message}});
     };
+    // Only once joined: before then the room may not hold the drawing, and the op would be checked
+    // against the wrong one.
+    if (!session->joined) return reject("not_joined", "send join first");
     if (session->role < vec::Role::Editor) return reject("forbidden", "viewers can't edit");
     if (!session->opRate.tryTake()) return reject("rate_limited", "too many edits; slow down");
     const auto room = session->room();

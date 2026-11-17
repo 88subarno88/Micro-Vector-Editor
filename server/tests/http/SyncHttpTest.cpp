@@ -1,11 +1,15 @@
 #include <drogon/HttpRequest.h>
 #include <drogon/WebSocketClient.h>
 
+#include <chrono>
 #include <future>
 #include <memory>
 #include <string>
+#include <thread>
 
 #include "LiveDocTest.h"
+#include "auth/AccessToken.h"
+#include "config/Config.h"
 #include "db/OpRepo.h"
 
 using namespace vec;
@@ -155,6 +159,9 @@ TEST_F(SyncHttpTest, BadHistoryParametersAreRejected) {
 TEST_F(SyncHttpTest, AVersionReplaysToTheDrawingAsItWasThen) {
     alice->send(rect("a"));
     alice->send(Move{"a", 5, 0});
+    // Only once both are in: sent at once, bob's delete could reach the server before "a" exists.
+    ASSERT_TRUE(alice->waitUntilSettled(2));
+    ASSERT_TRUE(bob->waitUntilSettled(2));
     bob->send(DeleteShape{"a"});
     expectEveryoneAgrees({alice.get(), bob.get()});
     // A snapshot at 2, as the server takes every so often, marked so the test can tell it was used:
@@ -186,4 +193,112 @@ TEST_F(SyncHttpTest, AVersionReplaysToTheDrawingAsItWasThen) {
     EXPECT_EQ(send(drogon::Get, "/api/docs/" + documentId + "/versions/-1", nullptr, ownerToken).status, 400);
     EXPECT_EQ(send(drogon::Get, "/api/docs/" + documentId + "/versions/latest", nullptr, ownerToken).status,
               400);
+}
+
+namespace {
+
+// A raw connection to the document, for what DocClient, which always joins at once, can't do.
+struct RawSocket {
+    RawSocket(uint16_t port, const std::string& documentId, const std::string& token,
+              std::function<void(const json&, const drogon::WebSocketConnectionPtr&)> onMessage) {
+        socket = drogon::WebSocketClient::newWebSocketClient("127.0.0.1", port);
+        socket->setMessageHandler([onMessage](std::string&& message, const drogon::WebSocketClientPtr& client,
+                                              const drogon::WebSocketMessageType& type) {
+            const json parsed = json::parse(message, nullptr, false);
+            // Control frames, such as the close, aren't JSON objects.
+            if (type == drogon::WebSocketMessageType::Text && parsed.is_object())
+                onMessage(parsed, client->getConnection());
+        });
+        socket->setConnectionClosedHandler([this](const drogon::WebSocketClientPtr&) {
+            if (!closedOnce.exchange(true)) closed.set_value();
+        });
+        auto request = drogon::HttpRequest::newHttpRequest();
+        request->setPath("/ws/docs/" + documentId);
+        request->setParameter("token", token);
+        socket->connectToServer(request, [](drogon::ReqResult, const drogon::HttpResponsePtr&,
+                                            const drogon::WebSocketClientPtr&) {});
+    }
+    ~RawSocket() { socket->stop(); }
+
+    drogon::WebSocketClientPtr socket;
+    std::atomic<bool> closedOnce = false;
+    std::promise<void> closed;
+};
+
+}  // namespace
+
+// Postgres drops the connection a joining client's lookup is running on. Only that client is turned
+// away: the server, and every other document on it, carry on. Drogon used to end the whole process here.
+TEST_F(LiveDocTest, ADatabaseFailureWhileConnectingTurnsAwayOnlyThatConnection) {
+    createSharedDocument("alice@example.com", {});
+    // A lock the server's role lookup waits on, held on a connection of the test's own.
+    const auto locker = drogon::orm::DbClient::newPgClient(*vec::readEnv("TEST_DATABASE_URL"), 1);
+    auto lock = locker->newTransaction();
+    lock->execSqlSync("LOCK TABLE document_members IN ACCESS EXCLUSIVE MODE");
+
+    auto joining = std::async(std::launch::async, [&] {
+        return std::make_unique<DocClient>(server->port, documentId, ownerToken);
+    });
+    // Once the lookup is waiting on the lock, its connection is killed under it.
+    bool killed = false;
+    for (int i = 0; i < 200 && !killed; ++i) {
+        killed = server->database
+                     ->execSqlSync(
+                         "SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity "
+                         "WHERE datname = current_database() AND wait_event_type = 'Lock'")[0][0]
+                     .as<int64_t>() > 0;
+        if (!killed) std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    }
+    lock->rollback();
+    lock.reset();
+    ASSERT_TRUE(killed) << "the lookup never waited on the lock";
+
+    const auto turnedAway = joining.get();
+    EXPECT_FALSE(turnedAway->joined());
+    EXPECT_NE(turnedAway->problem().find("unavailable"), std::string::npos) << turnedAway->problem();
+    EXPECT_EQ(send(drogon::Get, "/healthz").status, 200);  // still running
+    const auto next = connect(ownerToken);                 // and the next try works
+}
+
+// Before joining, the room may not hold the drawing yet, so an op couldn't be checked against it.
+TEST_F(LiveDocTest, AnOpSentBeforeJoiningIsRefused) {
+    createSharedDocument("alice@example.com", {});
+    std::promise<json> answer;
+    std::atomic<bool> answered = false;
+    const json op = vec::Operation{vec::AddShape{"a", {RectGeom{0, 0, 10, 10}, {}}, std::nullopt}};
+    RawSocket early(
+        server->port, documentId, ownerToken,
+        [&](const json& message, const drogon::WebSocketConnectionPtr& connection) {
+            const std::string type = message.value("type", "");
+            if (type == "ready") {  // ready, but not joined: send an op instead of join
+                connection->send(
+                    json{{"type", "op"}, {"clientOpId", "early"}, {"baseSeq", 0}, {"op", op}}.dump());
+            } else if (type == "reject" && !answered.exchange(true)) {
+                answer.set_value(message);
+            }
+        });
+
+    auto future = answer.get_future();
+    ASSERT_EQ(future.wait_for(std::chrono::seconds(10)), std::future_status::ready);
+    EXPECT_EQ(future.get()["reason"], "not_joined");
+    EXPECT_EQ(headSeq(), 0);
+}
+
+// A connection lasts no longer than its token, so access that has been taken away doesn't linger.
+TEST_F(LiveDocTest, AConnectionClosesWhenItsTokenExpires) {
+    createSharedDocument("alice@example.com", {});
+    const std::string userId = send(drogon::Get, "/api/me", nullptr, ownerToken).body["id"];
+    // Issued so as to expire two seconds from now.
+    const auto issued =
+        std::chrono::system_clock::now() - vec::AccessTokens::lifetime + std::chrono::seconds(2);
+    const std::string shortLived = vec::AccessTokens(server->jwtSecret).issue(userId, issued);
+
+    RawSocket expiring(server->port, documentId, shortLived,
+                       [](const json& message, const drogon::WebSocketConnectionPtr& connection) {
+                           if (message.value("type", "") == "ready")
+                               connection->send(json{{"type", "join"}, {"lastSeq", 0}}.dump());
+                       });
+
+    // The heartbeat that checks runs every 5 s.
+    EXPECT_EQ(expiring.closed.get_future().wait_for(std::chrono::seconds(12)), std::future_status::ready);
 }

@@ -16,6 +16,7 @@
 
 #include "config/Config.h"
 #include "db/ExportRepo.h"
+#include "db/RefreshTokenRepo.h"
 #include "exports/RunExport.h"
 #include "logging/Log.h"
 
@@ -25,6 +26,8 @@ namespace {
 constexpr std::chrono::seconds pollInterval{1};
 // Well inside the 10 s a container gets to stop, since a claim in progress delays shutting down.
 constexpr double databaseTimeoutSeconds = 5;
+// How often, when idle, old exports and expired logins are deleted.
+constexpr std::chrono::minutes cleanUpInterval{10};
 
 std::atomic<bool> stopping{false};
 static_assert(std::atomic<bool>::is_always_lock_free, "set from a signal handler");
@@ -60,6 +63,7 @@ int main() {
     database->setTimeout(databaseTimeoutSeconds);
     vec::ExportRepo jobs(database);
     vec::logInfo("worker started");
+    auto nextCleanUp = std::chrono::steady_clock::now();
 
     while (!stopping) {
         std::optional<vec::ExportJob> job;
@@ -70,8 +74,18 @@ int main() {
                     vec::logWarning("abandoned exports failed", {}, {{"jobs", abandoned}});
                 }
             }
+            if (!job && std::chrono::steady_clock::now() >= nextCleanUp) {
+                nextCleanUp = std::chrono::steady_clock::now() + cleanUpInterval;
+                const size_t exports = drogon::sync_wait(vec::deleteOldExports(database, *exportDir));
+                const size_t logins = drogon::sync_wait(vec::RefreshTokenRepo(database).deleteExpired());
+                if (exports > 0 || logins > 0) {
+                    vec::logInfo("cleaned up", {}, {{"exports", exports}, {"refreshTokens", logins}});
+                }
+            }
         } catch (const drogon::orm::DrogonDbException& e) {
             vec::logError("claim failed", {}, {{"error", e.base().what()}});
+        } catch (const std::exception& e) {
+            vec::logError("claim failed", {}, {{"error", e.what()}});
         }
         if (!job) {
             std::this_thread::sleep_for(pollInterval);
@@ -81,6 +95,9 @@ int main() {
             drogon::sync_wait(vec::runExport(database, *job, *exportDir));
         } catch (const drogon::orm::DrogonDbException& e) {
             vec::logError("export interrupted", {}, {{"job", job->id}, {"error", e.base().what()}});
+        } catch (const std::exception& e) {
+            // Anything else, such as a full disk: the job is retried once its lease ends.
+            vec::logError("export interrupted", {}, {{"job", job->id}, {"error", e.what()}});
         }
     }
     vec::logInfo("worker stopped");

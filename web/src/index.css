@@ -782,6 +782,21 @@ button.icon {
   margin-left: auto;
 }
 
+/* A viewer's toolbar: only this and the zoom, which stays at the right. */
+.view-only-badge {
+  margin-right: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.view-only .drawing {
+  cursor: default;
+}
+
 .canvas-wrap {
   position: relative;
   width: 800px;

@@ -182,6 +182,21 @@ afterEach(() => {
 })
 
 describe('the editor', () => {
+  it('gives a viewer no way to edit, only to look', async () => {
+    const { core, ops } = fakeCore()
+    render(<Editor core={core} loaded={{ ...loaded, role: 'viewer' }} me="me" sync={sync} />)
+
+    expect(screen.getByText('View only')).toBeInTheDocument()
+    for (const name of ['Select', 'Rectangle', 'Undo', 'Redo', 'Delete shape'])
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeInTheDocument()
+
+    drag([50, 50], [100, 75])
+    fireEvent.keyDown(window, { key: 'r' })
+    fireEvent.keyDown(window, { key: 'Delete' })
+    expect(ops).toEqual([])
+  })
+
   it('starts with the select tool', () => {
     render(<Editor core={fakeCore().core} loaded={loaded} me="me" sync={sync} />)
     expect(screen.getByRole('button', { name: 'Select' })).toHaveAttribute('aria-pressed', 'true')

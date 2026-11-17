@@ -137,3 +137,20 @@ TEST_F(RunExportTest, AJobThatIsNoLongerRunningKeepsItsStatusAndLeavesNoFile) {
     EXPECT_EQ(run(job).status, "failed");
     EXPECT_FALSE(std::filesystem::exists(exportFilePath(directory, job)));
 }
+
+// Finished exports are kept a day, for downloading, then deleted with their files. Newer ones stay.
+TEST_F(RunExportTest, OldExportsAreDeletedWithTheirFiles) {
+    const ExportJob old = run(runningJob("svg"));
+    const ExportJob recent = run(runningJob("png"));
+    ASSERT_EQ(old.status, "done");
+    ASSERT_EQ(recent.status, "done");
+    database->execSqlSync("UPDATE export_jobs SET created_at = now() - INTERVAL '2 days' WHERE id = $1::uuid",
+                          old.id);
+
+    EXPECT_EQ(drogon::sync_wait(deleteOldExports(database, directory)), 1u);
+
+    EXPECT_EQ(drogon::sync_wait(ExportRepo(database).get(old.id)), std::nullopt);
+    EXPECT_FALSE(std::filesystem::exists(exportFilePath(directory, old)));
+    EXPECT_TRUE(drogon::sync_wait(ExportRepo(database).get(recent.id)));
+    EXPECT_TRUE(std::filesystem::exists(exportFilePath(directory, recent)));
+}

@@ -65,4 +65,14 @@ tl::expected<std::string, TokenError> AccessTokens::verify(const std::string& to
     }
 }
 
+std::optional<std::chrono::system_clock::time_point> AccessTokens::expiryOf(const std::string& token) {
+    try {
+        const auto decoded = jwt::decode(token);
+        if (!decoded.has_expires_at()) return std::nullopt;
+        return decoded.get_expires_at();
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
+}
+
 }  // namespace vec

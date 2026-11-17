@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "db/Models.h"
 
@@ -53,6 +54,10 @@ public:
     // Marks failed every abandoned job that has no attempts left, which claim() would never take again.
     // Returns how many.
     drogon::Task<size_t> failAbandoned();
+
+    // Deletes the jobs that finished, done or failed, more than `age` ago, and returns them, so that their
+    // files can be deleted too.
+    drogon::Task<std::vector<ExportJob>> deleteFinished(std::chrono::seconds age);
 
 private:
     drogon::orm::DbClientPtr database_;

@@ -179,6 +179,4 @@ waits for nginx's delayed ACK, 40 ms on Linux. Setting it in the accept callback
    `tools/loadtest/run.sh A-e20 --docs 1 --editors 20 --opRate 25 --seconds 20 | python3 tools/loadtest/summarize.py`.
    The others: `--docs 40 --editors 5 --opRate 25`; `--docs 1 --editors 1 --viewers 49 --opRate 0 --cursorRate 10`;
    `--docs 100 --editors 1 --viewers 49 --opRate 0`.
-3. After recreating the API containers, restart nginx too (`docker restart vecload-web-1`): it resolves the
-   servers' addresses only when it starts.
-4. `docker compose -p vecload -f deploy/docker-compose.yml --env-file deploy/.env down -v` removes it all.
+3. `docker compose -p vecload -f deploy/docker-compose.yml --env-file deploy/.env down -v` removes it all.

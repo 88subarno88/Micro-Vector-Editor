@@ -23,8 +23,10 @@ struct DocSession;
 // a WebSocket, hence the query parameter (request logs record the path only, never the query).
 //
 // The token is checked first, then the user's role on the document. On failure the server closes with
-// 4401 (bad or expired token) or 4404 (no such document, or not a member), and at any time with 4408
-// after 45 s in which the client sent nothing. On success it sends
+// 4401 (bad or expired token) or 4404 (no such document, or not a member), or, if the database can't be
+// reached, sends {"type": "error", "code": "unavailable"} and closes with 1011. At any time it closes with
+// 4408 after 45 s in which the client sent nothing, and with 4401 once the token expires: the client
+// reconnects with a new one, and so finds out if its access has changed. On success it sends
 // {"type": "ready", "role": ...}; anything the client sends before that gets {"type": "error",
 // "code": "not_ready"}. A ready connection is a member of its document's room until it closes; the first
 // member loads the room's drawing from the database.
@@ -42,8 +44,8 @@ struct DocSession;
 //   {"type": "cursor", "x", "y"}  -> no reply; at most 10 a second count, the rest are dropped
 //   {"type": "op", ...}            -> 30 a second on average, bursts of 60; beyond that, reject with
 //                                     reason rate_limited. Otherwise {"type": "reject", "clientOpId",
-//                                     "reason", "message"}, reason bad_op for an op that can't be decoded, or
-//                                     forbidden for a viewer
+//                                     "reason", "message"}, reason bad_op for an op that can't be decoded,
+//                                     not_joined before "joined", or forbidden for a viewer
 // Anything malformed gets {"type": "error", "code": "bad_message" or "unknown_type", "message": ...}.
 // The server also sends {"type": "presence", "users": [{"id", "name", "cursor"}]} with everyone looking
 // at the document, on every instance, whenever someone joins, leaves or moves their cursor.
